@@ -616,7 +616,7 @@ CLI↓ → 放松/沉浸状态
 σ > 50kµV   → 活跃（蓝色）
 ```
 
-> 注：该指标反映信号波动程度，**并非真实电极阻抗**。Ganglion 的真实阻抗检测需要通过注入电流指令实现，本版暂不实现。
+> 注：该指标反映信号波动程度，**并非真实电极阻抗**。本设计未包含通过注入电流实现的硬件级阻抗检测。
 
 ---
 
@@ -1240,7 +1240,30 @@ UDP 回传丢失:
   - 事后分析时以 markers 表为准，CSV 标记列仅作补充参考
 ```
 
-### 12.6 ECS 过载保护
+### 12.6 ECS 崩溃与计时器持久化
+
+```
+计时器状态每秒写入 MySQL timer_state 表:
+
+  每 1 秒 tick → saveTimerState(sessionId)
+  阶段变更 → saveTimerState(sessionId)
+  重置 → saveTimerState(sessionId)
+
+ECS 崩溃重启后:
+  1. 第一个客户端连接时, 尝试重建计时器
+  2. 先查询 timer_state 表是否有该 session 的记录
+  3. 有记录 → 恢复 phase_index/time_left, 设为暂停状态等待操作员确认
+  4. 无记录 → 从 phase 0 开始全新计时
+
+timer_state 表结构:
+  session_id, phase_index, time_left, time_in_phase,
+  running, auto_mode, template_type, updated_at
+
+注意: 断线期间(30 秒保留期内)的时间不会补算,
+      phase_sync 从恢复时刻继续计时。
+```
+
+### 12.7 ECS 过载保护
 
 ```
 eeg_frame 频率: 200 包/秒

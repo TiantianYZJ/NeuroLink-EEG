@@ -94,3 +94,15 @@ CREATE TABLE IF NOT EXISTS baselines (
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (session_id) REFERENCES sessions(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS timer_state (
+  session_id     VARCHAR(36) PRIMARY KEY,
+  phase_index    TINYINT NOT NULL DEFAULT 0,
+  time_left      INT NOT NULL DEFAULT 0,
+  time_in_phase  INT NOT NULL DEFAULT 0,
+  running        TINYINT NOT NULL DEFAULT 0,
+  auto_mode      TINYINT NOT NULL DEFAULT 1,
+  template_type  VARCHAR(16) NOT NULL DEFAULT 'control',
+  updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (session_id) REFERENCES sessions(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

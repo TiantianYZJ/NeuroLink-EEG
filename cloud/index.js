@@ -42,6 +42,33 @@ function broadcastToRoles(room, msg, roles) {
   });
 }
 
+// ── 计时器持久化 ──
+function saveTimerState(sessionId) {
+  const timer = timers.get(sessionId);
+  if (!timer) return;
+  const templateType = Object.keys(PHASE_TEMPLATES).find(k => PHASE_TEMPLATES[k] === timer.phases) || 'control';
+  db.query(
+    'REPLACE INTO timer_state (session_id, phase_index, time_left, time_in_phase, running, auto_mode, template_type) VALUES (?,?,?,?,?,?,?)',
+    [sessionId, timer.phaseIndex, timer.timeLeft, timer.timeInPhase, timer.running ? 1 : 0, timer.autoMode ? 1 : 0, templateType]
+  ).catch(() => {});
+}
+
+async function restoreTimerState(sessionId) {
+  try {
+    const rows = await db.query('SELECT * FROM timer_state WHERE session_id = ?', [sessionId]);
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    const phases = PHASE_TEMPLATES[row.template_type] || PHASE_TEMPLATES.control;
+    const timer = {
+      phases, phaseIndex: row.phase_index, timeLeft: row.time_left,
+      timeInPhase: row.time_in_phase, running: false,
+      autoMode: row.auto_mode === 1, completed: false, tickTimer: null,
+    };
+    timers.set(sessionId, timer);
+    return timer;
+  } catch (e) { return null; }
+}
+
 // ── 计时器 ──
 const timers = new Map();
 const PHASE_TEMPLATES = {
@@ -255,17 +282,19 @@ function initTimer(sessionId, templateType) {
   const phases = PHASE_TEMPLATES[templateType] || PHASE_TEMPLATES.control;
   const timer = { phases, phaseIndex: 0, timeLeft: phases[0].duration, timeInPhase: 0, running: false, autoMode: true, completed: false, tickTimer: null };
   timers.set(sessionId, timer);
+  saveTimerState(sessionId);
   return timer;
 }
 
 function getCurrentPhase(timer) { return timer.phases[timer.phaseIndex] || timer.phases[0]; }
 
 function advancePhase(sessionId, timer, room) {
-  if (timer.phaseIndex >= timer.phases.length - 1) { timer.completed = true; timer.running = false; clearInterval(timer.tickTimer); timer.tickTimer = null; broadcastSync(sessionId, timer, room); return; }
+  if (timer.phaseIndex >= timer.phases.length - 1) { timer.completed = true; timer.running = false; clearInterval(timer.tickTimer); timer.tickTimer = null; saveTimerState(sessionId); broadcastSync(sessionId, timer, room); return; }
   timer.phaseIndex++;
   const phase = getCurrentPhase(timer);
   timer.timeLeft = phase.duration;
   timer.timeInPhase = 0;
+  saveTimerState(sessionId);
   broadcastSync(sessionId, timer, room);
 }
 
@@ -273,6 +302,7 @@ function resetTimer(sessionId, timer, room) {
   clearInterval(timer.tickTimer);
   timer.phaseIndex = 0; timer.timeLeft = timer.phases[0].duration; timer.timeInPhase = 0;
   timer.running = false; timer.completed = false;
+  saveTimerState(sessionId);
   broadcastSync(sessionId, timer, room);
 }
 
@@ -288,6 +318,8 @@ function startTick(sessionId, timer, room) {
     if (!room) { clearInterval(timer.tickTimer); return; }
     if (timer.running && !timer.completed) {
       timer.timeLeft--; timer.timeInPhase++;
+      // 每秒持久化计时器状态
+      saveTimerState(sessionId);
       const now = Date.now();
       const phase = getCurrentPhase(timer);
       const snapshot = metrics.tick(now, sessionId, timer.phaseIndex, phase.id);
@@ -331,9 +363,8 @@ wss.on('connection', (ws, req) => {
     const room = getRoom(sessionId);
 
     if (msg.type === 'hello' || msg.type === 'reconnect') {
-      if (!timers.has(sessionId) && msg.type === 'hello') {
-        const templateType = msg.template_type || 'control';
-        initTimer(sessionId, templateType);
+      if (!timers.has(sessionId)) {
+        initTimer(sessionId, msg.template_type || 'control');
         startTick(sessionId, timers.get(sessionId), room);
       }
       handleMessage(ws, raw, room, sessionId);
