@@ -2,17 +2,17 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "eeg-preview",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8765", "-d", "E:/WechatDevelop/AI for EEG/public"],
-      "port": 8765
-    },
-    {
-      "name": "openbci-bridge",
+      "name": "cloud-server",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["E:/WechatDevelop/AI for EEG/server/index.js"],
+      "runtimeArgs": ["E:/WechatDevelop/AI for EEG/cloud/index.js"],
       "port": 8080,
       "autoPort": false
+    },
+    {
+      "name": "static-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8765", "-d", "E:/WechatDevelop/AI for EEG/web"],
+      "port": 8765
     }
   ]
 }

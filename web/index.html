@@ -51,6 +51,67 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 .back-btn{background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:14px;padding:4px 0;font-family:inherit}
 .back-btn:hover{color:#fff}
 .placeholder{text-align:center;padding:80px 0;color:rgba(255,255,255,0.3)}
+
+/* ── 监视面板 ── */
+.dashboard{display:flex;gap:16px;padding:16px 24px;max-width:1200px;margin:0 auto}
+.dash-left{width:480px;flex-shrink:0;display:flex;flex-direction:column;gap:16px}
+.dash-right{flex:1;min-width:300px;display:flex;flex-direction:column;gap:16px}
+.card{background:#16181a;border-radius:20px;padding:16px;border:1px solid rgba(255,255,255,0.08)}
+.card-title{font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+canvas{display:block;border-radius:12px;width:100%;height:auto}
+.ch-legend{display:flex;gap:12px;font-size:12px;color:rgba(255,255,255,0.6);padding:6px 0}
+.ch-dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;margin-right:2px}
+
+/* 热力图 */
+.topo-container{display:flex;gap:12px;align-items:flex-start}
+.topo-controls{display:flex;flex-direction:column;gap:8px}
+.topo-band-select{background:#0a0a0a;color:#fff;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:6px 10px;font-size:12px;font-family:inherit;cursor:pointer}
+.topo-band-select option{background:#16181a}
+.topo-electrodes{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.elec{font-size:10px;color:rgba(255,255,255,0.5);padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.06);text-align:center}
+
+/* 统计 */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;color:rgba(255,255,255,0.6)}
+.stat-val{color:#fff;float:right}
+
+/* 计时器 */
+.phase-name{font-size:18px;font-weight:600;margin-bottom:4px}
+.timer-display{font-family:'Inter',system-ui,sans-serif;font-size:64px;font-weight:600;letter-spacing:-2px;line-height:1;margin:8px 0}
+.timer-bar{height:4px;background:rgba(255,255,255,0.08);border-radius:4px;margin:8px 0;overflow:hidden}
+.timer-bar-fill{height:100%;background:#494fdf;border-radius:4px;transition:width 1s linear}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.auto-toggle{font-size:12px;color:rgba(73,79,223,0.8);cursor:pointer}
+
+/* 频带条 */
+.band-list{display:flex;flex-direction:column;gap:6px}
+.band-row{display:flex;align-items:center;gap:8px;font-size:13px}
+.band-label{width:16px;font-weight:600;color:rgba(255,255,255,0.6)}
+.band-bar{height:16px;border-radius:8px;transition:width .5s;min-width:4px}
+.band-val{font-size:12px;color:rgba(255,255,255,0.5);margin-left:auto}
+
+/* 指标 */
+.metric-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.metric-row{font-size:14px;color:rgba(255,255,255,0.72);display:flex;align-items:center;gap:4px}
+.metric-val{font-size:20px;font-weight:600;color:#fff}
+.hint-icon{font-size:12px;color:#8a8a8f;cursor:help;border:1px solid #8a8a8f;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center}
+.hint-icon:hover{color:#fff;border-color:#fff}
+
+/* 时间线 */
+.timeline-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:rgba(255,255,255,0.5)}
+.timeline-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.timeline-dot.active{background:#494fdf;box-shadow:0 0 8px rgba(73,79,223,0.6)}
+.timeline-dot.past{background:rgba(73,79,223,0.3)}
+.timeline-dot.future{background:rgba(255,255,255,0.1)}
+.timeline-item.active{color:#fff}
+
+/* 恢复状态 */
+.recovery-card{font-size:14px}
+#masterRecoveryStatus,#monitorRecoveryStatus{font-weight:600;color:#fbbf24}
+
+/* 底部提示 */
+.footer-hints{padding:8px 24px 12px;font-size:12px;color:rgba(255,255,255,0.35);text-align:center;letter-spacing:0.5px}
+
+@media(max-width:900px){.dashboard{flex-direction:column}.dash-left{width:100%}}
 </style>
 </head>
 <body>
@@ -103,7 +164,86 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
     <h2>⧩ 上传监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="masterStatus">已连接</span>
   </div>
-  <div class="placeholder">TODO: 波形画布 + 频带功率 + 计时器 + 时间线 + 标记快捷键</div>
+  <div class="dashboard">
+    <div class="dash-left">
+      <div class="card">
+        <div class="card-title">实时脑电波</div>
+        <canvas id="masterWaveform" width="480" height="240"></canvas>
+        <div class="ch-legend">
+          <span class="ch-dot" style="background:#a0c3ec"></span>δ <span class="ch-dot" style="background:#c4b5fd"></span>θ
+          <span class="ch-dot" style="background:#ff7a17"></span>α <span class="ch-dot" style="background:#ffc285"></span>β
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">脑区热力图</div>
+        <div class="topo-container">
+          <canvas id="masterTopo" width="180" height="180"></canvas>
+          <div class="topo-controls">
+            <select id="masterBandSelect" class="topo-band-select">
+              <option value="alpha" selected>α 8-13Hz</option>
+              <option value="delta">δ 0.5-4Hz</option>
+              <option value="theta">θ 4-8Hz</option>
+              <option value="beta">β 13-32Hz</option>
+              <option value="gamma">γ 32-100Hz</option>
+            </select>
+            <div class="topo-electrodes">
+              <span class="elec elec-fp1">Fp1</span>
+              <span class="elec elec-fp2">Fp2</span>
+              <span class="elec elec-c3">C3</span>
+              <span class="elec elec-c4">C4</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">系统状态</div>
+        <div class="stat-grid">
+          <div>采样率 <span class="stat-val" id="masterSampleRate">200 Hz</span></div>
+          <div>数据包 <span class="stat-val" id="masterPacketCount">0</span></div>
+          <div>窗口 <span class="stat-val" id="masterWindow">4.0 s</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="dash-right">
+      <div class="card">
+        <div class="card-title">实验控制</div>
+        <div class="phase-name" id="masterPhaseName">准备阶段</div>
+        <div class="timer-display" id="masterTimer">05:00</div>
+        <div class="timer-bar"><div class="timer-bar-fill" id="masterTimerFill" style="width:100%"></div></div>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-small" id="masterBtnStart" onclick="sendCmd('start')">开始</button>
+          <button class="btn btn-outline btn-small" id="masterBtnPause" onclick="sendCmd('pause')">暂停</button>
+          <button class="btn btn-outline btn-small" onclick="sendCmd('next_phase')">下一阶段</button>
+          <button class="btn btn-outline btn-small" onclick="sendCmd('reset')">重置</button>
+        </div>
+        <div class="auto-toggle" id="masterAuto">自动模式 ●</div>
+      </div>
+      <div class="card">
+        <div class="card-title">频带功率</div>
+        <div class="band-list" id="masterBandList">
+          <div class="band-row"><span class="band-label">δ</span><span class="band-bar" style="width:20%;background:#a0c3ec"></span><span class="band-val" id="band-delta">0</span></div>
+          <div class="band-row"><span class="band-label">θ</span><span class="band-bar" style="width:30%;background:#c4b5fd"></span><span class="band-val" id="band-theta">0</span></div>
+          <div class="band-row"><span class="band-label">α</span><span class="band-bar" style="width:50%;background:#ff7a17"></span><span class="band-val" id="band-alpha">0</span></div>
+          <div class="band-row"><span class="band-label">β</span><span class="band-bar" style="width:40%;background:#ffc285"></span><span class="band-val" id="band-beta">0</span></div>
+          <div class="band-row"><span class="band-label">γ</span><span class="band-bar" style="width:15%;background:#7c3aed"></span><span class="band-val" id="band-gamma">0</span></div>
+        </div>
+        <div class="metric-list" id="masterMetrics">
+          <div class="metric-row">θ/α <span class="metric-val" id="metric-thetaAlpha">—</span><span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></div>
+          <div class="metric-row">熵 <span class="metric-val" id="metric-entropy">—</span><span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></div>
+          <div class="metric-row">负载 <span class="metric-val" id="metric-cognitiveLoad">—</span><span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">实验流程</div>
+        <div id="masterTimeline"></div>
+      </div>
+      <div class="card recovery-card" id="masterRecovery" style="display:none">
+        <div class="card-title">恢复状态</div>
+        <div id="masterRecoveryStatus">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-hints">Z 心流进入 · X 心流脱离 · C 外部干扰 · V 自定义 · Space 下一阶段 · Enter 暂停/继续</div>
 </div>
 
 <!-- ─── 面板 3: 纯监视端 ─── -->
@@ -113,7 +253,78 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
     <h2>⧩ 纯监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="monitorStatus">已连接</span>
   </div>
-  <div class="placeholder">TODO: 同 master 布局，去掉上传指示</div>
+  <div class="dashboard">
+    <div class="dash-left">
+      <div class="card">
+        <div class="card-title">实时脑电波</div>
+        <canvas id="monitorWaveform" width="480" height="240"></canvas>
+        <div class="ch-legend">
+          <span class="ch-dot" style="background:#a0c3ec"></span>δ <span class="ch-dot" style="background:#c4b5fd"></span>θ
+          <span class="ch-dot" style="background:#ff7a17"></span>α <span class="ch-dot" style="background:#ffc285"></span>β
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">脑区热力图</div>
+        <div class="topo-container">
+          <canvas id="monitorTopo" width="180" height="180"></canvas>
+          <div class="topo-controls">
+            <select id="monitorBandSelect" class="topo-band-select">
+              <option value="alpha" selected>α 8-13Hz</option>
+              <option value="delta">δ 0.5-4Hz</option>
+              <option value="theta">θ 4-8Hz</option>
+              <option value="beta">β 13-32Hz</option>
+              <option value="gamma">γ 32-100Hz</option>
+            </select>
+            <div class="topo-electrodes">
+              <span class="elec elec-fp1">Fp1</span>
+              <span class="elec elec-fp2">Fp2</span>
+              <span class="elec elec-c3">C3</span>
+              <span class="elec elec-c4">C4</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dash-right">
+      <div class="card">
+        <div class="card-title">实验控制</div>
+        <div class="phase-name" id="monitorPhaseName">准备阶段</div>
+        <div class="timer-display" id="monitorTimer">05:00</div>
+        <div class="timer-bar"><div class="timer-bar-fill" id="monitorTimerFill" style="width:100%"></div></div>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-small" id="monitorBtnStart" onclick="sendCmd('start')">开始</button>
+          <button class="btn btn-outline btn-small" id="monitorBtnPause" onclick="sendCmd('pause')">暂停</button>
+          <button class="btn btn-outline btn-small" onclick="sendCmd('next_phase')">下一阶段</button>
+          <button class="btn btn-outline btn-small" onclick="sendCmd('reset')">重置</button>
+        </div>
+        <div class="auto-toggle" id="monitorAuto">自动模式 ●</div>
+      </div>
+      <div class="card">
+        <div class="card-title">频带功率</div>
+        <div class="band-list" id="monitorBandList">
+          <div class="band-row"><span class="band-label">δ</span><span class="band-bar" style="width:20%;background:#a0c3ec"></span><span class="band-val" id="mon-band-delta">0</span></div>
+          <div class="band-row"><span class="band-label">θ</span><span class="band-bar" style="width:30%;background:#c4b5fd"></span><span class="band-val" id="mon-band-theta">0</span></div>
+          <div class="band-row"><span class="band-label">α</span><span class="band-bar" style="width:50%;background:#ff7a17"></span><span class="band-val" id="mon-band-alpha">0</span></div>
+          <div class="band-row"><span class="band-label">β</span><span class="band-bar" style="width:40%;background:#ffc285"></span><span class="band-val" id="mon-band-beta">0</span></div>
+          <div class="band-row"><span class="band-label">γ</span><span class="band-bar" style="width:15%;background:#7c3aed"></span><span class="band-val" id="mon-band-gamma">0</span></div>
+        </div>
+        <div class="metric-list" id="monitorMetrics">
+          <div class="metric-row">θ/α <span class="metric-val" id="mon-metric-thetaAlpha">—</span><span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></div>
+          <div class="metric-row">熵 <span class="metric-val" id="mon-metric-entropy">—</span><span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></div>
+          <div class="metric-row">负载 <span class="metric-val" id="mon-metric-cognitiveLoad">—</span><span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">实验流程</div>
+        <div id="monitorTimeline"></div>
+      </div>
+      <div class="card recovery-card" id="monitorRecovery" style="display:none">
+        <div class="card-title">恢复状态</div>
+        <div id="monitorRecoveryStatus">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-hints">Z 心流进入 · X 心流脱离 · C 外部干扰 · V 自定义 · Space 下一阶段 · Enter 暂停/继续</div>
 </div>
 
 <!-- ─── 面板 4: 受试者端 ─── -->
@@ -135,23 +346,303 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 </div>
 
 <script>
-const WS_URL = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
+const WS_URL = (() => {
+  const p = new URLSearchParams(location.search);
+  if (p.get('ws')) return p.get('ws');
+  return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
+})();
 let ws = null;
 let sessionId = '';
+let currentRole = null;
 
-// 从 URL 参数读取 session, 支持控制台创建的实验
+// ── 地形图 ──
+const CHANNEL_POSITIONS = [
+  { id: 'Fp1', ch: 0, x: -0.30, y: 0.70 },
+  { id: 'Fp2', ch: 1, x: 0.30, y: 0.70 },
+  { id: 'C3',  ch: 2, x: -0.60, y: 0.05 },
+  { id: 'C4',  ch: 3, x: 0.60, y: 0.05 },
+];
+const GRID_SIZE = 30;
+const GRID_X = Array.from({length: GRID_SIZE}, (_, i) => -1 + 2 * i / (GRID_SIZE - 1));
+const GRID_Y = Array.from({length: GRID_SIZE}, (_, i) => -1 + 2 * i / (GRID_SIZE - 1));
+
+// jet 色表 (256 色)
+function jetColor(t) {
+  let r, g, b;
+  const v = Math.max(0, Math.min(1, t));
+  if (v < 0.125)      { r=0; g=0; b=0.5+v*4; }
+  else if (v < 0.375) { r=0; g=(v-0.125)*4; b=1; }
+  else if (v < 0.625) { r=(v-0.375)*4; g=1; b=1-(v-0.375)*4; }
+  else if (v < 0.875) { r=1; g=1-(v-0.625)*4; b=0; }
+  else                { r=1-(v-0.875)*4; g=0; b=0; }
+  return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+}
+
+// RBF 插值 (multiquadric)
+function solveLinear(A, b) {
+  const n = A.length;
+  const m = A.map(r => [...r]);
+  const x = [...b];
+  for (let i = 0; i < n; i++) {
+    const pivot = m[i][i];
+    if (Math.abs(pivot) < 1e-12) continue;
+    for (let j = i + 1; j < n; j++) {
+      const f = m[j][i] / pivot;
+      for (let k = i; k < n; k++) m[j][k] -= f * m[i][k];
+      x[j] -= f * x[i];
+    }
+  }
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = i + 1; j < n; j++) x[i] -= m[i][j] * x[j];
+    x[i] /= m[i][i] || 1;
+  }
+  return x;
+}
+
+function rbfInterpolate(values) {
+  const N = CHANNEL_POSITIONS.length;
+  const pts = CHANNEL_POSITIONS;
+  const phi = (r) => Math.sqrt(r * r + 1);
+  // 构造 4×4 矩阵
+  const A = Array.from({length: N}, (_, i) =>
+    Array.from({length: N}, (_, j) =>
+      phi(Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y))
+    )
+  );
+  const w = solveLinear(A, values);
+  // 插值 30×30 网格
+  const grid = [];
+  for (let yi = 0; yi < GRID_SIZE; yi++) {
+    grid[yi] = [];
+    for (let xi = 0; xi < GRID_SIZE; xi++) {
+      const qx = GRID_X[xi], qy = GRID_Y[yi];
+      // 圆形剪裁: 圆外值 = 0
+      if (qx * qx + qy * qy > 1) { grid[yi][xi] = -1; continue; }
+      let s = 0;
+      for (let i = 0; i < N; i++) s += w[i] * phi(Math.hypot(qx - pts[i].x, qy - pts[i].y));
+      grid[yi][xi] = s;
+    }
+  }
+  return grid;
+}
+
+function renderTopoMap(canvas, grid) {
+  if (!canvas || !grid) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const cellW = w / GRID_SIZE, cellH = h / GRID_SIZE;
+  // 找 min/max
+  let min = Infinity, max = -Infinity;
+  for (let yi = 0; yi < GRID_SIZE; yi++)
+    for (let xi = 0; xi < GRID_SIZE; xi++) {
+      const v = grid[yi][xi];
+      if (v >= 0) { if (v < min) min = v; if (v > max) max = v; }
+    }
+  const range = max - min || 1;
+  const imgData = ctx.createImageData(w, h);
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const xi = Math.floor(px / cellW), yi = Math.floor(py / cellH);
+      const v = (grid[yi] && grid[yi][xi] !== undefined) ? grid[yi][xi] : -1;
+      const idx = (py * w + px) * 4;
+      if (v < 0) {
+        imgData.data[idx]=0; imgData.data[idx+1]=0; imgData.data[idx+2]=0; imgData.data[idx+3]=0;
+      } else {
+        const t = (v - min) / range;
+        const [r, g, b] = jetColor(t);
+        imgData.data[idx]=r; imgData.data[idx+1]=g; imgData.data[idx+2]=b; imgData.data[idx+3]=255;
+      }
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// ── 波形画布 ──
+const WAVEFORM_BUFFER = 800;
+const waveformBuffers = {};
+
+function initWaveform(canvasId) {
+  waveformBuffers[canvasId] = { data: [[],[],[],[]], maxVal: 2000 };
+}
+
+function drawWaveform(canvasId, channels) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const buf = waveformBuffers[canvasId];
+  if (!buf) return;
+  // 累积
+  for (let ch = 0; ch < 4 && ch < channels.length; ch++) {
+    buf.data[ch].push(channels[ch] || 0);
+    if (buf.data[ch].length > WAVEFORM_BUFFER) buf.data[ch] = buf.data[ch].slice(-WAVEFORM_BUFFER);
+  }
+  // 自动缩放
+  let maxAbs = 1;
+  for (let ch = 0; ch < 4; ch++) {
+    for (let i = 0; i < buf.data[ch].length; i++) {
+      const a = Math.abs(buf.data[ch][i]);
+      if (a > maxAbs) maxAbs = a;
+    }
+  }
+  buf.maxVal = Math.max(maxAbs, 100);
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const colors = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
+  const chHeight = h / 4;
+  for (let ch = 0; ch < 4; ch++) {
+    const data = buf.data[ch];
+    if (data.length < 2) continue;
+    const yOff = ch * chHeight + chHeight / 2;
+    ctx.strokeStyle = colors[ch];
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const step = Math.max(1, Math.floor(data.length / w));
+    for (let px = 0; px < w && px * step < data.length; px++) {
+      const val = data[data.length - 1 - px * step];
+      const y = yOff - (val / buf.maxVal) * (chHeight * 0.4);
+      px === 0 ? ctx.moveTo(w - px, y) : ctx.lineTo(w - px, y);
+    }
+    ctx.stroke();
+  }
+}
+
+// ── 工具 ──
 function getSessionFromURL() {
   const p = new URLSearchParams(location.search);
   return p.get('session') || '';
 }
-
 function genId() { return 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2,6); }
-
 function switchPanel(id) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+function sendCmd(action) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({type:'cmd', action, session_id: sessionId}));
 }
 
+// ── 面板更新 ──
+function updateBandPower(prefix, snapshot) {
+  const bands = ['delta','theta','alpha','beta','gamma'];
+  const bandColors = ['#a0c3ec','#c4b5fd','#ff7a17','#ffc285','#7c3aed'];
+  let maxPower = 0.01;
+  const powers = bands.map(b => snapshot.band_power ? snapshot.band_power[b] || 0 : 0);
+  powers.forEach(p => { if (p > maxPower) maxPower = p; });
+  bands.forEach((b, i) => {
+    const el = document.getElementById(prefix + '-band-' + b) || document.getElementById('band-' + b);
+    if (el) el.textContent = powers[i].toFixed(1);
+    const bar = el && el.parentNode ? el.parentNode.querySelector('.band-bar') : null;
+    if (bar) bar.style.width = ((powers[i] / maxPower) * 100) + '%';
+  });
+  // metrics
+  const setMetric = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val !== undefined && val !== null ? val.toFixed(3) : '—';
+  };
+  const m = snapshot;
+  setMetric((prefix==='master'?'':'mon-')+'metric-thetaAlpha', m.theta_alpha_ratio);
+  setMetric((prefix==='master'?'':'mon-')+'metric-entropy', m.spectral_entropy);
+  setMetric((prefix==='master'?'':'mon-')+'metric-cognitiveLoad', m.cognitive_load_index);
+}
+
+function updateTimer(prefix, phaseSync) {
+  const setText = (id, val) => { const el = document.getElementById(prefix + id); if (el) el.textContent = val; };
+  setText('PhaseName', phaseSync.phase_name || '—');
+  setText('Timer', formatTime(phaseSync.time_left));
+  const fill = document.getElementById(prefix + 'TimerFill');
+  if (fill) {
+    const pct = phaseSync.time_left > 0 && phaseSync.running !== undefined ? 100 : 0;
+    // simplified: actual percentage would need total duration
+    fill.style.width = pct + '%';
+  }
+  setText('Auto', phaseSync.auto_mode ? '自动模式 ●' : '手动模式 ○');
+}
+
+function formatTime(sec) {
+  if (sec === undefined || sec === null) return '—';
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+function updateTimeline(prefix, phaseSync, templates) {
+  const el = document.getElementById(prefix + 'Timeline');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!templates || !templates[phaseSync.phase_id]) {
+    el.innerHTML = '<div style="font-size:13px;color:rgba(255,255,255,0.3)">等待阶段信息</div>';
+    return;
+  }
+  // Simplified: show all phases
+  const allPhases = getPhaseList(phaseSync);
+  allPhases.forEach((ph, i) => {
+    const active = i === (phaseSync.phase_index !== undefined ? phaseSync.phase_index : 0);
+    const past = i < (phaseSync.phase_index || 0);
+    const cls = active ? 'active' : (past ? 'past' : 'future');
+    const div = document.createElement('div');
+    div.className = 'timeline-item' + (active ? ' active' : '');
+    const dot = document.createElement('span');
+    dot.className = 'timeline-dot ' + cls;
+    div.appendChild(dot);
+    const label = document.createElement('span');
+    label.textContent = ph.name || ph.id || '—';
+    div.appendChild(label);
+    if (active) div.innerHTML += ' <span style="color:#494fdf;font-size:11px">当前</span>';
+    el.appendChild(div);
+  });
+}
+
+function getPhaseList(phaseSync) {
+  // Return phases for the current template type based on phase_id patterns
+  const rounds = phaseSync.round || 1;
+  const hasSwitch = phaseSync.phase_id && (phaseSync.phase_id.startsWith('switch') || phaseSync.phase_id.startsWith('flow'));
+  return [
+    { id:'prep', name:'准备' },
+    { id:'flow1', name:'R1 心流诱导' },
+    { id:'switch1', name:'R1 切换' },
+    { id:'recover1', name:'R1 恢复' },
+    { id:'rest1', name:'R1 休息' },
+    { id:'flow2', name:'R2 心流诱导' },
+    { id:'switch2', name:'R2 切换' },
+    { id:'recover2', name:'R2 恢复' },
+    { id:'rest2', name:'R2 休息' },
+    { id:'flow3', name:'R3 心流诱导' },
+    { id:'switch3', name:'R3 切换' },
+    { id:'recover3', name:'R3 恢复' },
+    { id:'rest3', name:'R3 休息' },
+  ];
+}
+
+// ── 热力图更新 ──
+function updateTopoMap(prefix, snapshot) {
+  const bandSelect = document.getElementById(prefix + 'BandSelect');
+  if (!bandSelect) return;
+  const band = bandSelect.value;
+  if (!snapshot.band_power_per_ch || snapshot.band_power_per_ch.length < 4) return;
+  const values = snapshot.band_power_per_ch.map(ch => (ch && ch[band] !== undefined) ? ch[band] : 0);
+  const grid = rbfInterpolate(values);
+  const canvas = document.getElementById(prefix + 'Topo');
+  if (canvas) renderTopoMap(canvas, grid);
+}
+
+// ── 恢复状态 ──
+function updateRecovery(prefix, msg) {
+  const card = document.getElementById(prefix + 'Recovery');
+  const status = document.getElementById(prefix + 'RecoveryStatus');
+  if (!card || !status) return;
+  card.style.display = 'block';
+  if (msg.recovered) {
+    status.textContent = '✅ 已恢复 (' + msg.recovery_time + 's)';
+    status.style.color = '#4ade80';
+  } else if (msg.no_baseline) {
+    status.textContent = '⚪ 无基线数据';
+    status.style.color = '#8a8a8f';
+  } else {
+    status.textContent = '🟡 未恢复 · 稳定 ' + msg.steady_count + '/30 秒';
+    status.style.color = '#fbbf24';
+  }
+}
+
+// ── WS ──
 function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
@@ -164,12 +655,44 @@ function connectWS() {
       const msg = JSON.parse(e.data);
       if (msg.type === 'room_info') updateRoom(msg.occupants);
       if (msg.type === 'role_claimed') onClaimed(msg.role);
-      if (msg.type === 'role_denied') alert('该角色已被占用');
+      if (msg.type === 'role_denied') alert('角色被占用: ' + (msg.reason || ''));
+      if (msg.type === 'claim_role') return; // ignore
+
+      // 角色面板消息
+      const prefix = currentRole === 'master' ? 'master' : (currentRole === 'monitor' ? 'monitor' : null);
+      if (!prefix) return;
+
+      if (msg.type === 'eeg_frame' && msg.channels) {
+        drawWaveform(prefix + 'Waveform', msg.channels);
+      }
+      if (msg.type === 'metrics_snapshot') {
+        window._lastSnapshot = msg;
+        updateBandPower(prefix, msg);
+        updateTopoMap(prefix, msg);
+      }
+      if (msg.type === 'phase_sync') {
+        updateTimer(prefix, msg);
+        updateTimeline(prefix, msg, {});
+        // Update btn states
+        const btnStart = document.getElementById(prefix + 'BtnStart');
+        const btnPause = document.getElementById(prefix + 'BtnPause');
+        if (btnStart) btnStart.textContent = msg.running ? '运行中' : '开始';
+        if (btnPause) btnPause.textContent = msg.running ? '暂停' : '已暂停';
+      }
+      if (msg.type === 'recovery_progress' || msg.type === 'recovery_event') {
+        updateRecovery(prefix, msg);
+      }
+      if (msg.type === 'alert') {
+        const statusEl = document.getElementById(prefix + 'Status');
+        if (statusEl) statusEl.textContent = '⚠ ' + msg.message;
+      }
     } catch(_) {}
   };
   ws.onclose = () => {
-    document.getElementById('roleStatus').textContent = '已断开，5 秒后重连…';
-    document.getElementById('roleDot').classList.add('off');
+    const s = document.getElementById('roleStatus');
+    if (s) s.textContent = '已断开，5 秒后重连…';
+    const d = document.getElementById('roleDot');
+    if (d) d.classList.add('off');
     setTimeout(connectWS, 5000);
   };
   ws.onerror = () => ws.close();
@@ -206,17 +729,50 @@ function updateRoom(occ) {
 }
 
 function claim(role) {
-  if (ws && ws.readyState === 1) {
+  if (ws && ws.readyState === 1)
     ws.send(JSON.stringify({ type: 'claim_role', role, session_id: sessionId }));
-  }
 }
 
 function onClaimed(role) {
+  currentRole = role;
   const panelMap = { master:'panel-master', monitor:'panel-monitor', subject:'panel-subject', console:'panel-console' };
   const pid = panelMap[role];
-  if (pid) switchPanel(pid);
+  if (pid) {
+    switchPanel(pid);
+    // Init waveform buffers for this role
+    if (role === 'master') initWaveform('masterWaveform');
+    if (role === 'monitor') initWaveform('monitorWaveform');
+  }
 }
 
+// ── 键盘快捷键 ──
+document.addEventListener('keydown', (e) => {
+  if (!currentRole || currentRole === 'subject') return;
+  const key = e.key;
+  if (key === 'z' || key === 'Z') { e.preventDefault(); sendMarker(3, '心流进入'); }
+  else if (key === 'x' || key === 'X') { e.preventDefault(); sendMarker(4, '心流脱离'); }
+  else if (key === 'c' || key === 'C') { e.preventDefault(); sendMarker(5, '外部干扰'); }
+  else if (key === 'v' || key === 'V') { e.preventDefault(); sendMarker(6, '自定义'); }
+  else if (key === ' ') { e.preventDefault(); sendCmd('next_phase'); }
+  else if (key === 'Enter') { e.preventDefault(); sendCmd(currentRole === 'master' || currentRole === 'monitor' ? 'pause' : 'start'); }
+});
+
+function sendMarker(code, label) {
+  if (ws && ws.readyState === 1)
+    ws.send(JSON.stringify({ type: 'marker', code, source: 'operator', label, phase: '', ts: Date.now() }));
+}
+
+// ── 频带切换事件 ──
+document.addEventListener('change', (e) => {
+  if (e.target.classList.contains('topo-band-select')) {
+    const prefix = e.target.id === 'masterBandSelect' ? 'master' : 'monitor';
+    if (window._lastSnapshot) updateTopoMap(prefix, window._lastSnapshot);
+  }
+});
+
+// ── 启动 ──
+initWaveform('masterWaveform');
+initWaveform('monitorWaveform');
 connectWS();
 </script>
 </body>

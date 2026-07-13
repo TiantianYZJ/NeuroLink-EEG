@@ -2,9 +2,10 @@
  * 实时指标计算引擎
  *
  * 输入: eeg_frame (滑动窗口 256 采样点)
- * 输出: metrics_snapshot (每秒: 频带功率/熵/负载/信号质量)
+ * 输出: metrics_snapshot (每秒: 频带功率/熵/负载/信号质量 + 每通道频带功率)
  *
  * 多 session 安全: 每个 session 独立缓冲区
+ * 4 通道: 每通道独立 Goertzel → band_power_per_ch[4]
  */
 const BANDS = [
   { id: 'delta', lo: 0.5, hi: 4 },
@@ -42,6 +43,10 @@ function goertzel(signal, freq, rate) {
   return Math.sqrt(s2 * s2 + s1 * s1 - cosine * s1 * s2) / n;
 }
 
+function goertzelBand(signal, band, rate) {
+  return goertzel(signal, (band.lo + band.hi) / 2, rate);
+}
+
 function spectralEntropy(bandPowers) {
   // 使用功率（幅度平方）计算谱熵, H = -Σ(pi·log₂(pi))
   const powers = bandPowers.map(v => v * v);
@@ -59,16 +64,29 @@ function computeMetrics(sessionId) {
 
   // 频带功率: 使用完整 256 样本窗口
   const poolSamples = ss.buffer.slice(-POOL_SIZE);
-  const ch1 = poolSamples.map(s => s.channels[0] || 0);
 
-  const powers = BANDS.map(b => goertzel(ch1, (b.lo + b.hi) / 2, SAMPLE_RATE));
+  // 4 通道 Goertzel: 每通道计算 5 频带
+  const chPower = [0, 1, 2, 3].map(chIdx => {
+    const ch = poolSamples.map(s => s.channels[chIdx] || 0);
+    return BANDS.map(b => goertzelBand(ch, b, SAMPLE_RATE));
+  });
+
+  // CH1 频带功率 (向后兼容)
+  const ch1Powers = chPower[0];
   const bandPower = {};
-  BANDS.forEach((b, i) => { bandPower[b.id] = powers[i]; });
+  BANDS.forEach((b, i) => { bandPower[b.id] = ch1Powers[i]; });
 
-  // 复合指标
-  const thetaAlpha = powers[1] / (powers[2] || 1);
-  const entropy = spectralEntropy(powers);
-  const cognitiveLoad = powers[4] / (powers[2] || 1);
+  // 复合指标 (基于 CH1)
+  const thetaAlpha = ch1Powers[1] / (ch1Powers[2] || 1);
+  const entropy = spectralEntropy(ch1Powers);
+  const cognitiveLoad = ch1Powers[4] / (ch1Powers[2] || 1);
+
+  // 每通道频带功率 (地形图数据源)
+  const bandPowerPerCh = chPower.map(ch => {
+    const obj = {};
+    BANDS.forEach((b, i) => { obj[b.id] = ch[i]; });
+    return obj;
+  });
 
   // 信号稳定性: 使用 32 样本窗口 (文档 §4.5)
   const sqSamples = ss.buffer.slice(-SQ_WINDOW);
@@ -79,7 +97,8 @@ function computeMetrics(sessionId) {
   });
 
   return {
-    band_power: { delta: powers[0], theta: powers[1], alpha: powers[2], beta: powers[3], gamma: powers[4] },
+    band_power: bandPower,
+    band_power_per_ch: bandPowerPerCh,
     theta_alpha_ratio: thetaAlpha,
     spectral_entropy: entropy,
     cognitive_load_index: cognitiveLoad,
