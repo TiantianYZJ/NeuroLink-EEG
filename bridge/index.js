@@ -84,7 +84,21 @@ localWss.on('connection', (ws) => {
 // ── 3. ECS 上行 WebSocket 客户端 ──
 let ecsWs = null;
 let ecsSessionId = config.SESSION_ID || ('bridge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
-let ecsConnected = false; // role_claimed 后才发送 eeg_frame
+let ecsConnected = false;
+
+/** 获取本机 LAN IP */
+function getLANIP() {
+  try {
+    const os = require('os');
+    const ifaces = os.networkInterfaces();
+    for (const name of Object.keys(ifaces)) {
+      for (const iface of ifaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+      }
+    }
+  } catch (_) {}
+  return '127.0.0.1';
+}
 
 function connectECS() {
   const WsClient = require('ws');
@@ -99,7 +113,15 @@ function connectECS() {
       if (msg.type === 'role_claimed' && msg.role === 'master') {
         console.log('[ECS] 已认领 master 角色');
         ecsConnected = true;
-        ws.send(JSON.stringify({ type: 'set_udp_target', target: '127.0.0.1:' + config.GUI_MARKER_PORT }));
+        const lanIP = getLANIP();
+        ws.send(JSON.stringify({ type: 'set_udp_target', target: lanIP + ':' + config.GUI_MARKER_PORT }));
+      }
+      if (msg.type === 'role_denied' && !ecsConnected) {
+        console.warn('[ECS] 角色被拒，5 秒后重试:', msg.reason);
+        setTimeout(() => {
+          if (ws.readyState === 1)
+            ws.send(JSON.stringify({ type: 'claim_role', role: 'master', session_id: ecsSessionId }));
+        }, 5000);
       }
       if (msg.type === 'marker') {
         const buf = Buffer.alloc(4);

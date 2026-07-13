@@ -44,7 +44,7 @@ module.exports = {
             'INSERT INTO baselines (session_id, phase_id, ratio_mean, ratio_std, alpha_mean, alpha_std, beta_mean, beta_std, samples) VALUES (?,?,?,?,?,?,?,?,?)',
             [sessionId, prevPhaseId, ratioMean, ratioStd, alphaMean, alphaStd, betaMean, betaStd, vals.length]
           );
-        } catch (_) {}
+        } catch (e) { console.warn('[DB] baseline insert:', e.message); }
         markers.push({
           type: 'marker', code: 12, source: 'auto',
           label: 'baseline_end:' + prevPhaseId, phase: prevPhaseId, ts: Date.now(),

@@ -24,6 +24,16 @@ const baseline = require('./baseline');
 const udpSock = dgram.createSocket('udp4');
 udpSock.on('error', () => {});
 
+// ── 定期清理已完成的空房间（每 10 分钟） ──
+setInterval(() => {
+  for (const [sid, room] of rooms) {
+    if (room.sockets.size === 0) {
+      const timer = timers.get(sid);
+      if (timer && timer.completed) cleanupSession(sid);
+    }
+  }
+}, 600000).unref();
+
 // ── 房间 ──
 const rooms = new Map(); // sessionId → room
 
@@ -96,7 +106,7 @@ function saveTimerState(sessionId) {
        auto_mode=VALUES(auto_mode), template_type=VALUES(template_type)`,
     [sessionId, timer.phaseIndex, timer.timeLeft, timer.timeInPhase,
      timer.running ? 1 : 0, timer.autoMode ? 1 : 0, templateType]
-  ).catch(() => {});
+  ).catch(e => console.warn('[DB]', e.message));
 }
 
 // ── 阶段模板 ──
@@ -249,7 +259,7 @@ function startTick(sessionId, timer, room) {
            snapshot.theta_alpha_ratio, snapshot.spectral_entropy, snapshot.cognitive_load_index,
            snapshot.signal_quality[0], snapshot.signal_quality[1],
            snapshot.signal_quality[2], snapshot.signal_quality[3]]
-        ).catch(_ => {});
+        ).catch(e => console.warn('[DB]', e.message));
 
         // 3. metrics 广播 (master + monitor)
         broadcastToRoles(room, { type: 'metrics_snapshot', ...snapshot }, ['master', 'monitor']);
@@ -261,7 +271,7 @@ function startTick(sessionId, timer, room) {
             db.query(
               'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
               [sessionId, m.code, m.source, m.label, m.phase, m.ts]
-            ).catch(_ => {});
+            ).catch(e => console.warn('[DB]', e.message));
             broadcast(room, m);
             sendMarkerUDP(room, m);
           } else {
@@ -432,7 +442,7 @@ function handleMessage(ws, raw, room, sessionId) {
       db.query(
         'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
         [sessionId, msg.code || 0, msg.source || 'operator', msg.label || '', msg.phase || '', msg.ts || Date.now()]
-      ).catch(_ => {});
+      ).catch(e => console.warn('[DB]', e.message));
       broadcast(room, msg);
       sendMarkerUDP(room, msg);
       break;
@@ -454,7 +464,7 @@ function handleMessage(ws, raw, room, sessionId) {
       db.query(
         'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
         [sessionId, code, 'subject', label, markerMsg.phase, markerMsg.ts]
-      ).catch(_ => {});
+      ).catch(e => console.warn('[DB]', e.message));
       broadcast(room, markerMsg);
       sendMarkerUDP(room, markerMsg);
       ws.send(JSON.stringify({ type: 'self_report_ack', state: msg.state }));
@@ -618,9 +628,9 @@ wss.on('connection', (ws, req) => {
         // 立即释放槽位, 但加 30 秒角色锁阻止新声明
         if (roleLock === 'master') {
           if (room.occupants.master === ws) room.occupants.master = null;
-          // master 断开 → 暂停计时器 + 广播告警
+          // master 断开 → 暂停计时器 + 持久化 + 广播告警
           const timer = timers.get(sid);
-          if (timer) { timer.running = false; broadcastSync(sid, timer, room); }
+          if (timer) { timer.running = false; saveTimerState(sid); broadcastSync(sid, timer, room); }
           broadcast(room, { type: 'alert', level: 'warning', message: '数据源已断开' });
         }
         if (roleLock === 'subject' && room.occupants.subject === ws) room.occupants.subject = null;
