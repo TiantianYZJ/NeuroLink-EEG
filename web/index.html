@@ -492,6 +492,17 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
   </div>
 </div>
 
+<!-- ── 场次详情弹窗 ── -->
+<div class="fss-overlay" id="sessionDetailOverlay">
+  <div class="fss-card" style="max-width:640px">
+    <h2 id="detailTitle">场次详情</h2>
+    <div id="detailBody" style="font-size:13px;color:rgba(255,255,255,0.7)">加载中...</div>
+    <div class="fss-submit-row" style="margin-top:20px">
+      <button class="btn btn-outline btn-small" onclick="closeSessionDetail()">关闭</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 新建受试者弹窗 ── -->
 <div class="fss-overlay" id="newSubjectOverlay">
   <div class="fss-card" style="max-width:400px">
@@ -873,7 +884,7 @@ function connectWS() {
         if (msg.type === 'templates_list') renderTemplates(msg.templates);
         if (msg.type === 'session_created') { showToast('实验场次已创建', 'success'); loadSessions(); document.getElementById('consoleNotes').value = ''; }
         if (msg.type === 'sessions_list') renderSessions(msg.sessions);
-        if (msg.type === 'session_detail') console.log('session_detail', msg);
+        if (msg.type === 'session_detail') renderSessionDetail(msg);
         if (msg.type === 'error') showToast(msg.message, 'error');
         return;
       }
@@ -1214,6 +1225,91 @@ function viewSession(sessionId) {
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type:'get_session_detail', session_id: sessionId }));
   }
+}
+
+function renderSessionDetail(data) {
+  const overlay = document.getElementById('sessionDetailOverlay');
+  const title = document.getElementById('detailTitle');
+  const body = document.getElementById('detailBody');
+  if (!overlay || !body) return;
+  const s = data.session || {};
+  title.textContent = '场次详情 · ' + (s.id || '').slice(0, 8);
+
+  const markers = (data.markers || []).slice(-50);
+  const fss = data.fss_results || [];
+  const baselines = data.baselines || [];
+  const metricsRows = data.metrics_snapshots || [];
+
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;padding:12px;background:#0a0a0a;border-radius:12px">';
+  html += '<div><span style="color:rgba(255,255,255,0.4)">受试者</span><br><b>' + escHtml(s.operator_name || '—') + '</b></div>';
+  html += '<div><span style="color:rgba(255,255,255,0.4)">状态</span><br><span class="status-badge ' + (s.status || '') + '">' + (s.status || '—') + '</span></div>';
+  html += '<div><span style="color:rgba(255,255,255,0.4)">模板 ID</span><br><b>' + (s.template_id || '—') + '</b></div>';
+  html += '<div><span style="color:rgba(255,255,255,0.4)">备注</span><br><b>' + escHtml(s.notes || '无') + '</b></div>';
+  html += '</div>';
+
+  // Baselines
+  if (baselines.length > 0) {
+    html += '<div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">基线数据</div>';
+    baselines.forEach(b => {
+      html += '<div style="display:flex;gap:16px;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+      html += '<span>' + (b.phase_id || '') + '</span>';
+      html += '<span>θ/α μ=' + (b.ratio_mean ? b.ratio_mean.toFixed(3) : '—') + ' σ=' + (b.ratio_std ? b.ratio_std.toFixed(3) : '—') + '</span>';
+      html += '<span>α μ=' + (b.alpha_mean ? b.alpha_mean.toFixed(1) : '—') + '</span>';
+      html += '<span>n=' + (b.samples || 0) + '</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Markers
+  html += '<div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">标记时间线 (' + markers.length + ')</div>';
+  if (markers.length === 0) {
+    html += '<div style="color:rgba(255,255,255,0.2);font-size:12px">暂无标记</div>';
+  } else {
+    html += '<div style="max-height:200px;overflow-y:auto">';
+    markers.forEach(m => {
+      const t = new Date(m.ts || m.created_at);
+      html += '<div style="display:flex;gap:8px;padding:3px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.03)">';
+      html += '<span style="color:rgba(255,255,255,0.3);white-space:nowrap">' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0') + '</span>';
+      html += '<span style="color:#494fdf;font-weight:600">' + (m.code || 0) + '</span>';
+      html += '<span style="color:rgba(255,255,255,0.5)">' + (m.source || '') + '</span>';
+      html += '<span>' + (m.label || '') + '</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // FSS
+  if (fss.length > 0) {
+    html += '<div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">FSS 问卷 (' + fss.length + ' 轮)</div>';
+    fss.forEach(f => {
+      const answers = (typeof f.answers === 'string' ? JSON.parse(f.answers) : f.answers) || [];
+      html += '<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.04)">';
+      html += '<span style="color:rgba(255,255,255,0.4)">R' + (f.round || 0) + '</span>';
+      html += '<span>' + answers.map((a, i) => 'Q' + (i+1) + '=' + a).join(' · ') + '</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Metrics summary
+  if (metricsRows.length > 0) {
+    const avg = (arr, key) => { const v = arr.filter(r => r[key] !== null).map(r => r[key]); return v.length > 0 ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(2) : '—'; };
+    html += '<div><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">指标均值 (' + metricsRows.length + ' 采样)</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;padding:8px;background:#0a0a0a;border-radius:12px">';
+    html += '<span>θ/α ' + avg(metricsRows, 'theta_alpha_ratio') + '</span>';
+    html += '<span>熵 ' + avg(metricsRows, 'spectral_entropy') + '</span>';
+    html += '<span>负载 ' + avg(metricsRows, 'cognitive_load_index') + '</span>';
+    html += '</div></div>';
+  }
+
+  body.innerHTML = html;
+  overlay.classList.add('active');
+}
+
+function closeSessionDetail() {
+  document.getElementById('sessionDetailOverlay')?.classList.remove('active');
 }
 
 function showToast(msg, type) {
