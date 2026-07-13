@@ -47,7 +47,7 @@ function parseOpenBCIPacket(msg) {
 const frameBroadcast = (parsed) => {
   const payload = JSON.stringify({ type: 'eeg_frame', ...parsed, ts: Date.now() });
   localWss.clients.forEach(c => { if (c.readyState === 1) c.send(payload); });
-  if (ecsWs && ecsWs.readyState === 1) ecsWs.send(payload);
+  if (ecsWs && ecsWs.readyState === 1 && ecsConnected) ecsWs.send(payload);
 };
 
 udpServer.on('message', (msg) => {
@@ -83,25 +83,37 @@ localWss.on('connection', (ws) => {
 
 // ── 3. ECS 上行 WebSocket 客户端 ──
 let ecsWs = null;
+let ecsSessionId = config.SESSION_ID || ('bridge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+let ecsConnected = false; // role_claimed 后才发送 eeg_frame
+
 function connectECS() {
   const WsClient = require('ws');
   const ws = new WsClient(config.ECS_WS_URL);
   ws.on('open', () => {
     console.log('[ECS] 已连接');
-    ws.send(JSON.stringify({ type: 'hello', role: 'master', deviceType: config.DEVICE_TYPE }));
+    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: ecsSessionId }));
   });
   ws.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw);
+      if (msg.type === 'role_claimed' && msg.role === 'master') {
+        console.log('[ECS] 已认领 master 角色');
+        ecsConnected = true;
+        ws.send(JSON.stringify({ type: 'set_udp_target', target: '127.0.0.1:' + config.GUI_MARKER_PORT }));
+      }
       if (msg.type === 'marker') {
         const buf = Buffer.alloc(4);
         buf.writeFloatBE(msg.code || 0);
         udpServer.send(buf, 0, 4, config.GUI_MARKER_PORT, '127.0.0.1');
       }
+      if (msg.type === 'room_info' && !ecsConnected) {
+        ws.send(JSON.stringify({ type: 'claim_role', role: 'master', session_id: ecsSessionId }));
+      }
     } catch (e) {}
   });
   ws.on('close', () => {
     console.log('[ECS] 断开，5 秒后重连');
+    ecsConnected = false;
     setTimeout(connectECS, 5000);
   });
   ws.on('error', () => ws.close());

@@ -2,13 +2,15 @@
  * ECS 云端 WebSocket 中继
  *
  * 职责:
- *   - 统一入口: 所有设备先 hello + pending, 再 claim_role
+ *   - 统一入口 → 角色选择 → 各角色面板 (SPA)
  *   - 角色认领 + 房间管理 (断线保留 30 秒)
  *   - eeg_frame 广播 + 指标计算
  *   - 计时器仲裁 + phase_sync
- *   - marker 广播 + 持久化 + UDP 回传 (所有 source)
+ *   - marker 广播 + 持久化 + UDP 回传
  *   - 基线录制 + 恢复判定
  *   - cmd 权限白名单
+ *   - 控制台 CRUD
+ *   - 计时器状态持久化 (timer_state)
  */
 
 const { WebSocketServer } = require('ws');
@@ -17,26 +19,29 @@ const db = require('./db');
 const metrics = require('./metrics');
 const baseline = require('./baseline');
 
-// ── 房间状态 ──
+// ── 房间 ──
 const rooms = new Map(); // sessionId → room
 
 function getRoom(sessionId) {
   if (!rooms.has(sessionId)) {
-    rooms.set(sessionId, { sockets: new Set(), occupants: { master: null, monitor: [], subject: null, console: null }, udpTargets: new Map() });
+    rooms.set(sessionId, {
+      sockets: new Set(),
+      occupants: { master: null, monitor: [], subject: null, console: null },
+      udpTargets: new Map(),
+    });
   }
   return rooms.get(sessionId);
 }
 
 function broadcast(room, msg, exclude = null) {
-  const payload = JSON.stringify(msg);
+  const payload = typeof msg === 'string' ? msg : JSON.stringify(msg);
   room.sockets.forEach(ws => {
     if (ws !== exclude && ws.readyState === 1) ws.send(payload);
   });
 }
 
-// 只广播给特定角色
 function broadcastToRoles(room, msg, roles) {
-  const payload = JSON.stringify(msg);
+  const payload = typeof msg === 'string' ? msg : JSON.stringify(msg);
   room.sockets.forEach(ws => {
     if (ws.readyState === 1 && roles.includes(ws.role)) ws.send(payload);
   });
@@ -53,65 +58,241 @@ function saveTimerState(sessionId) {
   ).catch(() => {});
 }
 
-async function restoreTimerState(sessionId) {
-  try {
-    const rows = await db.query('SELECT * FROM timer_state WHERE session_id = ?', [sessionId]);
-    if (rows.length === 0) return null;
-    const row = rows[0];
-    const phases = PHASE_TEMPLATES[row.template_type] || PHASE_TEMPLATES.control;
-    const timer = {
-      phases, phaseIndex: row.phase_index, timeLeft: row.time_left,
-      timeInPhase: row.time_in_phase, running: false,
-      autoMode: row.auto_mode === 1, completed: false, tickTimer: null,
-    };
-    timers.set(sessionId, timer);
-    return timer;
-  } catch (e) { return null; }
-}
-
-// ── 计时器 ──
-const timers = new Map();
+// ── 阶段模板 (14 phase × 4 组) ──
 const PHASE_TEMPLATES = {
   control: [
-    { id: 'prep',    duration: 300, round: 0, name: '准备阶段',          taskType: null },
-    { id: 'flow1',   duration: 480, round: 1, name: '心流诱导阶段',      taskType: 'math' },
-    { id: 'switch1', duration: 120, round: 1, name: '任务继续阶段',      taskType: 'math' },
-    { id: 'recover1',duration: 600, round: 1, name: '状态恢复观测阶段',   taskType: 'math' },
-    { id: 'rest1',   duration: 180, round: 1, name: '休息与问卷',        taskType: null },
-    { id: 'flow2',   duration: 480, round: 2, name: '心流诱导阶段',      taskType: 'math' },
-    { id: 'switch2', duration: 120, round: 2, name: '任务继续阶段',      taskType: 'math' },
-    { id: 'recover2',duration: 600, round: 2, name: '状态恢复观测阶段',   taskType: 'math' },
-    { id: 'rest2',   duration: 180, round: 2, name: '休息与问卷',        taskType: null },
-    { id: 'flow3',   duration: 480, round: 3, name: '心流诱导阶段',      taskType: 'math' },
-    { id: 'switch3', duration: 120, round: 3, name: '任务继续阶段',      taskType: 'math' },
-    { id: 'recover3',duration: 600, round: 3, name: '状态恢复观测阶段',   taskType: 'math' },
-    { id: 'rest3',   duration: 180, round: 3, name: '休息与问卷',        taskType: null },
+    { id: 'prep',    duration: 300, round: 0, name: '准备阶段',        taskType: null },
+    { id: 'flow1',   duration: 480, round: 1, name: '心流诱导阶段',    taskType: 'math' },
+    { id: 'switch1', duration: 120, round: 1, name: '任务继续阶段',    taskType: 'math' },
+    { id: 'recover1',duration: 600, round: 1, name: '状态恢复观测',    taskType: 'math' },
+    { id: 'rest1',   duration: 180, round: 1, name: '休息与问卷',      taskType: null },
+    { id: 'flow2',   duration: 480, round: 2, name: '心流诱导阶段',    taskType: 'math' },
+    { id: 'switch2', duration: 120, round: 2, name: '任务继续阶段',    taskType: 'math' },
+    { id: 'recover2',duration: 600, round: 2, name: '状态恢复观测',    taskType: 'math' },
+    { id: 'rest2',   duration: 180, round: 2, name: '休息与问卷',      taskType: null },
+    { id: 'flow3',   duration: 480, round: 3, name: '心流诱导阶段',    taskType: 'math' },
+    { id: 'switch3', duration: 120, round: 3, name: '任务继续阶段',    taskType: 'math' },
+    { id: 'recover3',duration: 600, round: 3, name: '状态恢复观测',    taskType: 'math' },
+    { id: 'rest3',   duration: 180, round: 3, name: '休息与问卷',      taskType: null },
   ],
   math_art: [
-    { id: 'prep',    duration: 300, round: 0, name: '准备阶段',              taskType: null },
-    { id: 'flow1',   duration: 480, round: 1, name: '心流诱导阶段（数理）',  taskType: 'math' },
-    { id: 'switch1', duration: 120, round: 1, name: '任务切换（数理→艺术）', taskType: 'art' },
-    { id: 'recover1',duration: 600, round: 1, name: '状态恢复观测阶段',       taskType: 'math' },
-    { id: 'rest1',   duration: 180, round: 1, name: '休息与问卷',            taskType: null },
-    { id: 'flow2',   duration: 480, round: 2, name: '心流诱导阶段（数理）',  taskType: 'math' },
-    { id: 'switch2', duration: 120, round: 2, name: '任务切换（数理→艺术）', taskType: 'art' },
-    { id: 'recover2',duration: 600, round: 2, name: '状态恢复观测阶段',       taskType: 'math' },
-    { id: 'rest2',   duration: 180, round: 2, name: '休息与问卷',            taskType: null },
-    { id: 'flow3',   duration: 480, round: 3, name: '心流诱导阶段（数理）',  taskType: 'math' },
-    { id: 'switch3', duration: 120, round: 3, name: '任务切换（数理→艺术）', taskType: 'art' },
-    { id: 'recover3',duration: 600, round: 3, name: '状态恢复观测阶段',       taskType: 'math' },
-    { id: 'rest3',   duration: 180, round: 3, name: '休息与问卷',            taskType: null },
+    { id: 'prep',    duration: 300, round: 0, name: '准备阶段',          taskType: null },
+    { id: 'flow1',   duration: 480, round: 1, name: '心流诱导·数理',    taskType: 'math' },
+    { id: 'switch1', duration: 120, round: 1, name: '切换数理→艺术',    taskType: 'art' },
+    { id: 'recover1',duration: 600, round: 1, name: '状态恢复观测',     taskType: 'math' },
+    { id: 'rest1',   duration: 180, round: 1, name: '休息与问卷',        taskType: null },
+    { id: 'flow2',   duration: 480, round: 2, name: '心流诱导·数理',    taskType: 'math' },
+    { id: 'switch2', duration: 120, round: 2, name: '切换数理→艺术',    taskType: 'art' },
+    { id: 'recover2',duration: 600, round: 2, name: '状态恢复观测',     taskType: 'math' },
+    { id: 'rest2',   duration: 180, round: 2, name: '休息与问卷',        taskType: null },
+    { id: 'flow3',   duration: 480, round: 3, name: '心流诱导·数理',    taskType: 'math' },
+    { id: 'switch3', duration: 120, round: 3, name: '切换数理→艺术',    taskType: 'art' },
+    { id: 'recover3',duration: 600, round: 3, name: '状态恢复观测',     taskType: 'math' },
+    { id: 'rest3',   duration: 180, round: 3, name: '休息与问卷',        taskType: null },
+  ],
+  math_lang: [
+    { id: 'prep',    duration: 300, round: 0, name: '准备阶段',          taskType: null },
+    { id: 'flow1',   duration: 480, round: 1, name: '心流诱导·数理',    taskType: 'math' },
+    { id: 'switch1', duration: 120, round: 1, name: '切换数理→语文',    taskType: 'language' },
+    { id: 'recover1',duration: 600, round: 1, name: '状态恢复观测',     taskType: 'math' },
+    { id: 'rest1',   duration: 180, round: 1, name: '休息与问卷',        taskType: null },
+    { id: 'flow2',   duration: 480, round: 2, name: '心流诱导·数理',    taskType: 'math' },
+    { id: 'switch2', duration: 120, round: 2, name: '切换数理→语文',    taskType: 'language' },
+    { id: 'recover2',duration: 600, round: 2, name: '状态恢复观测',     taskType: 'math' },
+    { id: 'rest2',   duration: 180, round: 2, name: '休息与问卷',        taskType: null },
+    { id: 'flow3',   duration: 480, round: 3, name: '心流诱导·数理',    taskType: 'math' },
+    { id: 'switch3', duration: 120, round: 3, name: '切换数理→语文',    taskType: 'language' },
+    { id: 'recover3',duration: 600, round: 3, name: '状态恢复观测',     taskType: 'math' },
+    { id: 'rest3',   duration: 180, round: 3, name: '休息与问卷',        taskType: null },
+  ],
+  lang_art: [
+    { id: 'prep',    duration: 300, round: 0, name: '准备阶段',          taskType: null },
+    { id: 'flow1',   duration: 480, round: 1, name: '心流诱导·语文',    taskType: 'language' },
+    { id: 'switch1', duration: 120, round: 1, name: '切换语文→艺术',    taskType: 'art' },
+    { id: 'recover1',duration: 600, round: 1, name: '状态恢复观测',     taskType: 'language' },
+    { id: 'rest1',   duration: 180, round: 1, name: '休息与问卷',        taskType: null },
+    { id: 'flow2',   duration: 480, round: 2, name: '心流诱导·语文',    taskType: 'language' },
+    { id: 'switch2', duration: 120, round: 2, name: '切换语文→艺术',    taskType: 'art' },
+    { id: 'recover2',duration: 600, round: 2, name: '状态恢复观测',     taskType: 'language' },
+    { id: 'rest2',   duration: 180, round: 2, name: '休息与问卷',        taskType: null },
+    { id: 'flow3',   duration: 480, round: 3, name: '心流诱导·语文',    taskType: 'language' },
+    { id: 'switch3', duration: 120, round: 3, name: '切换语文→艺术',    taskType: 'art' },
+    { id: 'recover3',duration: 600, round: 3, name: '状态恢复观测',     taskType: 'language' },
+    { id: 'rest3',   duration: 180, round: 3, name: '休息与问卷',        taskType: null },
   ],
 };
+
+// ── 计时器 ──
+const timers = new Map(); // sessionId → timer
+
+function initTimer(sessionId, templateType) {
+  const phases = PHASE_TEMPLATES[templateType] || PHASE_TEMPLATES.control;
+  const timer = {
+    phases, phaseIndex: 0, timeLeft: phases[0].duration,
+    timeInPhase: 0, running: false, autoMode: true, completed: false,
+    tickTimer: null, templateType,
+  };
+  timers.set(sessionId, timer);
+  saveTimerState(sessionId);
+  return timer;
+}
+
+function getCurrentPhase(timer) {
+  return timer.phases[timer.phaseIndex] || timer.phases[0];
+}
+
+function advancePhase(sessionId, timer, room) {
+  if (timer.phaseIndex >= timer.phases.length - 1) {
+    timer.completed = true; timer.running = false;
+    clearInterval(timer.tickTimer); timer.tickTimer = null;
+    saveTimerState(sessionId); broadcastSync(sessionId, timer, room);
+    return;
+  }
+  timer.phaseIndex++;
+  const phase = getCurrentPhase(timer);
+  timer.timeLeft = phase.duration;
+  timer.timeInPhase = 0;
+  saveTimerState(sessionId);
+  broadcastSync(sessionId, timer, room);
+}
+
+function resetTimer(sessionId, timer, room) {
+  clearInterval(timer.tickTimer);
+  timer.phaseIndex = 0; timer.timeLeft = timer.phases[0].duration;
+  timer.timeInPhase = 0; timer.running = false; timer.completed = false;
+  baseline.reset(sessionId);
+  saveTimerState(sessionId);
+  broadcastSync(sessionId, timer, room);
+}
+
+function broadcastSync(sessionId, timer, room) {
+  const phase = getCurrentPhase(timer);
+  broadcast(room, {
+    type: 'phase_sync',
+    phase_index: timer.phaseIndex, phase_id: phase.id,
+    phase_name: phase.name, round: phase.round,
+    time_left: timer.timeLeft, time_in_phase: timer.timeInPhase,
+    running: timer.running, auto_mode: timer.autoMode,
+    completed: timer.completed, task_type: phase.taskType,
+  });
+}
+
+function startTick(sessionId, timer, room) {
+  if (timer.tickTimer) clearInterval(timer.tickTimer);
+  timer.tickTimer = setInterval(async () => {
+    const room = rooms.get(sessionId);
+    if (!room) { clearInterval(timer.tickTimer); return; }
+
+    if (timer.running && !timer.completed) {
+      timer.timeLeft--;
+      timer.timeInPhase++;
+      saveTimerState(sessionId);
+
+      const now = Date.now();
+      const phase = getCurrentPhase(timer);
+
+      // 1. 指标计算
+      const snapshot = metrics.tick(now, sessionId, timer.phaseIndex, phase.id);
+
+      if (snapshot) {
+        // 2. metrics_snapshot → MySQL
+        db.query(
+          `INSERT INTO metrics_snapshots
+           (session_id, ts, phase_index, phase_id, delta, theta, alpha, beta, gamma,
+            theta_alpha_ratio, spectral_entropy, cognitive_load_index,
+            sq_ch1, sq_ch2, sq_ch3, sq_ch4)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [sessionId, snapshot.ts, snapshot.phase_index, snapshot.phase_id,
+           snapshot.band_power.delta, snapshot.band_power.theta,
+           snapshot.band_power.alpha, snapshot.band_power.beta, snapshot.band_power.gamma,
+           snapshot.theta_alpha_ratio, snapshot.spectral_entropy, snapshot.cognitive_load_index,
+           snapshot.signal_quality[0], snapshot.signal_quality[1],
+           snapshot.signal_quality[2], snapshot.signal_quality[3]]
+        ).catch(() => {});
+
+        // 3. metrics 广播 (master + monitor)
+        broadcastToRoles(room, { type: 'metrics_snapshot', ...snapshot }, ['master', 'monitor']);
+
+        // 4. 基线录制 + 恢复判定
+        const markers = await baseline.tick(sessionId, phase.id, timer.timeInPhase, snapshot);
+        for (const m of markers) {
+          if (m.type === 'marker') {
+            // auto marker → MySQL + broadcast + UDP
+            db.query(
+              'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
+              [sessionId, m.code, m.source, m.label, m.phase, m.ts]
+            ).catch(() => {});
+            broadcast(room, m);
+            sendMarkerUDP(room, m);
+          } else if (m.type === 'recovery_progress' || m.type === 'recovery_event') {
+            // 恢复进度/事件 → master + monitor
+            broadcastToRoles(room, m, ['master', 'monitor']);
+          }
+        }
+      }
+
+      // 5. 阶段切换检测
+      if (timer.timeLeft <= 0) {
+        broadcast(room, {
+          type: 'marker', code: 2, source: 'auto',
+          label: 'phase_end:' + phase.id, ts: now,
+        });
+        advancePhase(sessionId, timer, room);
+        const nextPhase = getCurrentPhase(timer);
+        if (!timer.completed) {
+          broadcast(room, {
+            type: 'marker', code: 1, source: 'auto',
+            label: 'phase_start:' + nextPhase.id, ts: Date.now(),
+          });
+        }
+        if (!timer.autoMode && !timer.completed) timer.running = false;
+      }
+    }
+
+    broadcastSync(sessionId, timer, room);
+  }, 1000);
+}
+
+// ── UDP Marker 回传 ──
+function sendMarkerUDP(room, markerMsg) {
+  const target = room.udpTargets.get('master');
+  if (!target) return;
+  const [host, port] = target.split(':');
+  if (!host || !port) return;
+  try {
+    const dgram = require('dgram');
+    const sock = dgram.createSocket('udp4');
+    const buf = Buffer.alloc(4);
+    buf.writeFloatBE(markerMsg.code || 0);
+    sock.send(buf, 0, 4, parseInt(port), host, () => sock.close());
+  } catch (_) {}
+}
+
+// ── 房间工具 ──
+function findExistingSlot(room, role) {
+  if (role === 'master') return room.occupants.master;
+  if (role === 'subject') return room.occupants.subject;
+  if (role === 'console') return room.occupants.console;
+  return null;
+}
+
+function getOccupantSummary(room) {
+  return {
+    master: !!room.occupants.master,
+    monitor: room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).length,
+    subject: !!room.occupants.subject,
+    console: !!room.occupants.console,
+  };
+}
 
 // ── 消息路由 ──
 function handleMessage(ws, raw, room, sessionId) {
   let msg;
-  try { msg = JSON.parse(raw); } catch (e) { return; }
+  try { msg = JSON.parse(raw); } catch (_) { return; }
 
   switch (msg.type) {
+
     case 'hello': {
-      // 统一: hello 只注册为 pending, 不分配角色
       room.sockets.add(ws);
       ws.role = 'pending';
       ws.sessionId = sessionId;
@@ -122,42 +303,50 @@ function handleMessage(ws, raw, room, sessionId) {
     }
 
     case 'reconnect': {
-      // 断线重连: 验证 session_id + role, 恢复槽位
       const targetRole = msg.role;
       const existing = findExistingSlot(room, targetRole);
-      if (existing === ws) {
-        // 同一 socket 重连自己
+      // 允许原 socket 重连自己
+      if (existing === ws || !existing) {
         room.sockets.add(ws);
         ws.role = targetRole;
         ws.sessionId = sessionId;
-        if (msg.udpTarget) room.udpTargets.set('master', msg.udpTarget);
-        if (msg.udpTarget) ws.udpTarget = msg.udpTarget;
+        if (targetRole === 'master') {
+          ws.roleLock = 'master';
+          if (msg.udpTarget) { room.udpTargets.set('master', msg.udpTarget); ws.udpTarget = msg.udpTarget; }
+        } else if (targetRole === 'subject') ws.roleLock = 'subject';
+        else if (targetRole === 'console') ws.roleLock = 'console';
         if (ws.releaseTimer) { clearTimeout(ws.releaseTimer); ws.releaseTimer = null; }
+
+        // 恢复槽位
+        if (targetRole === 'master') room.occupants.master = ws;
+        else if (targetRole === 'subject') room.occupants.subject = ws;
+        else if (targetRole === 'console') room.occupants.console = ws;
+
         ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
         broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
-        // 恢复计时器
+        // 恢复时钟为暂停状态
         const timer = timers.get(sessionId);
         if (timer && targetRole === 'master') { timer.running = false; broadcastSync(sessionId, timer, room); }
       } else {
-        ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '槽位已被其他设备占用' }));
+        ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '槽位已被占用' }));
       }
       break;
     }
 
     case 'claim_role': {
       const targetRole = msg.role;
-      const occupations = room.occupants;
+      const occ = room.occupants;
       let canClaim = false;
-      if (targetRole === 'master' && !occupations.master) canClaim = true;
-      else if (targetRole === 'subject' && !occupations.subject) canClaim = true;
-      else if (targetRole === 'console' && !occupations.console) canClaim = true;
+      if (targetRole === 'master' && !occ.master) canClaim = true;
+      else if (targetRole === 'subject' && !occ.subject) canClaim = true;
+      else if (targetRole === 'console' && !occ.console) canClaim = true;
       else if (targetRole === 'monitor') canClaim = true;
 
       if (canClaim) {
-        if (targetRole === 'master')       { occupations.master = ws; ws.roleLock = 'master'; }
-        else if (targetRole === 'subject') { occupations.subject = ws; ws.roleLock = 'subject'; }
-        else if (targetRole === 'console') { occupations.console = ws; ws.roleLock = 'console'; }
-        else if (targetRole === 'monitor') { occupations.monitor.push(ws); ws.roleLock = 'monitor'; }
+        if (targetRole === 'master') { occ.master = ws; ws.roleLock = 'master'; }
+        else if (targetRole === 'subject') { occ.subject = ws; ws.roleLock = 'subject'; }
+        else if (targetRole === 'console') { occ.console = ws; ws.roleLock = 'console'; }
+        else { occ.monitor.push(ws); ws.roleLock = 'monitor'; }
         ws.role = targetRole;
         ws.sessionId = sessionId;
         if (msg.udpTarget) { room.udpTargets.set('master', msg.udpTarget); ws.udpTarget = msg.udpTarget; }
@@ -171,7 +360,6 @@ function handleMessage(ws, raw, room, sessionId) {
 
     case 'eeg_frame': {
       if (ws.role !== 'master') return;
-      // 转发到所有 monitor, 不转发回 master
       room.sockets.forEach(s => {
         if (s !== ws && s.role === 'monitor' && s.readyState === 1) s.send(raw);
       });
@@ -180,7 +368,6 @@ function handleMessage(ws, raw, room, sessionId) {
     }
 
     case 'cmd': {
-      // cmd 权限白名单: master + console 可发所有; monitor 可发 set_auto; subject 禁止
       const ALLOW_ALL = ['master', 'console'];
       const ALLOW_AUTO = ['monitor'];
       if (!ALLOW_ALL.includes(ws.role) && !ALLOW_AUTO.includes(ws.role)) return;
@@ -188,11 +375,12 @@ function handleMessage(ws, raw, room, sessionId) {
 
       const timer = timers.get(sessionId);
       if (!timer) return;
-      if (msg.action === 'start')       timer.running = true;
-      else if (msg.action === 'pause')  timer.running = false;
+
+      if (msg.action === 'start')          timer.running = true;
+      else if (msg.action === 'pause')     timer.running = false;
       else if (msg.action === 'next_phase') advancePhase(sessionId, timer, room);
-      else if (msg.action === 'reset')  resetTimer(sessionId, timer, room);
-      else if (msg.action === 'set_auto') timer.autoMode = !timer.autoMode;
+      else if (msg.action === 'reset')     resetTimer(sessionId, timer, room);
+      else if (msg.action === 'set_auto')  timer.autoMode = !timer.autoMode;
       broadcastSync(sessionId, timer, room);
       break;
     }
@@ -202,18 +390,19 @@ function handleMessage(ws, raw, room, sessionId) {
         'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
         [sessionId, msg.code || 0, msg.source || 'operator', msg.label || '', msg.phase || '', msg.ts || Date.now()]
       ).catch(() => {});
-      // 广播所有端
       broadcast(room, msg);
-      // UDP 回传 master → OpenBCI GUI (所有 source 都回传, 包括 master 自身)
       sendMarkerUDP(room, msg);
       break;
     }
 
     case 'self_report': {
       const code = msg.state === 'flow_enter' ? 7 : (msg.state === 'flow_exit' ? 8 : 9);
-      const label = msg.state === 'flow_enter' ? '心流进入（自评）' : (msg.state === 'flow_exit' ? '心流脱离（自评）' : '状态异常（自评）');
-      const markerMsg = { type: 'marker', code, source: 'subject', label, phase: msg.phase || '', ts: Date.now() };
-      // 走完整 marker 路径 (含 MySQL + UDP 回传)
+      const label = msg.state === 'flow_enter' ? '心流进入（自评）'
+        : msg.state === 'flow_exit' ? '心流脱离（自评）' : '状态异常（自评）';
+      const markerMsg = {
+        type: 'marker', code, source: 'subject', label,
+        phase: msg.phase || '', ts: Date.now(),
+      };
       db.query(
         'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
         [sessionId, code, 'subject', label, markerMsg.phase, markerMsg.ts]
@@ -230,7 +419,7 @@ function handleMessage(ws, raw, room, sessionId) {
         [sessionId, msg.round || 0, msg.phase || '', JSON.stringify(msg.answers || [])]
       ).then(() => {
         ws.send(JSON.stringify({ type: 'fss_submit_ack', success: true }));
-      }).catch((err) => {
+      }).catch(err => {
         ws.send(JSON.stringify({ type: 'fss_submit_ack', success: false, error: err.message }));
       });
       break;
@@ -243,111 +432,101 @@ function handleMessage(ws, raw, room, sessionId) {
       }
       break;
     }
+
+    // ── 控制台 CRUD ──
+
+    case 'list_subjects': {
+      db.query('SELECT * FROM subjects ORDER BY created_at DESC').then(rows => {
+        ws.send(JSON.stringify({ type: 'subjects_list', subjects: rows }));
+      }).catch(err => {
+        ws.send(JSON.stringify({ type: 'error', message: err.message }));
+      });
+      break;
+    }
+
+    case 'create_subject': {
+      db.query(
+        'INSERT INTO subjects (name, age, gender, notes) VALUES (?,?,?,?)',
+        [msg.name || '', msg.age || null, msg.gender || null, msg.notes || null]
+      ).then(result => {
+        ws.send(JSON.stringify({ type: 'subject_created', id: result.insertId }));
+      }).catch(err => {
+        ws.send(JSON.stringify({ type: 'error', message: err.message }));
+      });
+      break;
+    }
+
+    case 'list_templates': {
+      db.query('SELECT * FROM experiment_templates').then(rows => {
+        ws.send(JSON.stringify({ type: 'templates_list', templates: rows }));
+      }).catch(err => {
+        ws.send(JSON.stringify({ type: 'error', message: err.message }));
+      });
+      break;
+    }
+
+    case 'create_session': {
+      const sid = msg.sessionId || ('sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+      db.query(
+        'INSERT INTO sessions (id, subject_id, template_id, operator_name, status, notes) VALUES (?,?,?,?,?,?)',
+        [sid, msg.subject_id || 1, msg.template_id || 1, msg.operator_name || '', 'pending', msg.notes || null]
+      ).then(() => {
+        ws.send(JSON.stringify({ type: 'session_created', session_id: sid }));
+      }).catch(err => {
+        ws.send(JSON.stringify({ type: 'error', message: err.message }));
+      });
+      break;
+    }
+
+    case 'list_sessions': {
+      db.query(
+        'SELECT s.*, t.name AS template_name, t.group_type, t.switch_type ' +
+        'FROM sessions s LEFT JOIN experiment_templates t ON s.template_id = t.id ' +
+        'ORDER BY s.created_at DESC'
+      ).then(rows => {
+        ws.send(JSON.stringify({ type: 'sessions_list', sessions: rows }));
+      }).catch(err => {
+        ws.send(JSON.stringify({ type: 'error', message: err.message }));
+      });
+      break;
+    }
+
+    case 'get_session_detail': {
+      const sid = msg.session_id;
+      Promise.all([
+        db.query('SELECT * FROM markers WHERE session_id = ? ORDER BY ts', [sid]),
+        db.query('SELECT * FROM fss_results WHERE session_id = ? ORDER BY round', [sid]),
+        db.query('SELECT * FROM metrics_snapshots WHERE session_id = ? ORDER BY ts', [sid]),
+        db.query('SELECT * FROM baselines WHERE session_id = ?', [sid]),
+        db.query('SELECT * FROM sessions WHERE id = ?', [sid]),
+      ]).then(([markers, fss, metricsRows, baselines, sessions]) => {
+        ws.send(JSON.stringify({
+          type: 'session_detail',
+          session: sessions[0] || null,
+          markers, fss_results: fss, metrics_snapshots: metricsRows, baselines,
+        }));
+      }).catch(err => {
+        ws.send(JSON.stringify({ type: 'error', message: err.message }));
+      });
+      break;
+    }
+
+    case 'update_session_status': {
+      db.query(
+        "UPDATE sessions SET status = ? WHERE id = ?",
+        [msg.status, msg.session_id]
+      ).then(() => {
+        ws.send(JSON.stringify({ type: 'session_status_updated', session_id: msg.session_id, status: msg.status }));
+      }).catch(err => {
+        ws.send(JSON.stringify({ type: 'error', message: err.message }));
+      });
+      break;
+    }
   }
 }
 
-function sendMarkerUDP(room, markerMsg) {
-  // 向 master 的 udpTarget 发送 UDP marker 数据包
-  const target = room.udpTargets.get('master');
-  if (!target) return;
-  const [host, port] = target.split(':');
-  if (!host || !port) return;
-  try {
-    const dgram = require('dgram');
-    const sock = dgram.createSocket('udp4');
-    const buf = Buffer.alloc(4);
-    buf.writeFloatBE(markerMsg.code || 0);
-    sock.send(buf, 0, 4, parseInt(port), host, () => sock.close());
-  } catch (e) { /* UDP 丢包可接受 */ }
-}
-
-function findExistingSlot(room, role) {
-  if (role === 'master') return room.occupants.master;
-  if (role === 'subject') return room.occupants.subject;
-  if (role === 'console') return room.occupants.console;
-  return null;
-}
-
-function getOccupantSummary(room) {
-  return {
-    master: room.occupants.master ? true : false,
-    monitor: room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).length,
-    subject: room.occupants.subject ? true : false,
-    console: room.occupants.console ? true : false,
-  };
-}
-
-// ── 计时器 ── (同原有逻辑, 略精简)
-function initTimer(sessionId, templateType) {
-  const phases = PHASE_TEMPLATES[templateType] || PHASE_TEMPLATES.control;
-  const timer = { phases, phaseIndex: 0, timeLeft: phases[0].duration, timeInPhase: 0, running: false, autoMode: true, completed: false, tickTimer: null };
-  timers.set(sessionId, timer);
-  saveTimerState(sessionId);
-  return timer;
-}
-
-function getCurrentPhase(timer) { return timer.phases[timer.phaseIndex] || timer.phases[0]; }
-
-function advancePhase(sessionId, timer, room) {
-  if (timer.phaseIndex >= timer.phases.length - 1) { timer.completed = true; timer.running = false; clearInterval(timer.tickTimer); timer.tickTimer = null; saveTimerState(sessionId); broadcastSync(sessionId, timer, room); return; }
-  timer.phaseIndex++;
-  const phase = getCurrentPhase(timer);
-  timer.timeLeft = phase.duration;
-  timer.timeInPhase = 0;
-  saveTimerState(sessionId);
-  broadcastSync(sessionId, timer, room);
-}
-
-function resetTimer(sessionId, timer, room) {
-  clearInterval(timer.tickTimer);
-  timer.phaseIndex = 0; timer.timeLeft = timer.phases[0].duration; timer.timeInPhase = 0;
-  timer.running = false; timer.completed = false;
-  saveTimerState(sessionId);
-  broadcastSync(sessionId, timer, room);
-}
-
-function broadcastSync(sessionId, timer, room) {
-  const phase = getCurrentPhase(timer);
-  broadcast(room, { type: 'phase_sync', phase_index: timer.phaseIndex, phase_id: phase.id, phase_name: phase.name, round: phase.round, time_left: timer.timeLeft, time_in_phase: timer.timeInPhase, running: timer.running, auto_mode: timer.autoMode, completed: timer.completed, task_type: phase.taskType });
-}
-
-function startTick(sessionId, timer, room) {
-  if (timer.tickTimer) clearInterval(timer.tickTimer);
-  timer.tickTimer = setInterval(() => {
-    const room = rooms.get(sessionId);
-    if (!room) { clearInterval(timer.tickTimer); return; }
-    if (timer.running && !timer.completed) {
-      timer.timeLeft--; timer.timeInPhase++;
-      // 每秒持久化计时器状态
-      saveTimerState(sessionId);
-      const now = Date.now();
-      const phase = getCurrentPhase(timer);
-      const snapshot = metrics.tick(now, sessionId, timer.phaseIndex, phase.id);
-      if (snapshot) {
-        db.query('INSERT INTO metrics_snapshots (session_id, ts, phase_index, phase_id, delta, theta, alpha, beta, gamma, theta_alpha_ratio, spectral_entropy, cognitive_load_index, sq_ch1, sq_ch2, sq_ch3, sq_ch4) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-          [sessionId, snapshot.ts, snapshot.phase_index, snapshot.phase_id,
-           snapshot.band_power.delta, snapshot.band_power.theta, snapshot.band_power.alpha,
-           snapshot.band_power.beta, snapshot.band_power.gamma,
-           snapshot.theta_alpha_ratio, snapshot.spectral_entropy, snapshot.cognitive_load_index,
-           snapshot.signal_quality[0], snapshot.signal_quality[1], snapshot.signal_quality[2], snapshot.signal_quality[3]]
-        ).catch(() => {});
-        // metrics 只广播给 master + monitor
-        broadcastToRoles(room, { type: 'metrics_snapshot', ...snapshot }, ['master', 'monitor']);
-      }
-      if (timer.timeLeft <= 0) {
-        broadcast(room, { type: 'marker', code: 2, source: 'auto', label: 'phase_end:' + phase.id, ts: now });
-        advancePhase(sessionId, timer, room);
-        const nextPhase = getCurrentPhase(timer);
-        if (!timer.completed) broadcast(room, { type: 'marker', code: 1, source: 'auto', label: 'phase_start:' + nextPhase.id, ts: Date.now() });
-        if (!timer.autoMode && !timer.completed) timer.running = false;
-      }
-    }
-    broadcastSync(sessionId, timer, room);
-  }, 1000);
-}
-
-// ── WebSocket 服务 ──
-const wss = new WebSocketServer({ port: config.WS_PORT });
+// ── WS 服务 ──
+const wss = new WebSocketServer({ port: config.WS_PORT, maxPayload: 1024 * 1024 });
 
 wss.on('connection', (ws, req) => {
   ws.role = 'pending';
@@ -357,15 +536,39 @@ wss.on('connection', (ws, req) => {
 
   ws.on('message', (raw) => {
     let msg;
-    try { msg = JSON.parse(raw); } catch (e) { return; }
+    try { msg = JSON.parse(raw); } catch (_) { return; }
 
     const sessionId = msg.session_id || ws.sessionId || 'default';
     const room = getRoom(sessionId);
 
+    // 首次连接或重连 → 确保计时器已存在 (尝试从 DB 恢复)
     if (msg.type === 'hello' || msg.type === 'reconnect') {
       if (!timers.has(sessionId)) {
-        initTimer(sessionId, msg.template_type || 'control');
-        startTick(sessionId, timers.get(sessionId), room);
+        // 尝试从 timer_state 恢复
+        db.query('SELECT * FROM timer_state WHERE session_id = ?', [sessionId])
+          .then(rows => {
+            if (rows.length > 0 && !timers.has(sessionId)) {
+              const row = rows[0];
+              const phases = PHASE_TEMPLATES[row.template_type] || PHASE_TEMPLATES.control;
+              const timer = {
+                phases, phaseIndex: row.phase_index, timeLeft: row.time_left,
+                timeInPhase: row.time_in_phase, running: false,
+                autoMode: row.auto_mode === 1, completed: false,
+                tickTimer: null, templateType: row.template_type,
+              };
+              timers.set(sessionId, timer);
+              startTick(sessionId, timer, room);
+            } else if (!timers.has(sessionId)) {
+              initTimer(sessionId, msg.template_type || 'control');
+              startTick(sessionId, timers.get(sessionId), room);
+            }
+          })
+          .catch(() => {
+            if (!timers.has(sessionId)) {
+              initTimer(sessionId, msg.template_type || 'control');
+              startTick(sessionId, timers.get(sessionId), room);
+            }
+          });
       }
       handleMessage(ws, raw, room, sessionId);
     } else {
@@ -381,7 +584,7 @@ wss.on('connection', (ws, req) => {
 
     if (room) {
       room.sockets.delete(ws);
-      // 有限角色位: 延迟 30 秒释放, 给重连机会
+
       if (roleLock === 'master' || roleLock === 'subject' || roleLock === 'console') {
         if (ws.releaseTimer) clearTimeout(ws.releaseTimer);
         ws.releaseTimer = setTimeout(() => {
@@ -398,6 +601,8 @@ wss.on('connection', (ws, req) => {
       broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
     }
   });
+
+  ws.on('error', () => {});
 });
 
 console.log(`[WS] EEG Cloud 中继启动 :${config.WS_PORT}`);

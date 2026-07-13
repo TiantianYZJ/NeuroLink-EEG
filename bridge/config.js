@@ -16,4 +16,7 @@ module.exports = {
 
   // OpenBCI GUI Marker 端口（ECS 回传标记写入目标）
   GUI_MARKER_PORT: parseInt(process.env.GUI_MARKER_PORT || '12345', 10),
+
+  // 固定 session_id（不设置则自动生成）
+  SESSION_ID: process.env.SESSION_ID || '',
 };
