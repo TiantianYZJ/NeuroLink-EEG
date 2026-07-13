@@ -1093,7 +1093,7 @@ function openFSS(round) {
       [1,2,3,4,5,6,7].map(v => '<button onclick="selectFSS(' + i + ',' + v + ')" class="' + (0 === v ? 'selected' : '') + '">' + v + '</button>').join('') +
       '</div>' + labels + '</div>';
   }).join('');
-  showEl('fssOverlay', true);
+  document.getElementById('fssOverlay')?.classList.add('active');
 }
 
 function selectFSS(qIdx, val) {
