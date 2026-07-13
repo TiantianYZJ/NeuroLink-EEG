@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>NEUROLINK · 受试者端</title>
+<style>*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{text-align:center;max-width:440px;padding:48px 32px;background:#16181a;border-radius:20px;border:1px solid rgba(255,255,255,0.08)}
+.card h2{font-size:20px;font-weight:600;margin-bottom:8px}
+.card p{font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:24px;line-height:1.6}
+.loader{width:32px;height:32px;border:2px solid rgba(255,255,255,0.1);border-top-color:#494fdf;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.badge{padding:4px 12px;border-radius:9999px;font-size:12px;background:rgba(73,79,223,0.2);color:#494fdf;display:inline-block}
+</style></head>
+<body>
+<div class="card">
+  <div class="loader"></div>
+  <h2>受试者端</h2>
+  <p>等待实验开始…<br>任务提示与自评按钮将在此显示<br>请在实验员指导下操作</p>
+  <span class="badge">进入心流 · 脱离心流</span>
+</div>
+<script>
+(async function(){
+  const params = new URLSearchParams(location.search);
+  const sessionId = params.get('session') || sessionStorage.getItem('sessionId');
+  if (!sessionId) { document.querySelector('p').textContent = '缺少 session 信息，请从首页进入'; return; }
+  // TODO: 连接 WebSocket, 监听 phase_sync, 显示任务/自评/问卷
+})();
+</script>
+</body>
+</html>

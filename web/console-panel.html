@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>NEUROLINK · 实验控制台</title>
+<style>*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-height:100vh;padding:32px}
+.nav{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+.nav h1{font-size:20px;font-weight:600}
+.container{max-width:960px;margin:0 auto}
+.loader{width:32px;height:32px;border:2px solid rgba(255,255,255,0.1);border-top-color:#494fdf;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style></head>
+<body>
+<div class="container">
+  <div class="nav"><h1>⧩ NEUROLINK · 实验控制台</h1></div>
+  <div style="text-align:center;padding:80px 0">
+    <div class="loader"></div>
+    <p style="color:rgba(255,255,255,0.5);font-size:14px">加载中...</p>
+  </div>
+</div>
+<script>
+(async function(){
+  const params = new URLSearchParams(location.search);
+  const sessionId = params.get('session') || sessionStorage.getItem('sessionId');
+  // TODO: 受试者 CRUD + 模板选择 + 场次历史
+})();
+</script>
+</body>
+</html>

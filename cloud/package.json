@@ -1,0 +1,14 @@
+{
+  "name": "eeg-cloud",
+  "version": "1.0.0",
+  "description": "EEG 实验平台 ECS 云端（消息中继 + 计算 + 存储）",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "pm2": "pm2 start ecosystem.config.js"
+  },
+  "dependencies": {
+    "ws": "^8.0.0",
+    "mysql": "^2.18.1"
+  }
+}

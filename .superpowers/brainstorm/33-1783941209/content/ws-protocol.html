@@ -1,0 +1,97 @@
+<div class="section">
+  <h2>WebSocket 消息协议</h2>
+  <p class="subtitle">所有消息 UTF-8 JSON，通过 ECS 中转</p>
+</div>
+
+<div class="section">
+  <h3>① 主控机 → ECS（实时 EEG）</h3>
+  <pre style="background:#0d0d0d; padding:12px; border-radius:6px; font-size:13px; line-height:1.5; border:1px solid #2a2a2f">
+{ "type": "eeg_frame",
+  "channels": [123.4, 56.7, 89.0, 12.3],  // 4 floats
+  "seq": 15234,                            // 包序号
+  "ts": 1706000101123 }                     // 本地时间戳 µs
+  </pre>
+  <p>200 包/秒，每包 4 个 float。ECS 收到后即转发给所有已连接的监视端。</p>
+</div>
+
+<div class="section">
+  <h3>② 任意端 → ECS（标记事件）</h3>
+  <pre style="background:#0d0d0d; padding:12px; border-radius:6px; font-size:13px; line-height:1.5; border:1px solid #2a2a2f">
+{ "type": "marker",
+  "source": "operator",  // operator | subject | auto
+  "code": 1,             // 1-8 对应 UDP Marker 数值
+  "label": "被试报告心流进入",
+  "phase": "flow1",
+  "ts": 1706000101123 }
+  </pre>
+  <p>ECS 收到后：广播所有端 + 以 UDP 回传主控机 → OpenBCI GUI Marker 端口写入 CSV。</p>
+</div>
+
+<div class="section">
+  <h3>③ 任意端 → ECS（控制指令）</h3>
+  <pre style="background:#0d0d0d; padding:12px; border-radius:6px; font-size:13px; line-height:1.5; border:1px solid #2a2a2f">
+{ "type": "cmd",
+  "action": "next_phase"   // start | pause | next_phase | reset
+                          // | set_auto | set_task_type
+}
+  </pre>
+  <p>ECS 收到后广播给所有端，计时器在 ECS 端运行以保证所有设备同步。</p>
+</div>
+
+<div class="section">
+  <h3>④ 受试者端 → ECS（自评）</h3>
+  <pre style="background:#0d0d0d; padding:12px; border-radius:6px; font-size:13px; line-height:1.5; border:1px solid #2a2a2f">
+{ "type": "self_report",
+  "state": "flow_enter"   // flow_enter | flow_exit | distracted
+}
+  </pre>
+</div>
+
+<div class="section">
+  <h3>⑤ ECS → 所有端（状态同步广播）</h3>
+  <pre style="background:#0d0d0d; padding:12px; border-radius:6px; font-size:13px; line-height:1.5; border:1px solid #2a2a2f">
+{ "type": "phase_sync",
+  "phase_index": 2,
+  "phase_id": "flow1",
+  "phase_name": "心流诱导阶段",
+  "round": 1,
+  "time_left": 287,
+  "running": true,
+  "auto_mode": true,
+  "task_type": "math" }   // math | language | art | null
+  </pre>
+  <p>计时器状态由 ECS 统一维护，每秒广播一次。确保所有端看到同一时间。</p>
+</div>
+
+<div class="section">
+  <h3>⑥ ECS → 监视端（转发 EEG）</h3>
+  <pre style="background:#0d0d0d; padding:12px; border-radius:6px; font-size:13px; line-height:1.5; border:1px solid #2a2a2f">
+{ "type": "eeg_frame",
+  "channels": [...],
+  "seq": 15234,
+  "ts": 1706000101123 }
+  </pre>
+  <p>主控机→ECS 的 eeg_frame 会原样广播给所有已连接的监视端，供纯监视端渲染波形。</p>
+</div>
+
+<div class="section" style="margin-top:24px; padding:16px; background:#1a1a1a; border-radius:8px; border:1px solid #2a2a2f">
+  <h3>总体数据流</h3>
+  <pre style="background:#0d0d0d; padding:12px; border-radius:6px; font-size:13px; line-height:1.8; border:1px solid #2a2a2f; white-space:pre; font-family:monospace">
+ 主控机                        ECS                        纯监视端 1-N
+┌──────────┐   eeg_frame     ┌──────────┐  eeg_frame     ┌──────────┐
+│ 本地渲染  │ ──────────────→ │ 广播转发  │ ──────────────→ │ 渲染波形  │
+│ 接OpenBCI │                │ 状态仲裁  │                │ 显示阶段  │
+│ 录CSV+标记│ ←───标记UDP── │ 计时器   │                │ 可发指令  │
+└──────────┘                └──────────┘                └──────────┘
+                                │  │
+          phase_sync/marker     │  │  self_report/问卷
+                                ▼  ▼
+                          ┌──────────────┐
+                          │ 受试者端      │
+                          │ 看任务提示    │
+                          │ 自评标记      │
+                          │ 填 FSS 问卷  │
+                          └──────────────┘
+  </pre>
+  <p style="margin-top:12px; color:#8a8a8f">关键：ECS 端运行计时器做主时钟，所有端以 phase_sync 为准。</p>
+</div>
