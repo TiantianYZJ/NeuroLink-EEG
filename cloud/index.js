@@ -43,6 +43,23 @@ const rooms = new Map(); // sessionId → room
 // 角色槽位锁: sessionId → { role: lockExpireAt }
 const roleLocks = new Map();
 
+// Room code mapping: 4-digit code -> sessionId
+const roomCodes = new Map();
+const CODE_EXPIRE = 86400000;
+
+function generateRoomCode() {
+  let code;
+  do { code = String(Math.floor(1000 + Math.random() * 9000)); } while (roomCodes.has(code));
+  return code;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, entry] of roomCodes) {
+    if (now - entry.createdAt > CODE_EXPIRE || !rooms.has(entry.sessionId)) roomCodes.delete(code);
+  }
+}, 600000).unref();
+
 function getRoom(sessionId) {
   if (!rooms.has(sessionId)) {
     rooms.set(sessionId, {
@@ -399,6 +416,11 @@ function handleMessage(ws, raw, room, sessionId) {
       else if (targetRole === 'monitor') canClaim = true;
 
       if (canClaim) {
+        // Reject if this socket already has a role
+        if (ws.role !== 'pending') {
+          ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '该设备已注册角色' }));
+          break;
+        }
         if (targetRole === 'master') { occ.master = ws; ws.roleLock = 'master'; }
         else if (targetRole === 'subject') { occ.subject = ws; ws.roleLock = 'subject'; }
         else if (targetRole === 'console') { occ.console = ws; ws.roleLock = 'console'; }
@@ -512,6 +534,27 @@ function handleMessage(ws, raw, room, sessionId) {
     case 'set_udp_target': {
       if (ws.role === 'master') {
         room.udpTargets.set('master', msg.target);
+      }
+      break;
+    }
+
+    // ── 房间码管理 ──
+
+    case 'create_room': {
+      const code = generateRoomCode();
+      const sid = 'room-' + code + '-' + Date.now().toString(36);
+      roomCodes.set(code, { sessionId: sid, createdAt: Date.now() });
+      getRoom(sid); // pre-create room
+      ws.send(JSON.stringify({ type: 'room_created', code, session_id: sid, url: '/?room=' + code }));
+      break;
+    }
+
+    case 'join_room': {
+      const entry = roomCodes.get(msg.code);
+      if (entry && rooms.has(entry.sessionId)) {
+        ws.send(JSON.stringify({ type: 'room_joined', session_id: entry.sessionId, code: msg.code }));
+      } else {
+        ws.send(JSON.stringify({ type: 'error', message: '房间号无效或已过期' }));
       }
       break;
     }
