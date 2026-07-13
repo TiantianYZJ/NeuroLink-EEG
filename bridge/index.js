@@ -77,6 +77,7 @@ localWss.on('connection', (ws) => {
     deviceType: config.DEVICE_TYPE,
     channels: chCount,
     sampleRate: sampleRate || (isGanglion ? 200 : 250),
+    session_id: ecsSessionId,
   }));
   ws.on('close', () => {});
 });
