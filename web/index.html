@@ -1036,19 +1036,45 @@ function downloadScript() {
 function generateBat() {
   return '@echo off\r\n' +
     'title EEG Bridge - NEUROLINK\r\n' +
+    'setlocal enabledelayedexpansion\r\n' +
     'echo ========================================\r\n' +
     'echo   NEUROLINK OpenBCI Bridge - 一键启动\r\n' +
     'echo ========================================\r\n' +
     'echo.\r\n' +
+    '\r\n' +
+    'REM --- 定位脚本所在目录 ---\r\n' +
+    'cd /d "%~dp0"\r\n' +
+    '\r\n' +
+    'REM --- 查找 index.js (兼容放在 bridge/ 子目录或直接在当前目录) ---\r\n' +
+    'set BRIDGE_DIR=%CD%\r\n' +
+    'if not exist "%BRIDGE_DIR%\\index.js" (\r\n' +
+    '  if exist "%BRIDGE_DIR%\\bridge\\index.js" (\r\n' +
+    '    set BRIDGE_DIR=%BRIDGE_DIR%\\bridge\r\n' +
+    '    cd /d "!BRIDGE_DIR!"\r\n' +
+    '  ) else (\r\n' +
+    '    echo [错误] 未找到 bridge/index.js\r\n' +
+    '    echo.\r\n' +
+    '    echo 请将此脚本放在项目 bridge/ 目录下运行:\r\n' +
+    '    echo   项目根目录/bridge/start-bridge.bat\r\n' +
+    '    echo.\r\n' +
+    '    pause\r\n' +
+    '    exit /b 1\r\n' +
+    '  )\r\n' +
+    ')\r\n' +
+    'echo [OK] 脚本目录: %BRIDGE_DIR%\r\n' +
+    'echo.\r\n' +
+    '\r\n' +
     'REM --- 检测 Node.js ---\r\n' +
     'where node >nul 2>nul\r\n' +
     'if %ERRORLEVEL% neq 0 (\r\n' +
-    '  echo [错误] 未检测到 Node.js，请先安装 https://nodejs.org/\r\n' +
+    '  echo [错误] 未检测到 Node.js\r\n' +
+    '  echo 请先安装: https://nodejs.org/\r\n' +
     '  pause\r\n' +
     '  exit /b 1\r\n' +
     ')\r\n' +
     'echo [OK] Node.js 已安装\r\n' +
     'echo.\r\n' +
+    '\r\n' +
     'REM --- 安装依赖 ---\r\n' +
     'if not exist "node_modules" (\r\n' +
     '  echo [..] 正在安装依赖 (首次运行)...\r\n' +
@@ -1061,14 +1087,22 @@ function generateBat() {
     '  echo [OK] 依赖安装完成\r\n' +
     ')\r\n' +
     'echo.\r\n' +
-    'echo [..] 启动桥接...\r\n' +
-    'echo  UDP 监听 : 12345\r\n' +
-    'echo  本地 WS  : 9080\r\n' +
-    'echo  ECS 上行 : eeg.yzjtiantian.cn\r\n' +
+    '\r\n' +
+    'REM --- 启动桥接 ---\r\n' +
+    'echo [..] 启动 OpenBCI 桥接...\r\n' +
+    'echo  UDP 数据监听 : 12345\r\n' +
+    'echo  本地面板 WS  : 9080\r\n' +
+    'echo  ECS 上行地址 : eeg.yzjtiantian.cn\r\n' +
     'echo.\r\n' +
+    'echo 按 Ctrl+C 停止桥接\r\n' +
+    'echo ----------------------------------------\r\n' +
     'node index.js\r\n' +
     'if %ERRORLEVEL% neq 0 (\r\n' +
-    '  echo [错误] 桥接异常退出，请检查 OpenBCI 是否已连接\r\n' +
+    '  echo.\r\n' +
+    '  echo [错误] 桥接异常退出，请检查:\r\n' +
+    '  echo   1. OpenBCI GUI 是否正在运行\r\n' +
+    '  echo   2. 是否已设置 UDP 输出端口 12345\r\n' +
+    '  echo   3. ECS 云端 eeg.yzjtiantian.cn 是否可达\r\n' +
     '  pause\r\n' +
     ')\r\n';
 }
@@ -1077,18 +1111,41 @@ function generateSh() {
   return '#!/bin/bash\n' +
     '# NEUROLINK OpenBCI Bridge - 一键启动\n' +
     '# 适用于 macOS / Linux\n' +
-    'set -e\n' +
+    '\n' +
     'echo "========================================="\n' +
     'echo "  NEUROLINK OpenBCI Bridge - 一键启动"\n' +
     'echo "========================================="\n' +
     'echo ""\n' +
+    '\n' +
+    '# --- 定位脚本所在目录 ---\n' +
+    'SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\n' +
+    'cd "$SCRIPT_DIR"\n' +
+    '\n' +
+    '# --- 查找 index.js ---\n' +
+    'if [ ! -f "index.js" ]; then\n' +
+    '  if [ -f "bridge/index.js" ]; then\n' +
+    '    cd bridge\n' +
+    '  else\n' +
+    '    echo "[错误] 未找到 bridge/index.js"\n' +
+    '    echo ""\n' +
+    '    echo "请将此脚本放在项目 bridge/ 目录下运行:"\n' +
+    '    echo "  项目根目录/bridge/start-bridge.sh"\n' +
+    '    echo ""\n' +
+    '    exit 1\n' +
+    '  fi\n' +
+    'fi\n' +
+    'echo "[OK] 脚本目录: $(pwd)"\n' +
+    'echo ""\n' +
+    '\n' +
     '# --- 检测 Node.js ---\n' +
     'if ! command -v node &> /dev/null; then\n' +
-    '  echo "[错误] 未检测到 Node.js，请先安装 https://nodejs.org/"\n' +
+    '  echo "[错误] 未检测到 Node.js"\n' +
+    '  echo "请先安装: https://nodejs.org/"\n' +
     '  exit 1\n' +
     'fi\n' +
     'echo "[OK] Node.js 已安装"\n' +
     'echo ""\n' +
+    '\n' +
     '# --- 安装依赖 ---\n' +
     'if [ ! -d "node_modules" ]; then\n' +
     '  echo "[..] 正在安装依赖 (首次运行)..."\n' +
@@ -1096,13 +1153,18 @@ function generateSh() {
     '  echo "[OK] 依赖安装完成"\n' +
     'fi\n' +
     'echo ""\n' +
-    'echo "[..] 启动桥接..."\n' +
-    'echo " UDP 监听 : 12345"\n' +
-    'echo " 本地 WS  : 9080"\n' +
-    'echo " ECS 上行 : eeg.yzjtiantian.cn"\n' +
+    '\n' +
+    '# --- 启动桥接 ---\n' +
+    'echo "[..] 启动 OpenBCI 桥接..."\n' +
+    'echo " UDP 数据监听 : 12345"\n' +
+    'echo " 本地面板 WS  : 9080"\n' +
+    'echo " ECS 上行地址 : eeg.yzjtiantian.cn"\n' +
     'echo ""\n' +
+    'echo "按 Ctrl+C 停止桥接"\n' +
+    'echo "----------------------------------------"\n' +
     'node index.js\n' +
-    'echo "[错误] 桥接异常退出"\n';
+    'echo ""\n' +
+    'echo "[错误] 桥接异常退出，请检查 OpenBCI 连接"\n';
 }
 
 function onClaimed(role) {
