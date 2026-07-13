@@ -189,11 +189,11 @@ public/
 │  │  CH1 ● CH2 ● CH3 ●  │  │  │  ───────────────────  │ │
 │  └───────────────────────┘  │  │  θ/α  0.57 ?         │ │
 │                           │  │  熵   0.82 ?          │ │
-│  ┌─ 信号稳定性 ─────────┐  │  │  负载 0.35 ?          │ │
-│  │  CH1 ████████ 正常   │  │  └─────────────────────────┘ │
-│  │  CH2 ██████  正常    │  │                               │
-│  │  CH3 ███     微弱    │  │  ┌─ 实验流程 ──────────────┐ │
-│  │  CH4 ████████ 活跃   │  │  │  ● R1 心流诱导 (当前)   │ │
+│  ┌─ 脑区热力图 ─────────┐  │  │  负载 0.35 ?          │ │
+│  │  [Canvas 头部地形图] │  │  └─────────────────────────┘ │
+│  │  α 频带  频带切换    │  │                               │
+│  │  Fp1 ████  Fp2 ███  │  │  ┌─ 实验流程 ──────────────┐ │
+│  │  C3  ██    C4  ██   │  │  │  ● R1 心流诱导 (当前)   │ │
 │  └───────────────────────┘  │  │  ○ R1 任务切换         │ │
 │                           │  │  ○ R1 恢复观测           │ │
 │                           │  │  ○ R1 休息+问卷          │ │
@@ -220,6 +220,7 @@ public/
 | θ/α 比值 | 大数字 + 三色状态 | metrics_snapshot | 1s |
 | 谱熵 | 数字 + `?` tooltip | metrics_snapshot | 1s |
 | 认知负载指数 | 数字 + `?` tooltip | metrics_snapshot | 1s |
+| 脑区热力图 | Canvas 彩图 / 频带选择 | metrics_snapshot.band_power_per_ch | 1s |
 | 信号稳定性 CH1-4 | 色条 + 标签 | eeg_frame 滑动窗 | 0.5s |
 | 大倒计时 | Aeonik Pro 大字 | phase_sync | 1s |
 | 进度条 | 14 段色条 | phase_sync | 阶段变更 |
@@ -321,6 +322,10 @@ public/
 **三个核心动作：** 创建实验（选人+模板）→ 开始实验（跳转监视面板）→ 实验后查看场次总结。
 
 所有消息为 UTF-8 JSON，通过 ECS 中转。
+
+### 3.10 前端地形图渲染数据供给
+
+主控机和纯监视端收到 `metrics_snapshot` 后，从 `band_power_per_ch` 字段提取每通道 5 频带功率，经过 RBF 空间插值渲染为头部地形图。具体插值算法频带选择见 §13。
 
 ### 3.1 连接握手（统一格式）
 
@@ -442,6 +447,12 @@ public/
   "phase": "flow1",
   "phase_index": 2,
   "band_power": { "delta": 12.3, "theta": 8.9, "alpha": 15.6, "beta": 22.1, "gamma": 5.4 },
+  "band_power_per_ch": [
+    { "delta": 12.3, "theta": 8.9, "alpha": 15.6, "beta": 22.1, "gamma": 5.4 },   // CH1
+    { "delta": 11.1, "theta": 7.5, "alpha": 14.2, "beta": 20.3, "gamma": 4.8 },   // CH2
+    { "delta": 9.8, "theta": 6.2, "alpha": 13.1, "beta": 18.7, "gamma": 4.2 },    // CH3
+    { "delta": 10.5, "theta": 7.0, "alpha": 12.8, "beta": 19.5, "gamma": 4.5 }    // CH4
+  ],
   "theta_alpha_ratio": 0.57,
   "spectral_entropy": 0.82,
   "cognitive_load_index": 0.35,
@@ -617,6 +628,26 @@ CLI↓ → 放松/沉浸状态
 ```
 
 > 注：该指标反映信号波动程度，**并非真实电极阻抗**。本设计未包含通过注入电流实现的硬件级阻抗检测。
+
+### 4.6 每通道频带功率 — 地形图数据源
+
+**位置**：metrics_snapshot.band_power_per_ch[4]
+**面板用途**：脑区热力图（§13）的输入数据，前端选取一个频带（如 alpha）进行 RBF 空间插值
+
+**计算方式**：对 CH1–CH4 每个通道独立运行 Goertzel 算法
+
+```json
+// metrics.js 对每通道运行 Goertzel(δ/θ/α/β/γ) × 4ch
+// 每秒产出:
+"band_power_per_ch": [
+  { "delta": 12.3, "theta": 8.9, "alpha": 15.6, "beta": 22.1, "gamma": 5.4 },
+  { "delta": 11.1, "theta": 7.5, "alpha": 14.2, "beta": 20.3, "gamma": 4.8 },
+  { "delta": 9.8,  "theta": 6.2, "alpha": 13.1, "beta": 18.7, "gamma": 4.2 },
+  { "delta": 10.5, "theta": 7.0, "alpha": 12.8, "beta": 19.5, "gamma": 4.5 }
+]
+```
+
+频带边界同 §4.1：δ(0.5-4) θ(4-8) α(8-13) β(13-32) γ(32-100) Hz。
 
 ---
 
@@ -987,19 +1018,20 @@ module.exports = {
 输入:  eeg_frame (200 包/秒，持续流入)
 处理:  滑动窗口缓冲区 (256 采样点 ~1.28秒)
       每秒计算一次:
-        - Goertzel(δ/θ/α/β/γ) → band_power
+        - Goertzel(δ/θ/α/β/γ) → band_power (CH1)
+        - Goertzel(δ/θ/α/β/γ) → band_power_per_ch[4] (全部 4 通道)
         - θ/α 比值
         - 谱熵 H = -Σ(pi·log₂(pi))
         - 认知负载指数 CLI = Pγ / Pα
-        - 标准差 σ 每通道
+        - 标准差 σ 每通道 (N=32)
 输出:  metrics_snapshot → MySQL (每秒写入)
-      metrics_snapshot → 广播给所有端
+      metrics_snapshot → 广播给 master + monitor
 ```
 
 职责：
-- 维护 eeg_frame 的环形缓冲区
-- 每秒对齐时间窗口执行 FFT/Goertzel 计算
-- 产出 5 频带功率 + 3 个复合指标 + 4 通道信号质量
+- 按 sessionId 隔离的环形缓冲区 (Map<sessionId, {buffer, lastCompute}>)
+- 每秒对齐时间窗口执行 Goertzel 计算 (5 频带 × 4 通道 = 20 次调用/秒)
+- 产出 5 频带功率 + 每通道频带功率 + 3 个复合指标 + 4 通道信号质量
 - 写入 MySQL + 广播面板
 
 ### 10.5 基线录制与恢复判定 (cloud/baseline.js)
@@ -1279,6 +1311,127 @@ metrics_snapshot 写入: 1 行/秒 (轻量 INSERT)
 
 ---
 
+## 13. 脑区热力图（实时地形图）
+
+主控机和纯监视端面板的脑区热力图，将 4 通道稀疏电极的频带功率通过空间插值渲染为全头皮彩色地形图，直观展示脑电活动的空间分布。
+
+### 13.1 电极定位（10-20 国际标准）
+
+Ganglion 默认 4 通道映射为 10-20 坐标：
+
+| 通道 | 位置 | 坐标 (2D) | 解剖区 |
+|------|------|-----------|--------|
+| CH1 | Fp1 | (-0.30, 0.70) | 左前额 |
+| CH2 | Fp2 | (0.30, 0.70) | 右前额 |
+| CH3 | C3 | (-0.60, 0.05) | 左中央沟 |
+| CH4 | C4 | (0.60, 0.05) | 右中央沟 |
+
+坐标归一化为圆形区域 (r=1)，水平方向 x ∈ [-1, 1]，垂直方向 y ∈ [-1, 1]（鼻尖在 y+，枕叶在 y-）。
+
+**未来扩展**：若升级为 Cyton 8 通道，增加 F7/F8/P3/P4 或 AF3/AF4/Cz/Pz 等坐标。
+
+### 13.2 RBF 空间插值（纯前端 JS 实现）
+
+已知 4 个电极点的频带功率值，推算头皮圆内任意点的插值颜色。
+
+**算法：** 多二次径向基函数 (Multiquadric RBF)
+
+```
+φ(r) = √(r² + c²)     // multiquadric 核函数, c=1.0
+
+求解系数 w:
+  Φ · w = f
+  Φij = φ(|pi - pj|)   // 4×4 矩阵, 电极点间距离
+  f = [f1, f2, f3, f4] // 4 个电极的频带功率值
+
+对网格点 q:
+  f(q) = Σ wi · φ(|q - pi|)
+```
+
+**实现要点：**
+
+```javascript
+// 纯 JS 实现, 无外部依赖
+function rbfInterpolate(points, values, gridX, gridY) {
+  const N = points.length;
+  const phi = (r) => Math.sqrt(r * r + 1);
+
+  // 构造矩阵 Φ
+  const A = Array.from({length: N}, (_, i) =>
+    Array.from({length: N}, (_, j) =>
+      phi(Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y))
+    )
+  );
+
+  // 高斯消元解 w (4×4, 直接求解)
+  const w = solveLinear(A, values);
+
+  // 插值网格
+  return gridY.map(y =>
+    gridX.map(x => {
+      let s = 0;
+      for (let i = 0; i < N; i++)
+        s += w[i] * phi(Math.hypot(x - points[i].x, y - points[i].y));
+      return s;
+    })
+  );
+}
+```
+
+### 13.3 Canvas 渲染管线
+
+**步骤：**
+
+```
+metrics_snapshot.band_power_per_ch（每秒）
+  ↓ 选取当前频带 (默认 α, 用户可切换 δ/θ/α/β/γ)
+  ↓ RBF 插值 → 30×30 网格矩阵
+  ↓ 剪裁圆形头区域（非头皮区透明）
+  ↓ jet 色表映射: 蓝(低) → 青 → 绿 → 黄 → 红(高)
+  ↓ Canvas putImageData 绘制 (90×90px)
+```
+
+**渲染性能：**
+
+| 环节 | 耗时 | 说明 |
+|------|------|------|
+| RBF 插值 (4点→900网格) | ~0.5ms | 4×4 矩阵求解 O(12) |
+| 色表映射 | ~1ms | 900 次 lookup |
+| Canvas putImageData | ~0.5ms | GPU 加速 |
+| **总计** | **~2ms** | 远快于每秒更新 |
+
+### 13.4 频带选择交互
+
+- 默认显示 **α 频带**（8-13Hz，心流研究最关注的频段）
+- 用户可通过下拉选择切换至 δ/θ/β/γ
+- 选中频带名称显示在地形图左上角
+
+### 13.5 前端消息处理
+
+```javascript
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type === 'metrics_snapshot' && msg.band_power_per_ch) {
+    const band = currentTopoBand;                        // 'alpha'
+    const values = msg.band_power_per_ch.map(ch => ch[band]);
+    const grid = rbfInterpolate(CHANNEL_POSITIONS, values, GRID_X, GRID_Y);
+    renderTopoMap(canvas, grid, band);
+  }
+};
+```
+
+### 13.6 色表定义
+
+```
+低 ────────────────────────────────────────────→ 高
+#000033 → #0033CC → #00CCFF → #00FF66 → #FFFF00 → #FF9900 → #FF0000 → #CC0033
+ (深蓝)    (蓝)     (青)     (绿)     (黄)     (橙)     (红)     (深红)
+```
+
+值范围自动归一化：取当前 4 通道功率值的 [min, max] 映射到色表两端。
+
+---
+
 ## 14. UI 风格指南
 
 所有页面统一遵循 `DESIGN.md`（Revolut · 金融消费设计语言）。
@@ -1311,6 +1464,7 @@ metrics_snapshot 写入: 1 行/秒 (轻量 INSERT)
 3. **Pill 形状统一** — 所有按钮 `rounded: full`
 4. **脑波彩色数据** — δ `#a0c3ec`、θ `#c4b5fd`、α `#ff7a17`、β `#ffc285`、γ `#7c3aed` 在黑画布上保持饱和度
 5. **阶段色** — prep/flow/switch/recover/rest 保持 PLAN.md 定义的颜色映射
+6. **地形图色表** — 默认 jet 色表：深蓝→蓝→青→绿→黄→橙→红→深红，映射自动归一化到当前各通道功率 [min, max] 区间
 
 ### 各页面适配要点
 
@@ -1339,6 +1493,7 @@ metrics_snapshot 写入: 1 行/秒 (轻量 INSERT)
 | MySQL 迁移脚本 | cloud/migrations/001_init.sql | 1 文件 (7 表) |
 | **SPA 统一入口（4 角色面板）** | **web/index.html** | 全新 SPA（角色选择 + 上传监视 + 纯监视 + 受试者 + 控制台） |
 | 主控机→ECS 转发模块 | bridge/index.js | ~150 行 |
+| 前端脑区热力图渲染 | web/index.html（master/monitor 面板内） | ~200 行（RBF 插值 + Canvas 渲染 + 频带选择） |
 
 ### 修改模块
 
@@ -1346,6 +1501,7 @@ metrics_snapshot 写入: 1 行/秒 (轻量 INSERT)
 |------|------|
 | public/index.html | 改造为统一入口 + 角色选择 |
 | bridge/index.js | 增加 WS 客户端 → ECS 连接 + eeg_frame 上行 + UDP 标记接收 |
+| cloud/metrics.js | 扩展为 4 通道 Goertzel 计算，新增 band_power_per_ch 字段 |
 
 ### 移除
 
