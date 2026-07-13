@@ -10,7 +10,7 @@
  */
 
 const dgram = require('dgram');
-const { WebSocketServer } = require('ws');
+const WebSocket = require('ws');
 const config = require('./config');
 
 // ── 状态 ──
@@ -70,7 +70,7 @@ udpServer.on('listening', () => {
 });
 
 // ── 2. 本地 WebSocket 服务（供本地面板连接） ──
-const localWss = new WebSocketServer({ port: config.LOCAL_WS_PORT });
+const localWss = new WebSocket.Server({ port: config.LOCAL_WS_PORT });
 localWss.on('connection', (ws) => {
   ws.send(JSON.stringify({
     type: 'status',
@@ -101,8 +101,7 @@ function getLANIP() {
 }
 
 function connectECS() {
-  const WsClient = require('ws');
-  const ws = new WsClient(config.ECS_WS_URL);
+  const ws = new WebSocket(config.ECS_WS_URL);
   ws.on('open', () => {
     console.log('[ECS] 已连接');
     ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: ecsSessionId }));
