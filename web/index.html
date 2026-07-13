@@ -38,11 +38,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 .badge{font-size:12px;padding:4px 12px;border-radius:9999px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);white-space:nowrap}
 .badge.available{background:rgba(73,79,223,0.2);color:#494fdf}
 .badge.taken-badge{color:#f87171}
-.badge-download{font-size:12px;padding:4px 10px;border-radius:9999px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);cursor:pointer;white-space:nowrap;transition:all .15s;text-decoration:none;margin-right:4px}
+.badge-download{font-size:12px;padding:4px 10px;border-radius:9999px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);cursor:pointer;white-space:nowrap;transition:all .15s;text-decoration:none;margin-right:4px;display:inline-flex;align-items:center;gap:4px}
 .badge-download:hover{background:rgba(255,255,255,0.15);color:#fff}
-.bridge-status{font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;padding:0 4px;transition:all .3s}
+.badge-download svg{width:12px;height:12px;flex-shrink:0}
+.bridge-status{font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;padding:0 4px;transition:all .3s;display:flex;align-items:center;gap:4px}
+.bridge-status::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:background .3s}
 .bridge-status.up{color:#4ade80}
+.bridge-status.up::before{background:#4ade80}
 .bridge-status.down{color:#e23b4a}
+.bridge-status.down::before{background:#e23b4a}
 .occupants{margin-top:24px;padding:16px 20px;border-radius:20px;background:#0a0a0a;border:1px solid rgba(255,255,255,0.06)}
 .occupants h4{font-size:12px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
 .occ-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;color:rgba(255,255,255,0.6)}
@@ -222,7 +226,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="bridge-status" id="bridgeStatus">检测桥接中...</div>
         </div>
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-          <a class="badge-download" onclick="event.stopPropagation();downloadScript()" title="下载一键启动脚本">⬇ 脚本</a>
+          <a class="badge-download" onclick="event.stopPropagation();downloadScript()" title="下载一键启动脚本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 脚本</a>
           <span class="badge" id="badge-master">占用</span>
         </div>
       </div>
@@ -978,7 +982,7 @@ function claim(role) {
     checkBridge(function(alive) {
       updateBridgeStatus(alive);
       if (!alive) {
-        showToast('请先启动本地桥接脚本 — 点击 ⬇ 脚本 下载', 'error');
+        showToast('请先启动本地桥接脚本 — 点击 下载 按钮', 'error');
         return;
       }
       doClaim(role);
@@ -1014,7 +1018,7 @@ function checkBridge(callback) {
 function updateBridgeStatus(alive) {
   const el = document.getElementById('bridgeStatus');
   if (!el) return;
-  el.textContent = alive ? '● 桥接已连接' : '○ 桥接未启动';
+  el.textContent = alive ? '桥接已连接' : '桥接未启动';
   el.className = 'bridge-status ' + (alive ? 'up' : 'down');
 }
 
