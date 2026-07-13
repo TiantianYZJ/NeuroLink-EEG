@@ -598,28 +598,195 @@ const server = http.createServer((req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  // Bridge 文件下载 (一键启动脚本拉取 bridge 模块)
+  // Bridge 文件下载 (内联内容, 不依赖 bridge/ 目录)
   if (req.method === 'GET' && req.url.startsWith('/api/download/bridge/')) {
     const file = req.url.replace('/api/download/bridge/', '');
-    const allowed = ['index.js', 'config.js', 'package.json'];
-    if (!allowed.includes(file)) {
-      res.writeHead(403); res.end('Forbidden');
-      return;
+    const files = {
+      'package.json': JSON.stringify({ name: 'neurolink-bridge', version: '1.0.0', private: true,
+        dependencies: { ws: '^8.0.0' } }),
+      'config.js': `/**
+ * 主控机本地桥接配置
+ */
+module.exports = {
+  // OpenBCI UDP 数据监听端口（OpenBCI GUI 的 UDP_OUT 需设为此端口）
+  // 注意: GUI_MARKER_PORT 默认 12346 避免与此冲突
+  UDP_LISTEN_PORT: parseInt(process.env.UDP_PORT || '12345', 10),
+
+  // 本地 WebSocket 端口（供本地面板连接，低延迟渲染波形）
+  LOCAL_WS_PORT: parseInt(process.env.LOCAL_WS_PORT || '9080', 10), // 与 ECS 8080 区分
+
+  // 设备类型
+  DEVICE_TYPE: (process.env.DEVICE_TYPE || 'ganglion').toLowerCase(),
+
+  // ECS 云端 WebSocket 地址
+  ECS_WS_URL: process.env.ECS_WS_URL || 'ws://eeg.yzjtiantian.cn/ws',
+
+  // OpenBCI GUI Marker 端口（ECS 回传标记写入目标）
+  // 默认 12346 — OpenBCI GUI 的 "UDP Marker Port" 需设为此值, 与 UDP 数据端口(12345) 区分
+  GUI_MARKER_PORT: parseInt(process.env.GUI_MARKER_PORT || '12346', 10),
+
+  // 固定 session_id（不设置则自动生成）
+  SESSION_ID: process.env.SESSION_ID || '',
+};
+`,
+      'index.js': `/**
+ * OpenBCI UDP → WebSocket 本地桥接
+ *
+ * 职责:
+ *   1. 监听 UDP 端口接收 Ganglion/Cyton 数据包
+ *   2. 解析二进制协议为 JSON
+ *   3. 推送到本地 WebSocket（本地面板低延迟渲染）
+ *   4. 推送到 ECS 云端 WebSocket（远端监视端转发）
+ *   5. 监听 ECS 回传的 marker → 写入 OpenBCI GUI Marker 端口
+ */
+
+const dgram = require('dgram');
+const WebSocket = require('ws');
+const config = require('./config');
+
+// ── 状态 ──
+let packetCount = 0;
+let lastStatsTime = Date.now();
+let sampleRate = 0;
+const isGanglion = config.DEVICE_TYPE === 'ganglion';
+const chCount = isGanglion ? 4 : 8;
+
+// ── 1. UDP 监听（接收 OpenBCI 数据） ──
+const udpServer = dgram.createSocket('udp4');
+
+function parseOpenBCIPacket(msg) {
+  const len = msg.length;
+  if (len < 5) return null;
+  let offset = 0;
+  while (offset < len && msg[offset] !== 0xA0) offset++;
+  if (offset >= len) return null;
+  if (offset + 4 > len) return null;
+  const sampleNumber = msg[offset + 1] | (msg[offset + 2] << 8) | (msg[offset + 3] << 16);
+  offset += 4;
+  const dataLen = chCount * 3;
+  if (offset + dataLen + 1 > len) return null;
+  const channels = [];
+  for (let i = 0; i < chCount; i++) {
+    let val = msg[offset] | (msg[offset + 1] << 8) | (msg[offset + 2] << 16);
+    if (val & 0x800000) val |= ~0xFFFFFF;
+    channels.push(val);
+    offset += 3;
+  }
+  return { sampleNumber, channels };
+}
+
+const frameBroadcast = (parsed) => {
+  const payload = JSON.stringify({ type: 'eeg_frame', seq: parsed.sampleNumber || 0, channels: parsed.channels, ts: Date.now() });
+  localWss.clients.forEach(c => { if (c.readyState === 1) c.send(payload); });
+  if (ecsWs && ecsWs.readyState === 1 && ecsConnected) ecsWs.send(payload);
+};
+
+udpServer.on('message', (msg) => {
+  const parsed = parseOpenBCIPacket(msg);
+  if (!parsed) return;
+  packetCount++;
+  const now = Date.now();
+  if (now - lastStatsTime >= 1000) {
+    sampleRate = Math.round(packetCount * 1000 / (now - lastStatsTime));
+    packetCount = 0;
+    lastStatsTime = now;
+  }
+  frameBroadcast(parsed);
+});
+
+udpServer.on('error', (err) => { console.error('[UDP]', err.message); });
+udpServer.on('listening', () => {
+  const addr = udpServer.address();
+  console.log(\`[UDP] 监听 \${addr.address}:\${addr.port}\`);
+});
+
+// ── 2. 本地 WebSocket 服务（供本地面板连接） ──
+const localWss = new WebSocket.Server({ port: config.LOCAL_WS_PORT });
+localWss.on('connection', (ws) => {
+  ws.send(JSON.stringify({
+    type: 'status',
+    deviceType: config.DEVICE_TYPE,
+    channels: chCount,
+    sampleRate: sampleRate || (isGanglion ? 200 : 250),
+  }));
+  ws.on('close', () => {});
+});
+
+// ── 3. ECS 上行 WebSocket 客户端 ──
+let ecsWs = null;
+let ecsSessionId = config.SESSION_ID || ('bridge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+let ecsConnected = false;
+
+/** 获取本机 LAN IP */
+function getLANIP() {
+  try {
+    const os = require('os');
+    const ifaces = os.networkInterfaces();
+    for (const name of Object.keys(ifaces)) {
+      for (const iface of ifaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+      }
     }
-    const filePath = path.join(__dirname, '..', 'bridge', file);
-    fs.readFile(filePath, 'utf8', (err, data) => {
-      if (err) {
-        res.writeHead(404); res.end('Not found');
-        return;
+  } catch (_) {}
+  return '127.0.0.1';
+}
+
+function connectECS() {
+  const ws = new WebSocket(config.ECS_WS_URL);
+  ws.on('open', () => {
+    console.log('[ECS] 已连接');
+    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: ecsSessionId }));
+  });
+  ws.on('message', (raw) => {
+    try {
+      const msg = JSON.parse(raw);
+      if (msg.type === 'role_claimed' && msg.role === 'master') {
+        console.log('[ECS] 已认领 master 角色');
+        ecsConnected = true;
+        const lanIP = getLANIP();
+        ws.send(JSON.stringify({ type: 'set_udp_target', target: lanIP + ':' + config.GUI_MARKER_PORT }));
       }
-      if (file === 'package.json') {
-        // 动态生成 package.json, 固定 ws 版本
-        data = JSON.stringify({ name: 'neurolink-bridge', version: '1.0.0', private: true,
-          dependencies: { ws: '^8.0.0' } });
+      if (msg.type === 'role_denied' && !ecsConnected) {
+        console.warn('[ECS] 角色被拒，5 秒后重试:', msg.reason);
+        setTimeout(() => {
+          if (ws.readyState === 1)
+            ws.send(JSON.stringify({ type: 'claim_role', role: 'master', session_id: ecsSessionId }));
+        }, 5000);
       }
-      res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
-      res.end(data);
-    });
+      if (msg.type === 'marker') {
+        const buf = Buffer.alloc(4);
+        buf.writeFloatBE(msg.code || 0);
+        udpServer.send(buf, 0, 4, config.GUI_MARKER_PORT, '127.0.0.1');
+      }
+      if (msg.type === 'room_info' && !ecsConnected) {
+        ws.send(JSON.stringify({ type: 'claim_role', role: 'master', session_id: ecsSessionId }));
+      }
+    } catch (e) {}
+  });
+  ws.on('close', () => {
+    console.log('[ECS] 断开，5 秒后重连');
+    ecsConnected = false;
+    setTimeout(connectECS, 5000);
+  });
+  ws.on('error', () => ws.close());
+  ecsWs = ws;
+}
+
+// ── 启动 ──
+udpServer.bind(config.UDP_LISTEN_PORT);
+connectECS();
+
+console.log(\`── OpenBCI UDP → WebSocket Bridge ──\`);
+console.log(\`  Device      : \${isGanglion ? 'Ganglion (4ch 200Hz)' : 'Cyton'}\`);
+console.log(\`  UDP 监听    : \${config.UDP_LISTEN_PORT}\`);
+console.log(\`  本地面板 WS : :\${config.LOCAL_WS_PORT}\`);
+console.log(\`  ECS 上行    : \${config.ECS_WS_URL}\`);
+`,
+    };
+    const data = files[file];
+    if (!data) { res.writeHead(403); res.end('Forbidden'); return; }
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(data);
     return;
   }
 
