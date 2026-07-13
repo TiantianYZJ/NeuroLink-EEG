@@ -7,30 +7,62 @@
  */
 const db = require('./db');
 
-// ── 基线录制状态 ──
-// sessionId → { samples: [], phaseId: null, baselineStarted: false }
+// sessionId → { samples: [], thetaAlphaSamples: [], alphaSamples: [], betaSamples: [],
+//               phaseId: null, baselineStarted: false, prevPhaseId: null }
 const baselineBuf = {};
 
-// ── 恢复判定状态 ──
 // sessionId → { steadyCount: 0, recovered: false, baseline: null }
 const recoveryState = {};
 
 module.exports = {
   /**
-   * 每秒调用一次，传入当前 metrics_snapshot
-   * 返回需要广播的 auto 标记数组
+   * 每秒调用一次
+   * 返回需要广播的消息数组（auto marker / recovery_progress / recovery_event）
    */
   async tick(sessionId, phaseId, timeInPhase, metricsSnapshot) {
     const markers = [];
+    const prevPhaseId = baselineBuf[sessionId] ? baselineBuf[sessionId].phaseId : null;
 
-    // ──── 基线录制 ────
+    // ──── 检测离开 flow 阶段 → 写入基线 ────
+    if (prevPhaseId && String(prevPhaseId).startsWith('flow') &&
+        (!phaseId || !String(phaseId).startsWith('flow'))) {
+      const buf = baselineBuf[sessionId];
+      if (buf && buf.samples.length > 10) {
+        const vals = buf.samples;
+        const alphaVals = buf.alphaSamples || [];
+        const betaVals = buf.betaSamples || [];
+        const ratioMean = vals.reduce((a, v) => a + v, 0) / vals.length;
+        const ratioStd = Math.sqrt(vals.reduce((s, v) => s + (v - ratioMean) ** 2, 0) / vals.length);
+        const alphaMean = alphaVals.length > 0 ? alphaVals.reduce((a, v) => a + v, 0) / alphaVals.length : 0;
+        const alphaStd = alphaVals.length > 0
+          ? Math.sqrt(alphaVals.reduce((s, v) => s + (v - alphaMean) ** 2, 0) / alphaVals.length) : 0;
+        const betaMean = betaVals.length > 0 ? betaVals.reduce((a, v) => a + v, 0) / betaVals.length : 0;
+        const betaStd = betaVals.length > 0
+          ? Math.sqrt(betaVals.reduce((s, v) => s + (v - betaMean) ** 2, 0) / betaVals.length) : 0;
+        try {
+          await db.query(
+            'INSERT INTO baselines (session_id, phase_id, ratio_mean, ratio_std, alpha_mean, alpha_std, beta_mean, beta_std, samples) VALUES (?,?,?,?,?,?,?,?,?)',
+            [sessionId, prevPhaseId, ratioMean, ratioStd, alphaMean, alphaStd, betaMean, betaStd, vals.length]
+          );
+        } catch (_) {}
+        markers.push({
+          type: 'marker', code: 12, source: 'auto',
+          label: 'baseline_end:' + prevPhaseId, phase: prevPhaseId, ts: Date.now(),
+        });
+      }
+      delete baselineBuf[sessionId];
+    }
+
+    // ──── 基线录制（flow 阶段）────
     if (phaseId && String(phaseId).startsWith('flow') && metricsSnapshot) {
       if (!baselineBuf[sessionId] || baselineBuf[sessionId].phaseId !== phaseId) {
-        baselineBuf[sessionId] = { samples: [], phaseId, baselineStarted: false };
+        baselineBuf[sessionId] = {
+          samples: [], alphaSamples: [], betaSamples: [],
+          phaseId, baselineStarted: false,
+        };
       }
       const buf = baselineBuf[sessionId];
 
-      // 第 241 秒 → baselines_start
       if (timeInPhase >= 241 && !buf.baselineStarted) {
         buf.baselineStarted = true;
         markers.push({
@@ -41,46 +73,26 @@ module.exports = {
 
       if (buf.baselineStarted && timeInPhase >= 241) {
         buf.samples.push(metricsSnapshot.theta_alpha_ratio);
+        buf.alphaSamples.push(metricsSnapshot.band_power ? metricsSnapshot.band_power.alpha : 0);
+        buf.betaSamples.push(metricsSnapshot.band_power ? metricsSnapshot.band_power.beta : 0);
       }
     }
 
-    // flow 阶段切换出去 → 写入 DB 基线
-    if (phaseId && String(phaseId).startsWith('flow') && timeInPhase === 0) {
-      const buf = baselineBuf[sessionId];
-      if (buf && buf.samples.length > 10) {
-        const vals = buf.samples;
-        const mean = vals.reduce((a, v) => a + v, 0) / vals.length;
-        const std = Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length);
-        try {
-          await db.query(
-            'INSERT INTO baselines (session_id, phase_id, ratio_mean, ratio_std, samples) VALUES (?,?,?,?,?)',
-            [sessionId, phaseId, mean, std, vals.length]
-          );
-        } catch (_) {}
-        markers.push({
-          type: 'marker', code: 12, source: 'auto',
-          label: 'baseline_end:' + phaseId, phase: phaseId, ts: Date.now(),
-        });
-      }
-      delete baselineBuf[sessionId];
-    }
-
-    // ──── 恢复判定 ────
+    // ──── 恢复判定（recover 阶段）────
     if (phaseId && String(phaseId).startsWith('recover') && metricsSnapshot) {
       if (!recoveryState[sessionId]) {
         recoveryState[sessionId] = { steadyCount: 0, recovered: false, baseline: null };
       }
       const rs = recoveryState[sessionId];
 
-      // 已恢复就不再判定
       if (rs.recovered) return markers;
 
-      // 懒加载基线（只查一次）
       if (!rs.baseline) {
         try {
+          const flowPhaseId = phaseId.replace(/recover(\d+)/, 'flow$1');
           const rows = await db.query(
-            'SELECT * FROM baselines WHERE session_id = ? AND phase_id = ? ORDER BY id DESC LIMIT 1',
-            [sessionId, phaseId.replace(/recover(\d+)/, 'flow$1')] // recover1 → flow1
+            'SELECT * FROM baselines WHERE session_id = ? AND phase_id LIKE ? ORDER BY id DESC LIMIT 1',
+            [sessionId, flowPhaseId]
           );
           rs.baseline = rows.length > 0 ? rows[0] : false;
         } catch (_) { rs.baseline = false; }
@@ -96,7 +108,7 @@ module.exports = {
         if (inWindow) {
           rs.steadyCount++;
         } else {
-          rs.steadyCount = 0; // 严格连续，不采用多数制
+          rs.steadyCount = 0;
         }
 
         if (rs.steadyCount >= 30 && !rs.recovered) {
@@ -105,7 +117,6 @@ module.exports = {
             type: 'marker', code: 13, source: 'auto',
             label: 'recovered:' + phaseId, phase: phaseId, ts: Date.now(),
           });
-          // 发送恢复通知给前端
           markers.push({
             type: 'recovery_event',
             recovered: true,
@@ -114,7 +125,7 @@ module.exports = {
             current_ratio: metricsSnapshot.theta_alpha_ratio,
             baseline_mean: mean,
           });
-        } else {
+        } else if (!rs.recovered) {
           markers.push({
             type: 'recovery_progress',
             recovered: false,
@@ -126,7 +137,6 @@ module.exports = {
           });
         }
       } else {
-        // 无基线数据（例如直接进入 recover 无前序 flow）
         markers.push({
           type: 'recovery_progress',
           recovered: false,
@@ -140,7 +150,7 @@ module.exports = {
       }
     }
 
-    // 离开 recover 阶段时清理状态
+    // 离开 recover 阶段清理
     if (phaseId && !String(phaseId).startsWith('recover')) {
       delete recoveryState[sessionId];
     }
@@ -148,8 +158,12 @@ module.exports = {
     return markers;
   },
 
-  /** 重置 session 的基线/恢复状态 */
   reset(sessionId) {
+    delete baselineBuf[sessionId];
+    delete recoveryState[sessionId];
+  },
+
+  cleanup(sessionId) {
     delete baselineBuf[sessionId];
     delete recoveryState[sessionId];
   },

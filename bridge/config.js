@@ -3,6 +3,7 @@
  */
 module.exports = {
   // OpenBCI UDP 数据监听端口（OpenBCI GUI 的 UDP_OUT 需设为此端口）
+  // 注意: GUI_MARKER_PORT 默认 12346 避免与此冲突
   UDP_LISTEN_PORT: parseInt(process.env.UDP_PORT || '12345', 10),
 
   // 本地 WebSocket 端口（供本地面板连接，低延迟渲染波形）
@@ -15,7 +16,8 @@ module.exports = {
   ECS_WS_URL: process.env.ECS_WS_URL || 'ws://eeg.yzjtiantian.cn/ws',
 
   // OpenBCI GUI Marker 端口（ECS 回传标记写入目标）
-  GUI_MARKER_PORT: parseInt(process.env.GUI_MARKER_PORT || '12345', 10),
+  // 默认 12346 — OpenBCI GUI 的 "UDP Marker Port" 需设为此值, 与 UDP 数据端口(12345) 区分
+  GUI_MARKER_PORT: parseInt(process.env.GUI_MARKER_PORT || '12346', 10),
 
   // 固定 session_id（不设置则自动生成）
   SESSION_ID: process.env.SESSION_ID || '',

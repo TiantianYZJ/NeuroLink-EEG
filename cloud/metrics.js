@@ -3,6 +3,8 @@
  *
  * 输入: eeg_frame (滑动窗口 256 采样点)
  * 输出: metrics_snapshot (每秒: 频带功率/熵/负载/信号质量)
+ *
+ * 多 session 安全: 每个 session 独立缓冲区
  */
 const BANDS = [
   { id: 'delta', lo: 0.5, hi: 4 },
@@ -12,10 +14,19 @@ const BANDS = [
   { id: 'gamma', lo: 32,  hi: 100 },
 ];
 
-let buffer = [];          // [{ channels: [4 floats], ts }]
-let lastCompute = 0;
-const POOL_SIZE = 256;    // ~1.28s @ 200Hz
+// 每个 session 独立缓冲区: sessionId → { buffer: [], lastCompute: 0 }
+const sessions = new Map();
+
+const POOL_SIZE = 256;    // ~1.28s @ 200Hz (频带功率用)
+const SQ_WINDOW = 32;     // 信号稳定性窗口 (N=32, 文档 §4.5)
 const SAMPLE_RATE = 200;
+
+function ensureSession(sessionId) {
+  if (!sessions.has(sessionId)) {
+    sessions.set(sessionId, { buffer: [], lastCompute: 0 });
+  }
+  return sessions.get(sessionId);
+}
 
 function goertzel(signal, freq, rate) {
   const n = signal.length;
@@ -32,23 +43,24 @@ function goertzel(signal, freq, rate) {
 }
 
 function spectralEntropy(bandPowers) {
-  const total = bandPowers.reduce((a, b) => a + b, 0);
+  // 使用功率（幅度平方）计算谱熵, H = -Σ(pi·log₂(pi))
+  const powers = bandPowers.map(v => v * v);
+  const total = powers.reduce((a, b) => a + b, 0);
   if (total === 0) return 0;
-  return -bandPowers.reduce((sum, p) => {
+  return -powers.reduce((sum, p) => {
     const pi = p / total;
     return sum + (pi > 0 ? pi * Math.log2(pi) : 0);
   }, 0);
 }
 
-function computeMetrics() {
-  if (buffer.length < 64) return null;
-  const samples = buffer.slice(-POOL_SIZE);
-  const ch1 = samples.map(s => s.channels[0] || 0);
-  const ch2 = samples.map(s => s.channels[1] || 0);
-  const ch3 = samples.map(s => s.channels[2] || 0);
-  const ch4 = samples.map(s => s.channels[3] || 0);
+function computeMetrics(sessionId) {
+  const ss = sessions.get(sessionId);
+  if (!ss || ss.buffer.length < 64) return null;
 
-  // 频带功率 (基于 CH1)
+  // 频带功率: 使用完整 256 样本窗口
+  const poolSamples = ss.buffer.slice(-POOL_SIZE);
+  const ch1 = poolSamples.map(s => s.channels[0] || 0);
+
   const powers = BANDS.map(b => goertzel(ch1, (b.lo + b.hi) / 2, SAMPLE_RATE));
   const bandPower = {};
   BANDS.forEach((b, i) => { bandPower[b.id] = powers[i]; });
@@ -58,8 +70,10 @@ function computeMetrics() {
   const entropy = spectralEntropy(powers);
   const cognitiveLoad = powers[4] / (powers[2] || 1);
 
-  // 信号稳定性 (标准差)
-  const sq = [ch1, ch2, ch3, ch4].map(ch => {
+  // 信号稳定性: 使用 32 样本窗口 (文档 §4.5)
+  const sqSamples = ss.buffer.slice(-SQ_WINDOW);
+  const sqCh = [0, 1, 2, 3].map(chIdx => {
+    const ch = sqSamples.map(s => s.channels[chIdx] || 0);
     const m = ch.reduce((a, b) => a + b, 0) / ch.length;
     return Math.sqrt(ch.reduce((sum, v) => sum + (v - m) ** 2, 0) / ch.length);
   });
@@ -69,29 +83,35 @@ function computeMetrics() {
     theta_alpha_ratio: thetaAlpha,
     spectral_entropy: entropy,
     cognitive_load_index: cognitiveLoad,
-    signal_quality: sq,
+    signal_quality: sqCh,
   };
 }
 
 module.exports = {
-  pushFrame(frame) {
-    buffer.push(frame);
-    if (buffer.length > POOL_SIZE * 2) buffer = buffer.slice(-POOL_SIZE);
+  pushFrame(frame, sessionId) {
+    const ss = ensureSession(sessionId);
+    ss.buffer.push(frame);
+    if (ss.buffer.length > POOL_SIZE * 2) ss.buffer = ss.buffer.slice(-POOL_SIZE);
   },
 
   tick(now, sessionId, phaseIndex, phaseId) {
-    if (now - lastCompute < 1000) return null;
-    lastCompute = now;
-    const metrics = computeMetrics();
+    const ss = ensureSession(sessionId);
+    if (now - ss.lastCompute < 1000) return null;
+    ss.lastCompute = now;
+    const metrics = computeMetrics(sessionId);
     if (!metrics) return null;
 
-    const snapshot = {
+    return {
       ts: now,
       session_id: sessionId,
       phase_index: phaseIndex,
       phase_id: phaseId,
       ...metrics,
     };
-    return snapshot;
+  },
+
+  /** 清理 session 数据（session 完成时调用） */
+  cleanup(sessionId) {
+    sessions.delete(sessionId);
   },
 };

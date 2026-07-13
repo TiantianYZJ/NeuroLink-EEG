@@ -45,7 +45,7 @@ function parseOpenBCIPacket(msg) {
 }
 
 const frameBroadcast = (parsed) => {
-  const payload = JSON.stringify({ type: 'eeg_frame', ...parsed, ts: Date.now() });
+  const payload = JSON.stringify({ type: 'eeg_frame', seq: parsed.sampleNumber || 0, channels: parsed.channels, ts: Date.now() });
   localWss.clients.forEach(c => { if (c.readyState === 1) c.send(payload); });
   if (ecsWs && ecsWs.readyState === 1 && ecsConnected) ecsWs.send(payload);
 };

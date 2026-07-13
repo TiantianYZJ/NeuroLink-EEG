@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS fss_results (
   phase       VARCHAR(16) NOT NULL,
   answers     TEXT NOT NULL,            -- JSON 字符串 [7] int
   submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (session_id) REFERENCES sessions(id)
+  FOREIGN KEY (session_id) REFERENCES sessions(id),
+  INDEX idx_fss_session (session_id, round)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS markers (
@@ -92,7 +93,8 @@ CREATE TABLE IF NOT EXISTS baselines (
   beta_std    FLOAT,
   samples     INT,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (session_id) REFERENCES sessions(id)
+  FOREIGN KEY (session_id) REFERENCES sessions(id),
+  INDEX idx_baselines_session (session_id, phase_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS timer_state (
