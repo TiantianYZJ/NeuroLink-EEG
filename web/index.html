@@ -955,18 +955,11 @@ function updateRoom(occ) {
 
 function claim(role) {
   currentPendingRole = role;
+  // 桥接检测仅用于显示状态，不拦截进入面板
   if (role === 'master') {
-    checkBridge(function(alive) {
-      updateBridgeStatus(alive);
-      if (!alive) {
-        showToast('请先启动本地桥接脚本 — 点击 下载 按钮', 'error');
-        return;
-      }
-      doClaim(role);
-    });
-  } else {
-    doClaim(role);
+    checkBridge(function(alive) { updateBridgeStatus(alive); });
   }
+  doClaim(role);
 }
 function doClaim(role) {
   if (ws && ws.readyState === 1)
@@ -974,20 +967,19 @@ function doClaim(role) {
 }
 
 function checkBridge(callback) {
+  // 通过 ECS API 查询是否有 master 角色在线（桥接认领了 master 即表示存活）
+  const apiUrl = (location.protocol === 'https:' ? 'https:' : 'http:') +
+    '//' + location.host + '/api/bridge-status?session_id=' + encodeURIComponent(sessionId);
   let checked = false;
-  const timeout = setTimeout(() => { if (!checked) { checked = true; callback(false); } }, 2000);
-  try {
-    const testWs = new WebSocket('ws://127.0.0.1:9080');
-    testWs.onopen = () => {
-      if (!checked) { checked = true; clearTimeout(timeout); callback(true); }
-      testWs.close();
-    };
-    testWs.onerror = () => {
+  const timeout = setTimeout(() => { if (!checked) { checked = true; callback(false); } }, 3000);
+  fetch(apiUrl)
+    .then(r => r.json())
+    .then(d => {
+      if (!checked) { checked = true; clearTimeout(timeout); callback(!!d.master); }
+    })
+    .catch(() => {
       if (!checked) { checked = true; clearTimeout(timeout); callback(false); }
-    };
-  } catch (_) {
-    if (!checked) { checked = true; clearTimeout(timeout); callback(false); }
-  }
+    });
 }
 
 function updateBridgeStatus(alive) {

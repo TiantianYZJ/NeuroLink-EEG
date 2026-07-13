@@ -790,6 +790,17 @@ console.log(\`  ECS 上行    : \${config.ECS_WS_URL}\`);
     return;
   }
 
+  // 桥接状态检查 (前端用于判断本地桥接是否已连接 ECS)
+  if (req.method === 'GET' && req.url.startsWith('/api/bridge-status')) {
+    const url = new URL(req.url, 'http://localhost');
+    const sid = url.searchParams.get('session_id') || '';
+    const room = sid ? rooms.get(sid) : null;
+    const masterAlive = room && room.occupants && !!room.occupants.master;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ master: masterAlive }));
+    return;
+  }
+
   // 健康检查
   if (req.url === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
