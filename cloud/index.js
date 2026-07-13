@@ -764,6 +764,17 @@ localWss.on('connection', (ws) => {
     channels: chCount,
     sampleRate: sampleRate || (isGanglion ? 200 : 250),
   }));
+  ws.on('message', (raw) => {
+    try {
+      const msg = JSON.parse(raw);
+      if (msg.type === 'set_session' && msg.session_id) {
+        ecsSessionId = msg.session_id;
+        if (ecsWs) ecsWs._reconnectOnClose = false;
+        ecsWs.close();
+        setTimeout(() => connectECS(), 1000);
+      }
+    } catch (_) {}
+  });
   ws.on('close', () => {});
 });
 
@@ -821,7 +832,7 @@ function connectECS() {
   ws.on('close', () => {
     console.log('[ECS] 断开，5 秒后重连');
     ecsConnected = false;
-    setTimeout(connectECS, 5000);
+    if (ws._reconnectOnClose !== false) setTimeout(connectECS, 5000);
   });
   ws.on('error', () => ws.close());
   ecsWs = ws;

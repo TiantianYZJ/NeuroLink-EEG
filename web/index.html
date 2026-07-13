@@ -918,6 +918,7 @@ function onRoomCreated(msg) {
   roomCreated = true;
   sessionId = msg.session_id;
   try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); } catch(e) {}
+  syncSessionToBridge();
   const el = document.getElementById('roomCode');
   if (el) el.textContent = msg.code;
   const urlEl = document.getElementById('roomUrl');
@@ -932,6 +933,7 @@ function onRoomJoined(msg) {
   roomCode = msg.code;
   sessionId = msg.session_id;
   try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); } catch(e) {}
+  syncSessionToBridge();
   document.getElementById('roomCode').textContent = msg.code;
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomContinueBtn').style.display = '';
@@ -958,6 +960,18 @@ function copyRoomUrl() {
   const url = document.getElementById('roomUrl');
   if (!url) return;
   navigator.clipboard.writeText(url.textContent).then(() => showToast('链接已复制', 'success'));
+}
+
+// 向本地桥接 WS 同步房间 sessionId (使桥接与浏览器在同一房间)
+function syncSessionToBridge() {
+  try {
+    const sock = new WebSocket('ws://127.0.0.1:9080');
+    sock.onopen = () => {
+      sock.send(JSON.stringify({ type: 'set_session', session_id: sessionId }));
+      sock.close();
+    };
+    sock.onerror = () => {}; // bridge 未运行时静默忽略
+  } catch (_) {}
 }
 
 // ── WS ──

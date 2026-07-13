@@ -79,6 +79,21 @@ localWss.on('connection', (ws) => {
     sampleRate: sampleRate || (isGanglion ? 200 : 250),
     session_id: ecsSessionId,
   }));
+  ws.on('message', (raw) => {
+    try {
+      const msg = JSON.parse(raw);
+      if (msg.type === 'set_session' && msg.session_id) {
+        console.log('[本地WS] 收到房间 sessionId:', msg.session_id);
+        ecsSessionId = msg.session_id;
+        // 断开 ECS 连接以新 sessionId 重连
+        if (ecsWs) {
+          if (ecsWs) ecsWs._reconnectOnClose = false; // 阻止旧重连
+          ecsWs.close();
+        }
+        setTimeout(() => connectECS(), 1000);
+      }
+    } catch (e) {}
+  });
   ws.on('close', () => {});
 });
 
@@ -136,7 +151,9 @@ function connectECS() {
   ws.on('close', () => {
     console.log('[ECS] 断开，5 秒后重连');
     ecsConnected = false;
-    setTimeout(connectECS, 5000);
+    if (ws._reconnectOnClose !== false) {
+      setTimeout(connectECS, 5000);
+    }
   });
   ws.on('error', () => ws.close());
   ecsWs = ws;
