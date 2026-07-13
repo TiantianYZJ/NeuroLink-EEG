@@ -619,7 +619,7 @@ module.exports = {
   DEVICE_TYPE: (process.env.DEVICE_TYPE || 'ganglion').toLowerCase(),
 
   // ECS 云端 WebSocket 地址
-  ECS_WS_URL: process.env.ECS_WS_URL || 'ws://eeg.yzjtiantian.cn/ws',
+  ECS_WS_URL: process.env.ECS_WS_URL || 'wss://eeg.yzjtiantian.cn/ws',
 
   // OpenBCI GUI Marker 端口（ECS 回传标记写入目标）
   // 默认 12346 — OpenBCI GUI 的 "UDP Marker Port" 需设为此值, 与 UDP 数据端口(12345) 区分

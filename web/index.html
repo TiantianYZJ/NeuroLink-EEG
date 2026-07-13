@@ -574,7 +574,6 @@ const GRID_SIZE = 30;
 const GRID_X = Array.from({length: GRID_SIZE}, (_, i) => -1 + 2 * i / (GRID_SIZE - 1));
 const GRID_Y = Array.from({length: GRID_SIZE}, (_, i) => -1 + 2 * i / (GRID_SIZE - 1));
 
-// jet 色表 (256 色)
 function jetColor(t) {
   let r, g, b;
   const v = Math.max(0, Math.min(1, t));
@@ -586,7 +585,6 @@ function jetColor(t) {
   return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
 }
 
-// RBF 插值 (multiquadric)
 function solveLinear(A, b) {
   const n = A.length;
   const m = A.map(r => [...r]);
@@ -611,20 +609,17 @@ function rbfInterpolate(values) {
   const N = CHANNEL_POSITIONS.length;
   const pts = CHANNEL_POSITIONS;
   const phi = (r) => Math.sqrt(r * r + 1);
-  // 构造 4×4 矩阵
   const A = Array.from({length: N}, (_, i) =>
     Array.from({length: N}, (_, j) =>
       phi(Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y))
     )
   );
   const w = solveLinear(A, values);
-  // 插值 30×30 网格
   const grid = [];
   for (let yi = 0; yi < GRID_SIZE; yi++) {
     grid[yi] = [];
     for (let xi = 0; xi < GRID_SIZE; xi++) {
       const qx = GRID_X[xi], qy = GRID_Y[yi];
-      // 圆形剪裁: 圆外值 = 0
       if (qx * qx + qy * qy > 1) { grid[yi][xi] = -1; continue; }
       let s = 0;
       for (let i = 0; i < N; i++) s += w[i] * phi(Math.hypot(qx - pts[i].x, qy - pts[i].y));
@@ -639,7 +634,6 @@ function renderTopoMap(canvas, grid) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   const cellW = w / GRID_SIZE, cellH = h / GRID_SIZE;
-  // 找 min/max
   let min = Infinity, max = -Infinity;
   for (let yi = 0; yi < GRID_SIZE; yi++)
     for (let xi = 0; xi < GRID_SIZE; xi++) {
@@ -678,18 +672,13 @@ function drawWaveform(canvasId, channels) {
   if (!canvas) return;
   const buf = waveformBuffers[canvasId];
   if (!buf) return;
-  // 累积
   for (let ch = 0; ch < 4 && ch < channels.length; ch++) {
     buf.data[ch].push(channels[ch] || 0);
     if (buf.data[ch].length > WAVEFORM_BUFFER) buf.data[ch] = buf.data[ch].slice(-WAVEFORM_BUFFER);
   }
-  // 自动缩放
   let maxAbs = 1;
   for (let ch = 0; ch < 4; ch++) {
-    for (let i = 0; i < buf.data[ch].length; i++) {
-      const a = Math.abs(buf.data[ch][i]);
-      if (a > maxAbs) maxAbs = a;
-    }
+    for (let i = 0; i < buf.data[ch].length; i++) { const a = Math.abs(buf.data[ch][i]); if (a > maxAbs) maxAbs = a; }
   }
   buf.maxVal = Math.max(maxAbs, 100);
   const ctx = canvas.getContext('2d');
@@ -740,7 +729,6 @@ function hideEl(id) { showEl(id, false); }
 // ── 面板更新 ──
 function updateBandPower(prefix, snapshot) {
   const bands = ['delta','theta','alpha','beta','gamma'];
-  const bandColors = ['#a0c3ec','#c4b5fd','#ff7a17','#ffc285','#7c3aed'];
   let maxPower = 0.01;
   const powers = bands.map(b => snapshot.band_power ? snapshot.band_power[b] || 0 : 0);
   powers.forEach(p => { if (p > maxPower) maxPower = p; });
@@ -750,7 +738,6 @@ function updateBandPower(prefix, snapshot) {
     const bar = el && el.parentNode ? el.parentNode.querySelector('.band-bar') : null;
     if (bar) bar.style.width = ((powers[i] / maxPower) * 100) + '%';
   });
-  // metrics
   const setMetric = (id, val) => {
     const el = document.getElementById(id);
     if (el) el.textContent = val !== undefined && val !== null ? val.toFixed(3) : '—';
@@ -802,9 +789,6 @@ function updateTimeline(prefix, phaseSync) {
 }
 
 function getPhaseList(phaseSync) {
-  // Return phases for the current template type based on phase_id patterns
-  const rounds = phaseSync.round || 1;
-  const hasSwitch = phaseSync.phase_id && (phaseSync.phase_id.startsWith('switch') || phaseSync.phase_id.startsWith('flow'));
   return [
     { id:'prep', name:'准备' },
     { id:'flow1', name:'R1 心流诱导' },
@@ -862,7 +846,6 @@ function connectWS() {
     } else {
       ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId }));
       switchPanel('panel-role');
-      // 进入角色页后自动检测本地桥接
       setTimeout(() => checkBridge(function(alive) { updateBridgeStatus(alive); }), 500);
     }
   };
@@ -877,17 +860,14 @@ function connectWS() {
           setTimeout(() => claim(currentPendingRole), 5000);
         }
       }
-      if (msg.type === 'claim_role') return; // ignore
+      if (msg.type === 'claim_role') return;
 
-      // 角色面板消息
       const prefix = currentRole === 'master' ? 'master' : (currentRole === 'monitor' ? 'monitor' : null);
 
-      // 受试者端消息
       if (currentRole === 'subject') {
         if (msg.type === 'phase_sync') updateSubjectUI(msg);
         if (msg.type === 'self_report_ack') addSubjMarker(msg.state === 'flow_enter' ? '✓ 进入心流' : msg.state === 'flow_exit' ? '✗ 脱离心流' : '⚠ 分心');
         if (msg.type === 'fss_submit_ack') showToast(msg.success ? '问卷已提交' : '提交失败: ' + msg.error, msg.success ? 'success' : 'error');
-        // 下线队列刷新
         if (msg.type === 'room_info' && subjQueue.length > 0) {
           const q = subjQueue.splice(0);
           q.forEach(s => ws.send(JSON.stringify({ type:'self_report', state:s, phase:'', session_id:sessionId })));
@@ -895,7 +875,6 @@ function connectWS() {
         return;
       }
 
-      // 控制台消息
       if (currentRole === 'console') {
         if (msg.type === 'subjects_list') renderSubjects(msg.subjects);
         if (msg.type === 'subject_created') { showToast('受试者已创建', 'success'); loadSubjects(); }
@@ -920,7 +899,6 @@ function connectWS() {
       if (msg.type === 'phase_sync') {
         updateTimer(prefix, msg);
         updateTimeline(prefix, msg);
-        // Update btn states
         const btnStart = document.getElementById(prefix + 'BtnStart');
         const btnPause = document.getElementById(prefix + 'BtnPause');
         if (btnStart) btnStart.textContent = msg.running ? '运行中' : '开始';
@@ -978,7 +956,6 @@ function updateRoom(occ) {
 function claim(role) {
   currentPendingRole = role;
   if (role === 'master') {
-    // 检测本地桥接 (默认 9080 端口)
     checkBridge(function(alive) {
       updateBridgeStatus(alive);
       if (!alive) {
@@ -996,9 +973,7 @@ function doClaim(role) {
     ws.send(JSON.stringify({ type: 'claim_role', role, session_id: sessionId }));
 }
 
-// ── 桥接检测 ──
 function checkBridge(callback) {
-  // 尝试连接本地桥接 WS (默认 9080)
   let checked = false;
   const timeout = setTimeout(() => { if (!checked) { checked = true; callback(false); } }, 2000);
   try {
@@ -1022,7 +997,6 @@ function updateBridgeStatus(alive) {
   el.className = 'bridge-status ' + (alive ? 'up' : 'down');
 }
 
-// ── 一键启动脚本下载 ──
 function downloadScript() {
   const isWin = navigator.platform.indexOf('Win') === 0;
   const content = isWin ? generateBat() : generateSh();
@@ -1038,152 +1012,11 @@ function downloadScript() {
 }
 
 function generateBat() {
-  return '@echo off\r\n' +
-    'title EEG Bridge - NEUROLINK\r\n' +
-    'setlocal enabledelayedexpansion\r\n' +
-    'echo ========================================\r\n' +
-    'echo   NEUROLINK OpenBCI Bridge - 一键启动\r\n' +
-    'echo ========================================\r\n' +
-    'echo.\r\n' +
-    '\r\n' +
-    'REM --- 定位工作目录 ---\r\n' +
-    'cd /d "%~dp0"\r\n' +
-    'set BRIDGE_DIR=%CD%\\neurolink-bridge\r\n' +
-    '\r\n' +
-    'REM --- 检测 Node.js ---\r\n' +
-    'where node >nul 2>nul\r\n' +
-    'if %ERRORLEVEL% neq 0 (\r\n' +
-    '  echo [错误] 未检测到 Node.js\r\n' +
-    '  echo 请先安装: https://nodejs.org/\r\n' +
-    '  pause\r\n' +
-    '  exit /b 1\r\n' +
-    ')\r\n' +
-    'echo [OK] Node.js %node --version%\r\n' +
-    'echo.\r\n' +
-    '\r\n' +
-    'REM --- 下载桥接模块 ---\r\n' +
-    'if not exist "%BRIDGE_DIR%\\index.js" (\r\n' +
-    '  echo [..] 首次运行，正在下载桥接模块...\r\n' +
-    '  if not exist "%BRIDGE_DIR%" mkdir "%BRIDGE_DIR%"\r\n' +
-    '  cd /d "%BRIDGE_DIR%"\r\n' +
-    '\r\n' +
-    '  REM 从 ECS 下载 bridge 模块\r\n' +
-    '  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json\r\n' +
-    '  if %ERRORLEVEL% neq 0 (\r\n' +
-    '    echo [错误] 下载失败，请检查网络连接\r\n' +
-    '    pause\r\n' +
-    '    exit /b 1\r\n' +
-    '  )\r\n' +
-    '  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\r\n' +
-    '  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\r\n' +
-    '\r\n' +
-    '  if not exist "index.js" (\r\n' +
-    '    echo [错误] 桥接模块下载不完整\r\n' +
-    '    pause\r\n' +
-    '    exit /b 1\r\n' +
-    '  )\r\n' +
-    '  echo [OK] 桥接模块下载完成\r\n' +
-    '\r\n' +
-    '  REM 安装依赖\r\n' +
-    '  echo [..] 正在安装依赖...\r\n' +
-    '  call npm install\r\n' +
-    '  if %ERRORLEVEL% neq 0 (\r\n' +
-    '    echo [错误] npm install 失败\r\n' +
-    '    pause\r\n' +
-    '    exit /b 1\r\n' +
-    '  )\r\n' +
-    '  echo [OK] 依赖安装完成\r\n' +
-    ') else (\r\n' +
-    '  cd /d "%BRIDGE_DIR%"\r\n' +
-    '  echo [OK] 桥接模块已就绪\r\n' +
-    ')\r\n' +
-    'echo.\r\n' +
-    '\r\n' +
-    'REM --- 启动桥接 ---\r\n' +
-    'echo [..] 启动 OpenBCI 桥接...\r\n' +
-    'echo  UDP 数据监听 : 12345\r\n' +
-    'echo  本地面板 WS  : 9080\r\n' +
-    'echo  ECS 上行     : eeg.yzjtiantian.cn\r\n' +
-    'echo.\r\n' +
-    'echo 按 Ctrl+C 停止桥接\r\n' +
-    'echo ----------------------------------------\r\n' +
-    'node index.js\r\n' +
-    'if %ERRORLEVEL% neq 0 (\r\n' +
-    '  echo.\r\n' +
-    '  echo [错误] 桥接异常退出\r\n' +
-    '  pause\r\n' +
-    ')\r\n';
+  return '@echo off\r\nchcp 65001 >nul\r\ntitle NEUROLINK Bridge\r\necho ========================================\r\necho   NEUROLINK OpenBCI Bridge - One-Click Start\r\necho ========================================\r\necho.\r\ncd /d "%~dp0"\r\nset BRIDGE_DIR=%CD%\\neurolink-bridge\r\nwhere node >nul 2>nul\r\nif %ERRORLEVEL% neq 0 (\r\n  echo [ERROR] Node.js not found. Install from: https://nodejs.org/\r\n  pause & exit /b 1\r\n)\r\nfor /f "tokens=*" %%i in (\'node -v\') do echo [OK] Node.js %%i\r\necho.\r\nif not exist "%BRIDGE_DIR%\\index.js" (\r\n  echo [..] Downloading bridge module...\r\n  if not exist "%BRIDGE_DIR%" mkdir "%BRIDGE_DIR%"\r\n  cd /d "%BRIDGE_DIR%"\r\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json\r\n  if %ERRORLEVEL% neq 0 ( echo [ERROR] Download failed. & pause & exit /b 1 )\r\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\r\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\r\n  if not exist "index.js" ( echo [ERROR] Incomplete download. & pause & exit /b 1 )\r\n  echo [OK] Bridge module downloaded\r\n  echo [..] Installing dependencies...\r\n  call npm install\r\n  if %ERRORLEVEL% neq 0 ( echo [ERROR] npm install failed & pause & exit /b 1 )\r\n  echo [OK] Dependencies installed\r\n) else ( cd /d "%BRIDGE_DIR%" & echo [OK] Bridge module ready )\r\necho.\r\necho [..] Starting OpenBCI bridge...\r\necho  UDP: 12345 ^| WS: 9080 ^| ECS: eeg.yzjtiantian.cn\r\necho.\r\necho Press Ctrl+C to stop\r\necho ----------------------------------------\r\nnode index.js\r\nif %ERRORLEVEL% neq 0 ( echo. & echo [ERROR] Bridge exited abnormally & pause )\r\n';
 }
 
 function generateSh() {
-  return '#!/bin/bash\n' +
-    '# NEUROLINK OpenBCI Bridge - 一键启动\n' +
-    '# 适用于 macOS / Linux\n' +
-    '\n' +
-    'SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\n' +
-    'BRIDGE_DIR="$SCRIPT_DIR/neurolink-bridge"\n' +
-    '\n' +
-    'echo "========================================="\n' +
-    'echo "  NEUROLINK OpenBCI Bridge - 一键启动"\n' +
-    'echo "========================================="\n' +
-    'echo ""\n' +
-    '\n' +
-    '# --- 检测 Node.js ---\n' +
-    'if ! command -v node &> /dev/null; then\n' +
-    '  echo "[错误] 未检测到 Node.js"\n' +
-    '  echo "请先安装: https://nodejs.org/"\n' +
-    '  exit 1\n' +
-    'fi\n' +
-    'echo "[OK] Node.js $(node --version)"\n' +
-    'echo ""\n' +
-    '\n' +
-    '# --- 下载桥接模块 ---\n' +
-    'if [ ! -f "$BRIDGE_DIR/index.js" ]; then\n' +
-    '  echo "[..] 首次运行，正在下载桥接模块..."\n' +
-    '  mkdir -p "$BRIDGE_DIR"\n' +
-    '  cd "$BRIDGE_DIR"\n' +
-    '\n' +
-    '  # 从 ECS 下载 bridge 模块\n' +
-    '  echo "  下载 package.json..."\n' +
-    '  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json || {\n' +
-    '    echo "[错误] 下载失败，请检查网络连接"\n' +
-    '    exit 1\n' +
-    '  }\n' +
-    '  echo "  下载 index.js..."\n' +
-    '  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\n' +
-    '  echo "  下载 config.js..."\n' +
-    '  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\n' +
-    '\n' +
-    '  if [ ! -f "index.js" ]; then\n' +
-    '    echo "[错误] 桥接模块下载不完整"\n' +
-    '    exit 1\n' +
-    '  fi\n' +
-    '  echo "[OK] 桥接模块下载完成"\n' +
-    '\n' +
-    '  # 安装依赖\n' +
-    '  echo "[..] 正在安装依赖..."\n' +
-    '  npm install || {\n' +
-    '    echo "[错误] npm install 失败"\n' +
-    '    exit 1\n' +
-    '  }\n' +
-    '  echo "[OK] 依赖安装完成"\n' +
-    'else\n' +
-    '  cd "$BRIDGE_DIR"\n' +
-    '  echo "[OK] 桥接模块已就绪"\n' +
-    'fi\n' +
-    'echo ""\n' +
-    '\n' +
-    '# --- 启动桥接 ---\n' +
-    'echo "[..] 启动 OpenBCI 桥接..."\n' +
-    'echo " UDP 数据监听 : 12345"\n' +
-    'echo " 本地面板 WS  : 9080"\n' +
-    'echo " ECS 上行     : eeg.yzjtiantian.cn"\n' +
-    'echo ""\n' +
-    'echo "按 Ctrl+C 停止桥接"\n' +
-    'echo "----------------------------------------"\n' +
-    'node index.js\n' +
-    'echo ""\n' +
-    'echo "[错误] 桥接异常退出"\n';
+  return '#!/bin/bash\necho "========================================="\necho "  NEUROLINK OpenBCI Bridge - One-Click Start"\necho "========================================="\necho ""\nSCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\nBRIDGE_DIR="$SCRIPT_DIR/neurolink-bridge"\nif ! command -v node &> /dev/null; then\n  echo "[ERROR] Node.js not found. Install from: https://nodejs.org/"\n  exit 1\nfi\necho "[OK] Node.js $(node --version)"\necho ""\nif [ ! -f "$BRIDGE_DIR/index.js" ]; then\n  echo "[..] Downloading bridge module..."\n  mkdir -p "$BRIDGE_DIR"\n  cd "$BRIDGE_DIR"\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json || { echo "[ERROR] Download failed."; exit 1; }\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\n  if [ ! -f "index.js" ]; then echo "[ERROR] Incomplete download."; exit 1; fi\n  echo "[OK] Bridge module downloaded"\n  echo "[..] Installing dependencies..."\n  npm install || { echo "[ERROR] npm install failed"; exit 1; }\n  echo "[OK] Dependencies installed"\nelse\n  cd "$BRIDGE_DIR"\n  echo "[OK] Bridge module ready"\nfi\necho ""\necho "[..] Starting OpenBCI bridge..."\necho " UDP: 12345 | WS: 9080 | ECS: eeg.yzjtiantian.cn"\necho ""\necho "Press Ctrl+C to stop"\necho "----------------------------------------"\nnode index.js\n';
 }
 
 function onClaimed(role) {
@@ -1241,7 +1074,7 @@ const FSS_QUESTIONS = [
 let fssRound = 0;
 let fssAnswers = [];
 let subjCooldownTimer = null;
-let subjQueue = []; // 离线自评队列
+let subjQueue = [];
 let subjMyMarkers = [];
 
 const SUBJ_PHASE_CONFIG = {
@@ -1271,8 +1104,6 @@ function updateSubjectUI(ps) {
   showEl('subjBtns', cfg.showBtns);
   showEl('subjBtnEnter', cfg.showBtns);
   showEl('subjBtnExit', cfg.showBtns);
-
-  // rest 阶段弹出 FSS
   if (baseId === 'rest') {
     setTimeout(() => openFSS(ps.round || fssRound + 1), 500);
   }
@@ -1280,13 +1111,11 @@ function updateSubjectUI(ps) {
 
 function subjectReport(state) {
   if (!ws || ws.readyState !== 1) {
-    // 离线缓存
     subjQueue.push(state);
     showToast('已缓存（离线）', 'info');
     return;
   }
   ws.send(JSON.stringify({ type:'self_report', state, phase: '', session_id: sessionId }));
-  // 10 秒冷却
   const btnEnter = document.getElementById('subjBtnEnter');
   const btnExit = document.getElementById('subjBtnExit');
   [btnEnter, btnExit].forEach(b => { if (b) b.disabled = true; });
@@ -1314,7 +1143,6 @@ function addSubjMarker(label) {
   }).join('');
 }
 
-// ── FSS 问卷 ──
 function openFSS(round) {
   fssRound = round;
   fssAnswers = FSS_QUESTIONS.map(() => 0);
@@ -1401,8 +1229,6 @@ function renderSubjects(subjects) {
   el.innerHTML = '<table class="console-table"><thead><tr><th>ID</th><th>姓名</th><th>年龄</th><th>性别</th><th>创建时间</th></tr></thead><tbody>' +
     subjects.map(s => '<tr><td>' + s.id + '</td><td>' + escHtml(s.name) + '</td><td>' + (s.age || '—') + '</td><td>' + (s.gender || '—') + '</td><td>' + (s.created_at || '') + '</td></tr>').join('') +
     '</tbody></table>';
-
-  // 更新选择下拉
   const sel = document.getElementById('consoleSubjectSelect');
   if (sel) {
     sel.innerHTML = '<option value="">— 选择受试者 —</option>' +
@@ -1457,7 +1283,6 @@ function renderSessionDetail(data) {
   if (!overlay || !body) return;
   const s = data.session || {};
   title.textContent = '场次详情 · ' + (s.id || '').slice(0, 8);
-
   const markers = (data.markers || []).slice(-50);
   const fss = data.fss_results || [];
   const baselines = data.baselines || [];
@@ -1467,10 +1292,8 @@ function renderSessionDetail(data) {
   html += '<div><span style="color:rgba(255,255,255,0.4)">受试者</span><br><b>' + escHtml(s.operator_name || '—') + '</b></div>';
   html += '<div><span style="color:rgba(255,255,255,0.4)">状态</span><br><span class="status-badge ' + (s.status || '') + '">' + (s.status || '—') + '</span></div>';
   html += '<div><span style="color:rgba(255,255,255,0.4)">模板 ID</span><br><b>' + (s.template_id || '—') + '</b></div>';
-  html += '<div><span style="color:rgba(255,255,255,0.4)">备注</span><br><b>' + escHtml(s.notes || '无') + '</b></div>';
-  html += '</div>';
+  html += '<div><span style="color:rgba(255,255,255,0.4)">备注</span><br><b>' + escHtml(s.notes || '无') + '</b></div></div>';
 
-  // Baselines
   if (baselines.length > 0) {
     html += '<div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">基线数据</div>';
     baselines.forEach(b => {
@@ -1478,13 +1301,11 @@ function renderSessionDetail(data) {
       html += '<span>' + (b.phase_id || '') + '</span>';
       html += '<span>θ/α μ=' + (b.ratio_mean ? b.ratio_mean.toFixed(3) : '—') + ' σ=' + (b.ratio_std ? b.ratio_std.toFixed(3) : '—') + '</span>';
       html += '<span>α μ=' + (b.alpha_mean ? b.alpha_mean.toFixed(1) : '—') + '</span>';
-      html += '<span>n=' + (b.samples || 0) + '</span>';
-      html += '</div>';
+      html += '<span>n=' + (b.samples || 0) + '</span></div>';
     });
     html += '</div>';
   }
 
-  // Markers
   html += '<div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">标记时间线 (' + markers.length + ')</div>';
   if (markers.length === 0) {
     html += '<div style="color:rgba(255,255,255,0.2);font-size:12px">暂无标记</div>';
@@ -1496,35 +1317,30 @@ function renderSessionDetail(data) {
       html += '<span style="color:rgba(255,255,255,0.3);white-space:nowrap">' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0') + '</span>';
       html += '<span style="color:#494fdf;font-weight:600">' + (m.code || 0) + '</span>';
       html += '<span style="color:rgba(255,255,255,0.5)">' + (m.source || '') + '</span>';
-      html += '<span>' + (m.label || '') + '</span>';
-      html += '</div>';
+      html += '<span>' + (m.label || '') + '</span></div>';
     });
     html += '</div>';
   }
   html += '</div>';
 
-  // FSS
   if (fss.length > 0) {
     html += '<div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">FSS 问卷 (' + fss.length + ' 轮)</div>';
     fss.forEach(f => {
       const answers = (typeof f.answers === 'string' ? JSON.parse(f.answers) : f.answers) || [];
       html += '<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.04)">';
       html += '<span style="color:rgba(255,255,255,0.4)">R' + (f.round || 0) + '</span>';
-      html += '<span>' + answers.map((a, i) => 'Q' + (i+1) + '=' + a).join(' · ') + '</span>';
-      html += '</div>';
+      html += '<span>' + answers.map((a, i) => 'Q' + (i+1) + '=' + a).join(' · ') + '</span></div>';
     });
     html += '</div>';
   }
 
-  // Metrics summary
   if (metricsRows.length > 0) {
     const avg = (arr, key) => { const v = arr.filter(r => r[key] !== null).map(r => r[key]); return v.length > 0 ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(2) : '—'; };
     html += '<div><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">指标均值 (' + metricsRows.length + ' 采样)</div>';
     html += '<div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;padding:8px;background:#0a0a0a;border-radius:12px">';
     html += '<span>θ/α ' + avg(metricsRows, 'theta_alpha_ratio') + '</span>';
     html += '<span>熵 ' + avg(metricsRows, 'spectral_entropy') + '</span>';
-    html += '<span>负载 ' + avg(metricsRows, 'cognitive_load_index') + '</span>';
-    html += '</div></div>';
+    html += '<span>负载 ' + avg(metricsRows, 'cognitive_load_index') + '</span></div></div>';
   }
 
   body.innerHTML = html;
@@ -1550,7 +1366,6 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-// ── 启动 ──
 initWaveform('masterWaveform');
 initWaveform('monitorWaveform');
 connectWS();
