@@ -48,16 +48,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 .bridge-status.down{color:#e23b4a}
 .bridge-status.down::before{background:#e23b4a}
 /* ── 房间 ── */
-.room-card{display:flex;align-items:center;justify-content:center;gap:12px;padding:24px;border-radius:20px;background:#16181a;border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:all .15s;text-align:center;flex:1}
+.room-card{display:flex;align-items:center;gap:12px;padding:20px 24px;border-radius:20px;background:#16181a;border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:all .15s;text-align:left}
 .room-card:hover{border-color:#494fdf;background:#1a1c20}
-.room-card svg{width:32px;height:32px;opacity:.6;flex-shrink:0}
+.room-card svg{width:28px;height:28px;opacity:.6;flex-shrink:0}
 .room-card h3{font-size:16px;font-weight:600;margin-bottom:2px}
 .room-card p{font-size:13px;color:rgba(255,255,255,0.45)}
 .room-code{font-size:48px;font-weight:600;letter-spacing:8px;color:#fff;margin:16px 0}
 .room-url{font-size:12px;color:rgba(255,255,255,0.4);word-break:break-all;background:#0a0a0a;padding:10px 14px;border-radius:12px;margin:8px 0 16px}
-.room-input{background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:32px;padding:16px;text-align:center;font-family:inherit;outline:none;width:180px;letter-spacing:8px;transition:border-color .15s}
-.room-input:focus{border-color:#494fdf}
-.room-input::placeholder{font-size:16px;letter-spacing:0;color:rgba(255,255,255,0.2)}
+.pin-grid{display:flex;gap:12px;justify-content:center;margin:16px 0}
+.pin-input{width:56px;height:64px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:28px;font-weight:600;text-align:center;font-family:'Inter',system-ui,sans-serif;outline:none;transition:all .15s;caret-color:#494fdf}
+.pin-input:focus{border-color:#494fdf}
+.pin-input.filled{border-color:rgba(73,79,223,0.4);background:rgba(73,79,223,0.08)}
+.devices{max-height:240px;overflow-y:auto}
 .occupants{margin-top:24px;padding:16px 20px;border-radius:20px;background:#0a0a0a;border:1px solid rgba(255,255,255,0.06)}
 .occupants h4{font-size:12px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
 .occ-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;color:rgba(255,255,255,0.6)}
@@ -227,32 +229,41 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <div id="panel-room" class="panel">
   <div class="container" style="padding-top:60px">
     <div class="brand">⧩ NEUROLINK</div>
-    <div class="subtitle">创建或加入一个实验房间</div>
+    <div class="subtitle" id="roomSubtitle">创建或加入一个实验房间</div>
     <div class="conn-status"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
-    <div style="display:flex;gap:12px;margin-bottom:24px">
+    <div class="role-grid" style="margin-bottom:20px">
       <div class="room-card" onclick="createRoom()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        <div><h3>创建房间</h3><p>获得房间号并分享给其他设备</p></div>
+        <div class="info"><h3>创建房间</h3><p>获得四位房间号，分享给其他设备</p></div>
       </div>
       <div class="room-card" onclick="showJoinRoom()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>
-        <div><h3>加入房间</h3><p>输入四位房间号加入已有实验</p></div>
+        <div class="info"><h3>加入房间</h3><p>输入四位房间号，加入已有实验</p></div>
       </div>
     </div>
     <div id="roomResult" style="display:none;text-align:center">
-      <div id="roomCodeLabel" style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">房间号</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">房间号</div>
       <div class="room-code" id="roomCode">----</div>
       <div id="roomUrlWrap" style="display:none">
-        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:4px">分享此链接给其他设备</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:8px">分享此链接给其他设备</div>
         <div class="room-url" id="roomUrl"></div>
         <button class="btn btn-small btn-outline" onclick="copyRoomUrl()" style="margin-bottom:16px">复制链接</button>
       </div>
-      <div id="roomJoinInput" style="display:none;margin-bottom:16px">
-        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:8px">输入房间号</div>
-        <input class="room-input" id="roomCodeInput" maxlength="4" placeholder="0000" oninput="autoJoinRoom(this)">
+      <div id="roomPinWrap" style="display:none;margin-bottom:16px">
+        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:8px">输入四位房间号</div>
+        <div class="pin-grid" id="pinGrid">
+          <input class="pin-input" id="pin0" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(0)" onkeydown="pinKey(0,event)">
+          <input class="pin-input" id="pin1" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(1)" onkeydown="pinKey(1,event)">
+          <input class="pin-input" id="pin2" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(2)" onkeydown="pinKey(2,event)">
+          <input class="pin-input" id="pin3" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(3)" onkeydown="pinKey(3,event)">
+        </div>
       </div>
       <button class="btn btn-primary" id="roomContinueBtn" onclick="showRoleSelect()" style="display:none">选择角色 →</button>
       <div id="roomError" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
+    </div>
+    <div class="occupants" id="roomOccupants" style="display:none">
+      <h4>在线设备</h4>
+      <div class="devices" id="roomDevicesList"></div>
     </div>
   </div>
 </div>
@@ -298,7 +309,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <!-- ─── 面板 2: 上传监视端 ─── -->
 <div id="panel-master" class="panel">
   <div class="panel-header">
-    <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
+    <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
     <h2>⧩ 上传监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="masterStatus">已连接</span>
   </div>
@@ -387,7 +398,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <!-- ─── 面板 3: 纯监视端 ─── -->
 <div id="panel-monitor" class="panel">
   <div class="panel-header">
-    <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
+    <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
     <h2>⧩ 纯监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="monitorStatus">已连接</span>
   </div>
@@ -468,7 +479,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <!-- ─── 面板 4: 受试者端 ─── -->
 <div id="panel-subject" class="panel">
   <div class="panel-header">
-    <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
+    <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
     <h2>⧩ 受试者端</h2>
   </div>
   <div class="subject-wrap">
@@ -502,7 +513,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <!-- ─── 面板 5: 控制台 ─── -->
 <div id="panel-console" class="panel">
   <div class="panel-header">
-    <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
+    <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
     <h2>⧩ 实验控制台</h2>
   </div>
   <div class="console-wrap">
@@ -919,6 +930,7 @@ function onRoomCreated(msg) {
   sessionId = msg.session_id;
   try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); } catch(e) {}
   syncSessionToBridge();
+  showEl('roomOccupants', true);
   const el = document.getElementById('roomCode');
   if (el) el.textContent = msg.code;
   const urlEl = document.getElementById('roomUrl');
@@ -934,6 +946,7 @@ function onRoomJoined(msg) {
   sessionId = msg.session_id;
   try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); } catch(e) {}
   syncSessionToBridge();
+  showEl('roomOccupants', true);
   document.getElementById('roomCode').textContent = msg.code;
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomContinueBtn').style.display = '';
@@ -951,10 +964,50 @@ function autoJoinRoom(input) {
   }
   document.getElementById('roomError').style.display = 'none';
 }
+var pinValues = ['', '', '', ''];
+function pinInput(idx) {
+  const el = document.getElementById('pin' + idx);
+  const v = el.value.replace(/\D/g, '').slice(0, 1);
+  el.value = v;
+  pinValues[idx] = v;
+  el.classList.toggle('filled', !!v);
+  if (v && idx < 3) document.getElementById('pin' + (idx + 1)).focus();
+  const code = pinValues.join('');
+  document.getElementById('roomError').style.display = 'none';
+  if (code.length === 4 && ws && ws.readyState === 1) {
+    document.getElementById('roomCode').textContent = code;
+    ws.send(JSON.stringify({ type: 'join_room', code: code, session_id: sessionId }));
+  }
+}
+function pinKey(idx, e) {
+  if (e.key === 'Backspace' && !pinValues[idx] && idx > 0) {
+    document.getElementById('pin' + (idx - 1)).focus();
+  }
+}
+function showJoinRoom() {
+  document.getElementById('roomResult').style.display = '';
+  document.getElementById('roomPinWrap').style.display = '';
+  document.getElementById('roomUrlWrap').style.display = 'none';
+  document.getElementById('roomContinueBtn').style.display = 'none';
+  document.getElementById('roomCodeLabel') && (document.getElementById('roomCodeLabel').textContent = '输入房间号');
+  pinValues = ['', '', '', ''];
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('pin' + i);
+    if (el) { el.value = ''; el.classList.remove('filled'); }
+  }
+  setTimeout(() => { const p0 = document.getElementById('pin0'); if (p0) p0.focus(); }, 100);
+}
 function showRoleSelect() {
   const display = document.getElementById('roomCodeDisplay');
   if (display && roomCode) display.textContent = roomCode;
   switchPanel('panel-role');
+}
+function goBackToRoom() {
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'release_role', session_id: sessionId }));
+  } else {
+    switchPanel('panel-room');
+  }
 }
 function copyRoomUrl() {
   const url = document.getElementById('roomUrl');
@@ -979,7 +1032,7 @@ function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
     sessionId = getSessionFromURL() || genId();
-    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId }));
+    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120) } }));
     // Check if URL has ?room= code
     const p = new URLSearchParams(location.search);
     const urlRoom = p.get('room');
@@ -1010,6 +1063,7 @@ function connectWS() {
       }
       if (msg.type === 'room_created') { onRoomCreated(msg); return; }
       if (msg.type === 'room_joined') { onRoomJoined(msg); return; }
+      if (msg.type === 'role_released') { showEl('roomOccupants', true); switchPanel('panel-room'); return; }
       if (msg.type === 'claim_role') return;
 
       const prefix = currentRole === 'master' ? 'master' : (currentRole === 'monitor' ? 'monitor' : null);
@@ -1088,6 +1142,7 @@ function updateRoom(occ) {
     badge.textContent = taken ? '已被占用' : '可用';
     badge.className = 'badge ' + (taken ? 'taken-badge' : 'available');
   });
+  // Role selection page occupants
   let items = '';
   if (occ.master) items += '<div class="occ-item"><span class="occ-dot"></span>上传监视端</div>';
   if (occ.monitor > 0) items += '<div class="occ-item"><span class="occ-dot"></span>纯监视端 ×'+occ.monitor+'</div>';
@@ -1100,6 +1155,23 @@ function updateRoom(occ) {
     document.getElementById('occupantsList').insertAdjacentHTML('beforeend', items);
   } else {
     empty.style.display = 'block';
+  }
+  // Room page devices list
+  const devEl = document.getElementById('roomDevicesList');
+  if (devEl && occ.devices) {
+    const roleNames = { master:'上传监视端', monitor:'纯监视端', subject:'受试者端', console:'控制台' };
+    if (occ.devices.length === 0) {
+      devEl.innerHTML = '<div class="occ-empty">暂无其他设备</div>';
+    } else {
+      devEl.innerHTML = occ.devices.map(d => {
+        const info = d.info || {};
+        const pf = info.platform || '';
+        const ua = info.userAgent || '';
+        const browser = ua.includes('Chrome') ? 'Chrome' : ua.includes('Firefox') ? 'Firefox' : ua.includes('Safari') ? 'Safari' : 'Browser';
+        const os = pf.startsWith('Win') ? 'Windows' : pf.startsWith('Mac') ? 'macOS' : pf.startsWith('Linux') ? 'Linux' : pf;
+        return '<div class="occ-item"><span class="occ-dot"></span>' + (roleNames[d.role] || d.role) + ' · ' + os + ' · ' + browser + '</div>';
+      }).join('');
+    }
   }
 }
 

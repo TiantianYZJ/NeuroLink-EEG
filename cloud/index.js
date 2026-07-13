@@ -94,6 +94,12 @@ function getOccupantSummary(room) {
     monitor: room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).length,
     subject: !!room.occupants.subject,
     console: !!room.occupants.console,
+    devices: [
+      ...(room.occupants.master ? [{ role: 'master', info: room.occupants.master.deviceInfo || {} }] : []),
+      ...room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).map(s => ({ role: 'monitor', info: s.deviceInfo || {} })),
+      ...(room.occupants.subject ? [{ role: 'subject', info: room.occupants.subject.deviceInfo || {} }] : []),
+      ...(room.occupants.console ? [{ role: 'console', info: room.occupants.console.deviceInfo || {} }] : []),
+    ],
   };
 }
 
@@ -364,6 +370,7 @@ function handleMessage(ws, raw, room, sessionId) {
       room.sockets.add(ws);
       ws.role = 'pending';
       ws.sessionId = sessionId;
+      ws.deviceInfo = msg.device_info || {};
       ws.send(JSON.stringify({ type: 'room_info', occupants: getOccupantSummary(room) }));
       break;
     }
@@ -386,6 +393,7 @@ function handleMessage(ws, raw, room, sessionId) {
       ws.role = targetRole;
       ws.sessionId = sessionId;
       ws.roleLock = targetRole;
+      ws.deviceInfo = msg.device_info || ws.deviceInfo || {};
       if (targetRole === 'master' && msg.udpTarget) {
         room.udpTargets.set('master', msg.udpTarget);
       }
@@ -430,6 +438,7 @@ function handleMessage(ws, raw, room, sessionId) {
         else { occ.monitor.push(ws); ws.roleLock = 'monitor'; }
         ws.role = targetRole;
         ws.sessionId = sessionId;
+        ws.deviceInfo = msg.device_info || ws.deviceInfo || {};
         if (msg.udpTarget) { room.udpTargets.set('master', msg.udpTarget); }
         ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
       } else {
@@ -538,6 +547,18 @@ function handleMessage(ws, raw, room, sessionId) {
       if (ws.role === 'master') {
         room.udpTargets.set('master', msg.target);
       }
+      break;
+    }
+
+    case 'release_role': {
+      const occ = room.occupants;
+      if (ws.roleLock === 'master' && occ.master === ws) occ.master = null;
+      else if (ws.roleLock === 'subject' && occ.subject === ws) occ.subject = null;
+      else if (ws.roleLock === 'console' && occ.console === ws) occ.console = null;
+      else if (ws.roleLock === 'monitor') { occ.monitor = occ.monitor.filter(s => s !== ws); }
+      ws.role = 'pending'; ws.roleLock = null;
+      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
+      ws.send(JSON.stringify({ type: 'role_released' }));
       break;
     }
 
