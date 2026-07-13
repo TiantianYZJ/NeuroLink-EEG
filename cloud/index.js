@@ -22,7 +22,7 @@ const baseline = require('./baseline');
 
 // ── 共享 UDP socket（避免每次 marker 创建新 socket） ──
 const udpSock = dgram.createSocket('udp4');
-udpSock.on('error', () => {});
+udpSock.on('error', (err) => console.warn('[UDP] socket error:', err.message));
 
 // ── 定期清理已完成的空房间（每 10 分钟） ──
 setInterval(() => {
@@ -209,11 +209,13 @@ function advancePhase(sessionId, timer, room) {
 
 function resetTimer(sessionId, timer, room) {
   clearInterval(timer.tickTimer);
+  timer.tickTimer = null;
   timer.phaseIndex = 0; timer.timeLeft = timer.phases[0].duration;
   timer.timeInPhase = 0; timer.running = false; timer.completed = false;
   timer.taskType = timer.phases[0].taskType;
   baseline.reset(sessionId);
   saveTimerState(sessionId);
+  startTick(sessionId, timer, room);
 }
 
 function broadcastSync(sessionId, timer, room) {
@@ -223,6 +225,7 @@ function broadcastSync(sessionId, timer, room) {
     phase_index: timer.phaseIndex, phase_id: phase.id,
     phase_name: phase.name, round: phase.round,
     time_left: timer.timeLeft, time_in_phase: timer.timeInPhase,
+    phase_duration: phase.duration,
     running: timer.running, auto_mode: timer.autoMode,
     completed: timer.completed, task_type: timer.taskType,
   });
@@ -426,11 +429,31 @@ function handleMessage(ws, raw, room, sessionId) {
       const timer = timers.get(sessionId);
       if (!timer) return;
 
+      const now = Date.now();
       switch (msg.action) {
-        case 'start':        timer.running = true; break;
+        case 'start': {
+          timer.running = true;
+          const sp = getCurrentPhase(timer);
+          broadcast(room, { type: 'marker', code: 1, source: 'auto', label: 'phase_start:' + sp.id, phase: sp.id, ts: now });
+          break;
+        }
         case 'pause':        timer.running = false; break;
-        case 'next_phase':   advancePhase(sessionId, timer, room); break;
-        case 'reset':        resetTimer(sessionId, timer, room); break;
+        case 'next_phase': {
+          const cp = getCurrentPhase(timer);
+          broadcast(room, { type: 'marker', code: 2, source: 'auto', label: 'phase_end:' + cp.id, phase: cp.id, ts: now });
+          advancePhase(sessionId, timer, room);
+          if (!timer.completed) {
+            const np = getCurrentPhase(timer);
+            broadcast(room, { type: 'marker', code: 1, source: 'auto', label: 'phase_start:' + np.id, phase: np.id, ts: Date.now() });
+          }
+          break;
+        }
+        case 'reset': {
+          const rp = getCurrentPhase(timer);
+          broadcast(room, { type: 'marker', code: 2, source: 'auto', label: 'phase_end:' + rp.id + '(reset)', phase: rp.id, ts: now });
+          resetTimer(sessionId, timer, room);
+          break;
+        }
         case 'set_auto':     timer.autoMode = !timer.autoMode; break;
         case 'set_task_type': if (msg.value) { timer.taskType = msg.value; } break;
       }
@@ -527,8 +550,9 @@ function handleMessage(ws, raw, room, sessionId) {
 
     case 'list_sessions': {
       db.query(
-        'SELECT s.*, t.name AS template_name, t.group_type, t.switch_type ' +
+        'SELECT s.*, t.name AS template_name, t.group_type, t.switch_type, sub.name AS subject_name ' +
         'FROM sessions s LEFT JOIN experiment_templates t ON s.template_id = t.id ' +
+        'LEFT JOIN subjects sub ON s.subject_id = sub.id ' +
         'ORDER BY s.created_at DESC'
       ).then(rows => ws.send(JSON.stringify({ type: 'sessions_list', sessions: rows })))
        .catch(err => ws.send(JSON.stringify({ type: 'error', message: err.message })));
@@ -569,10 +593,19 @@ function handleMessage(ws, raw, room, sessionId) {
 // ── WS 服务 ──
 const wss = new WebSocketServer({ port: config.WS_PORT, maxPayload: 1024 * 1024 });
 
+// WS 心跳检测（每 30 秒 ping，超时 10 秒终止）
+function heartbeat(ws) {
+  if (ws._alive === false) { ws.terminate(); return; }
+  ws._alive = false;
+  ws.ping();
+}
+const hbTimer = setInterval(() => wss.clients.forEach(heartbeat), 30000).unref();
 wss.on('connection', (ws, req) => {
+  ws._alive = true;
   ws.role = 'pending';
   ws.sessionId = null;
   ws.roleLock = null;
+  ws.on('pong', () => { ws._alive = true; });
 
   ws.on('message', (raw) => {
     let msg;
@@ -583,28 +616,43 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'hello' || msg.type === 'reconnect') {
       if (!timers.has(sessionId)) {
+        // Auto-create sessions row to prevent FK failures on data tables
+        db.query('INSERT IGNORE INTO sessions (id, subject_id, template_id, status) VALUES (?, 1, 1, "running")', [sessionId])
+          .catch(() => {});
+        // Try restoring timer from timer_state first, else derive template from DB
         db.query('SELECT * FROM timer_state WHERE session_id = ?', [sessionId])
           .then(rows => {
             if (rows.length > 0 && !timers.has(sessionId)) {
               const row = rows[0];
               const phases = PHASE_TEMPLATES[row.template_type] || PHASE_TEMPLATES.control;
-              const timer = {
+              timers.set(sessionId, {
                 phases, phaseIndex: row.phase_index, timeLeft: row.time_left,
                 timeInPhase: row.time_in_phase, running: false,
-                autoMode: row.auto_mode === 1, completed: false,
+                autoMode: row.auto_mode === 1, completed: row.phase_index >= phases.length - 1 && row.time_left <= 0,
                 tickTimer: null, templateType: row.template_type,
                 taskType: (phases[row.phase_index] || phases[0]).taskType,
-              };
-              timers.set(sessionId, timer);
-              startTick(sessionId, timer, room);
-            } else if (!timers.has(sessionId)) {
-              initTimer(sessionId, msg.template_type || 'control');
+              });
               startTick(sessionId, timers.get(sessionId), room);
+            } else if (!timers.has(sessionId)) {
+              // Derive template type from DB session record
+              db.query('SELECT t.switch_type FROM sessions s JOIN experiment_templates t ON s.template_id = t.id WHERE s.id = ?', [sessionId])
+                .then(rows2 => {
+                  if (!timers.has(sessionId)) {
+                    initTimer(sessionId, (rows2.length > 0 ? rows2[0].switch_type : 'control'));
+                    startTick(sessionId, timers.get(sessionId), room);
+                  }
+                })
+                .catch(() => {
+                  if (!timers.has(sessionId)) {
+                    initTimer(sessionId, 'control');
+                    startTick(sessionId, timers.get(sessionId), room);
+                  }
+                });
             }
           })
           .catch(() => {
             if (!timers.has(sessionId)) {
-              initTimer(sessionId, msg.template_type || 'control');
+              initTimer(sessionId, 'control');
               startTick(sessionId, timers.get(sessionId), room);
             }
           });

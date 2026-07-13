@@ -533,6 +533,8 @@ const WS_URL = (() => {
 let ws = null;
 let sessionId = '';
 let currentRole = null;
+let currentPendingRole = null;
+let lastRole = null;
 
 // ── 地形图 ──
 const CHANNEL_POSITIONS = [
@@ -737,9 +739,8 @@ function updateTimer(prefix, phaseSync) {
   setText('PhaseName', phaseSync.phase_name || '—');
   setText('Timer', formatTime(phaseSync.time_left));
   const fill = document.getElementById(prefix + 'TimerFill');
-  if (fill) {
-    const pct = phaseSync.time_left > 0 && phaseSync.running !== undefined ? 100 : 0;
-    // simplified: actual percentage would need total duration
+  if (fill && phaseSync.phase_duration > 0) {
+    const pct = Math.max(0, Math.min(100, (phaseSync.time_in_phase / phaseSync.phase_duration) * 100));
     fill.style.width = pct + '%';
   }
   setText('Auto', phaseSync.auto_mode ? '自动模式 ●' : '手动模式 ○');
@@ -751,15 +752,10 @@ function formatTime(sec) {
   return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
 
-function updateTimeline(prefix, phaseSync, templates) {
+function updateTimeline(prefix, phaseSync) {
   const el = document.getElementById(prefix + 'Timeline');
   if (!el) return;
   el.innerHTML = '';
-  if (!templates || !templates[phaseSync.phase_id]) {
-    el.innerHTML = '<div style="font-size:13px;color:rgba(255,255,255,0.3)">等待阶段信息</div>';
-    return;
-  }
-  // Simplified: show all phases
   const allPhases = getPhaseList(phaseSync);
   allPhases.forEach((ph, i) => {
     const active = i === (phaseSync.phase_index !== undefined ? phaseSync.phase_index : 0);
@@ -834,15 +830,24 @@ function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
     sessionId = getSessionFromURL() || genId();
-    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId }));
-    switchPanel('panel-role');
+    if (lastRole) {
+      ws.send(JSON.stringify({ type: 'reconnect', role: lastRole, session_id: sessionId }));
+    } else {
+      ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId }));
+      switchPanel('panel-role');
+    }
   };
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'room_info') updateRoom(msg.occupants);
       if (msg.type === 'role_claimed') onClaimed(msg.role);
-      if (msg.type === 'role_denied') alert('角色被占用: ' + (msg.reason || ''));
+      if (msg.type === 'role_denied') {
+        showToast('角色不可用: ' + (msg.reason || ''), 'error');
+        if (msg.reason && msg.reason.includes('重连保留') && currentPendingRole) {
+          setTimeout(() => claim(currentPendingRole), 5000);
+        }
+      }
       if (msg.type === 'claim_role') return; // ignore
 
       // 角色面板消息
@@ -885,7 +890,7 @@ function connectWS() {
       }
       if (msg.type === 'phase_sync') {
         updateTimer(prefix, msg);
-        updateTimeline(prefix, msg, {});
+        updateTimeline(prefix, msg);
         // Update btn states
         const btnStart = document.getElementById(prefix + 'BtnStart');
         const btnPause = document.getElementById(prefix + 'BtnPause');
@@ -903,7 +908,7 @@ function connectWS() {
   };
   ws.onclose = () => {
     const s = document.getElementById('roleStatus');
-    if (s) s.textContent = '已断开，5 秒后重连…';
+    if (s && !lastRole) s.textContent = '已断开，5 秒后重连…';
     const d = document.getElementById('roleDot');
     if (d) d.classList.add('off');
     setTimeout(connectWS, 5000);
@@ -942,12 +947,15 @@ function updateRoom(occ) {
 }
 
 function claim(role) {
+  currentPendingRole = role;
   if (ws && ws.readyState === 1)
     ws.send(JSON.stringify({ type: 'claim_role', role, session_id: sessionId }));
 }
 
 function onClaimed(role) {
   currentRole = role;
+  lastRole = role;
+  currentPendingRole = null;
   const panelMap = { master:'panel-master', monitor:'panel-monitor', subject:'panel-subject', console:'panel-console' };
   const pid = panelMap[role];
   if (pid) {
@@ -1106,7 +1114,6 @@ function submitFSS() {
     ws.send(JSON.stringify({ type:'fss_submit', round: fssRound, phase: 'rest' + fssRound, answers: fssAnswers, ts: Date.now() }));
   }
   closeFSS();
-  showToast('问卷已提交', 'success');
 }
 
 function closeFSS() {
@@ -1184,7 +1191,7 @@ function renderSessions(sessions) {
     return;
   }
   el.innerHTML = '<table class="console-table"><thead><tr><th>场次</th><th>受试者</th><th>模板</th><th>状态</th><th>日期</th><th></th></tr></thead><tbody>' +
-    sessions.map(s => '<tr><td style="font-family:monospace;font-size:11px">' + (s.id || '').slice(0,8) + '</td><td>' + escHtml(s.template_name || '—') + '</td><td>' + escHtml(s.template_name || '—') + '</td>' +
+    sessions.map(s => '<tr><td style="font-family:monospace;font-size:11px">' + (s.id || '').slice(0,8) + '</td><td>' + escHtml(s.subject_name || '—') + '</td><td>' + escHtml(s.template_name || '—') + '</td>' +
     '<td><span class="status-badge ' + (s.status || 'pending') + '">' + (s.status || 'pending') + '</span></td>' +
     '<td>' + (s.created_at || '') + '</td>' +
     '<td><button class="icon-btn" onclick="viewSession(\'' + s.id + '\')">查看</button></td></tr>').join('') +
