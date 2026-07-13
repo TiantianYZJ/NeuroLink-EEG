@@ -9,7 +9,7 @@ module.exports = {
       WS_PORT: 8080,
       DB_HOST: 'localhost',
       DB_USER: 'eeg',
-      DB_PASS: '',
+      DB_PASS: 'fz4Kp3aCkHGYHzZJ',
       DB_NAME: 'eeg_platform',
     },
   }],

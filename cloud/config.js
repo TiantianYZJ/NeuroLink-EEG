@@ -7,7 +7,7 @@ module.exports = {
   DB: {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'eeg',
-    password: process.env.DB_PASS || '',
+    password: process.env.DB_PASS || 'fz4Kp3aCkHGYHzZJ',
     database: process.env.DB_NAME || 'eeg_platform',
     connectionLimit: 10,
   },
