@@ -13,6 +13,9 @@
  *   - 计时器状态持久化 (INSERT ... ON DUPLICATE KEY UPDATE)
  */
 
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { WebSocketServer } = require('ws');
 const dgram = require('dgram');
 const config = require('./config');
@@ -590,8 +593,48 @@ function handleMessage(ws, raw, room, sessionId) {
   }
 }
 
-// ── WS 服务 ──
-const wss = new WebSocketServer({ port: config.WS_PORT, maxPayload: 1024 * 1024 });
+// ── HTTP + WS 服务（共享端口） ──
+const server = http.createServer((req, res) => {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // Bridge 文件下载 (一键启动脚本拉取 bridge 模块)
+  if (req.method === 'GET' && req.url.startsWith('/api/download/bridge/')) {
+    const file = req.url.replace('/api/download/bridge/', '');
+    const allowed = ['index.js', 'config.js', 'package.json'];
+    if (!allowed.includes(file)) {
+      res.writeHead(403); res.end('Forbidden');
+      return;
+    }
+    const filePath = path.join(__dirname, '..', 'bridge', file);
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err) {
+        res.writeHead(404); res.end('Not found');
+        return;
+      }
+      if (file === 'package.json') {
+        // 动态生成 package.json, 固定 ws 版本
+        data = JSON.stringify({ name: 'neurolink-bridge', version: '1.0.0', private: true,
+          dependencies: { ws: '^8.0.0' } });
+      }
+      res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
+      res.end(data);
+    });
+    return;
+  }
+
+  // 健康检查
+  if (req.url === '/api/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+    return;
+  }
+
+  res.writeHead(404); res.end('Not found');
+});
+
+const wss = new WebSocketServer({ server, maxPayload: 1024 * 1024 });
+server.listen(config.WS_PORT);
 
 // WS 心跳检测（每 30 秒 ping，超时 10 秒终止）
 function heartbeat(ws) {
@@ -699,4 +742,4 @@ wss.on('connection', (ws, req) => {
   ws.on('error', () => {});
 });
 
-console.log(`[WS] EEG Cloud 中继启动 :${config.WS_PORT}`);
+console.log(`[OK] EEG Cloud 服务启动 :${config.WS_PORT} (WS + HTTP API)`);
