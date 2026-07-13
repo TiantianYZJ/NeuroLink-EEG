@@ -803,6 +803,8 @@ localWss.on('connection', (ws) => {
 let ecsWs = null;
 let ecsSessionId = config.SESSION_ID || ('bridge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
 let ecsConnected = false;
+let pendingRoomCode = process.env.ROOM_CODE || '';
+let roomJoinAttempted = false;
 
 /** 获取本机 LAN IP */
 function getLANIP() {
@@ -823,6 +825,11 @@ function connectECS() {
   ws.on('open', () => {
     console.log('[ECS] 已连接');
     ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: ecsSessionId }));
+    if (pendingRoomCode && !roomJoinAttempted) {
+      roomJoinAttempted = true;
+      console.log('[ECS] join room:', pendingRoomCode);
+      ws.send(JSON.stringify({ type: 'join_room', code: pendingRoomCode, session_id: ecsSessionId }));
+    }
   });
   ws.on('message', (raw) => {
     try {
@@ -847,6 +854,19 @@ function connectECS() {
       }
       if (msg.type === 'room_info' && !ecsConnected) {
         ws.send(JSON.stringify({ type: 'claim_role', role: 'master', session_id: ecsSessionId }));
+      }
+      if (msg.type === 'room_joined') {
+        console.log('[ECS] room joined:', msg.code);
+        pendingRoomCode = '';
+        ecsSessionId = msg.session_id;
+        if (ecsWs) ecsWs._reconnectOnClose = false;
+        ecsWs.close();
+        setTimeout(() => connectECS(), 1000);
+      }
+      if (msg.type === 'error' && pendingRoomCode && msg.message) {
+        console.error('[ECS] room error:', msg.message);
+        pendingRoomCode = '';
+        process.exit(1);
       }
     } catch (e) {}
   });

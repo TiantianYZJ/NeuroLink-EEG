@@ -101,6 +101,8 @@ localWss.on('connection', (ws) => {
 let ecsWs = null;
 let ecsSessionId = config.SESSION_ID || ('bridge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
 let ecsConnected = false;
+let pendingRoomCode = process.env.ROOM_CODE || '';  // 从环境变量读取房间号
+let roomJoinAttempted = false;
 
 /** 获取本机 LAN IP */
 function getLANIP() {
@@ -121,6 +123,12 @@ function connectECS() {
   ws.on('open', () => {
     console.log('[ECS] 已连接');
     ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: ecsSessionId }));
+    // 如果有房间号，hello 后立即尝试加入房间
+    if (pendingRoomCode && !roomJoinAttempted) {
+      roomJoinAttempted = true;
+      console.log('[ECS] 加入房间:', pendingRoomCode);
+      ws.send(JSON.stringify({ type: 'join_room', code: pendingRoomCode, session_id: ecsSessionId }));
+    }
   });
   ws.on('message', (raw) => {
     try {
@@ -145,6 +153,21 @@ function connectECS() {
       }
       if (msg.type === 'room_info' && !ecsConnected) {
         ws.send(JSON.stringify({ type: 'claim_role', role: 'master', session_id: ecsSessionId }));
+      }
+      // 房间号响应
+      if (msg.type === 'room_joined') {
+        console.log('[ECS] 加入房间成功:', msg.code);
+        pendingRoomCode = '';
+        // 使用房间 sessionId 重新连接
+        ecsSessionId = msg.session_id;
+        if (ecsWs) ecsWs._reconnectOnClose = false;
+        ecsWs.close();
+        setTimeout(() => connectECS(), 1000);
+      }
+      if (msg.type === 'error' && pendingRoomCode && msg.message && msg.message.includes('房间号')) {
+        console.error('[ECS] 房间号无效或已过期:', pendingRoomCode);
+        pendingRoomCode = '';
+        process.exit(1);
       }
     } catch (e) {}
   });
