@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEUROLINK · 脑机实验平台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — xAI / xAI-inspired
+   Near-black canvas (#0a0a0a), white-on-dark text,
+   white outline pill buttons, hairline-bordered cards (#191919),
+   Universal Sans/Inter display weight 400, GeistMono uppercase eyebrows.
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  /* ── xAI Canvas (near-black) ── */
+  --canvas:        #0a0a0a;
+  --canvas-soft:   #1a1c20;
+  --canvas-card:   #191919;
+  --canvas-mid:    #363a3f;
+
+  /* ── xAI Border ── */
+  --hairline:       #212327;
+  --hairline-strong: rgba(255, 255, 255, 0.10);
+
+  /* ── xAI Text ── */
+  --ink:           #ffffff;
+  --ink-hover:     #fafaf7;
+  --body:          #dadbdf;
+  --body-mid:      #7d8187;
+  --mute:          #7d8187;
+  --ink-faint:     #5e5b56;
+
+  /* ── xAI Primary (white) ── */
+  --primary:       #ffffff;
+  --on-primary:    #0a0a0a;
+
+  /* ── xAI Accent Palette ── */
+  --accent-sunset:      #ff7a17;
+  --accent-sunset-soft: #ffc285;
+  --accent-dusk:        #7c3aed;
+  --accent-twilight:    #c4b5fd;
+  --accent-breeze:      #a0c3ec;
+  --accent-midnight:    #0d1726;
+
+  /* ── Phase Colors (mapped to xAI accents) ── */
+  --prep:    var(--accent-breeze);
+  --flow:    var(--accent-sunset);
+  --switch:  var(--accent-twilight);
+  --recover: var(--accent-dusk);
+  --rest:    var(--accent-sunset-soft);
+
+  /* ── Semantic States ── */
+  --error:   #f87171;
+  --success: #4ade80;
+
+  /* ── Typography ── */
+  --font: 'Inter', -apple-system, 'Segoe UI', 'Noto Sans SC', system-ui, sans-serif;
+  --font-display: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'GeistMono', 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+
+  /* ── Spacing (4px base — xAI system) ── */
+  --s-xxs: 4px;  --s-xs: 8px;  --s-sm: 12px;  --s-md: 16px;
+  --s-lg: 24px;  --s-xl: 32px; --s-xxl: 48px; --s-xxxl: 64px;
+
+  /* ── Rounded (xAI: 8px cards, 9999px pills) ── */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 8px;
+  --r-lg: 8px;
+  --r-xl: 8px;
+  --r-full: 9999px;
+
+  /* xAI uses NO shadows — hairline borders carry all elevation */
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RESET & BASE
+   ══════════════════════════════════════════════════════════════ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--canvas);
+  color: var(--ink);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   NAV-BAR
+   ══════════════════════════════════════════════════════════════ */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-sm) var(--s-lg);
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: var(--s-sm);
+}
+
+.nav-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-full);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.nav-bar h1 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: -0.4px;
+  line-height: 1.33;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s-xs);
+}
+
+.badge-pill {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--body-mid);
+  background: var(--canvas-soft);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--hairline);
+  letter-spacing: 1.2px;
+  line-height: 1.33;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+#status {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+  letter-spacing: 1.2px;
+  line-height: 1.33;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+#status.connected {
+  background: transparent;
+  color: var(--success);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+}
+#status.disconnected {
+  background: transparent;
+  color: var(--error);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+}
+#status .dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+#status.connected .dot {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+#status.disconnected .dot { background: var(--error); }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LAYOUT
+   ══════════════════════════════════════════════════════════════ */
+.dashboard {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: var(--s-lg);
+  padding: var(--s-lg);
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: calc(100vh - 53px);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CARDS — xAI #191919 canvas-card + hairline borders, NO shadows
+   ══════════════════════════════════════════════════════════════ */
+.card {
+  background: var(--canvas-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: var(--s-lg);
+  transition: border-color 0.2s;
+}
+.card:hover { border-color: var(--hairline-strong); }
+
+.card-elevated {
+  background: var(--canvas-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: var(--s-lg);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s-sm);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 1.2px;
+  line-height: 1.33;
+  color: var(--mute);
+  text-transform: uppercase;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LEFT: TIMER PANEL
+   ══════════════════════════════════════════════════════════════ */
+.timer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-sm);
+}
+
+/* ── Phase Card ── */
+.phase-card {
+  text-align: center;
+  position: relative;
+}
+
+.phase-card .eyebrow {
+  margin-bottom: var(--s-xxs);
+}
+
+.phase-name {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.27;
+  letter-spacing: -0.6px;
+  margin-bottom: var(--s-xs);
+}
+.phase-name .round-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  background: var(--canvas-soft);
+  color: var(--body-mid);
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  vertical-align: middle;
+  margin-left: 6px;
+  letter-spacing: 1.2px;
+  line-height: 1.33;
+  text-transform: uppercase;
+  border: 1px solid var(--hairline);
+}
+
+.countdown-wrap {
+  margin: var(--s-xs) 0 var(--s-xxs);
+}
+
+.countdown {
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 400;
+  line-height: 1.0;
+  letter-spacing: -1.8px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  transition: color 0.3s, transform 0.3s;
+}
+.countdown.warning { color: var(--accent-sunset); }
+.countdown.danger  { color: var(--error); animation: danger-pulse 0.5s ease-in-out infinite alternate; }
+.countdown.ended   { color: var(--success); }
+
+@keyframes danger-pulse { from { opacity: 1; } to { opacity: 0.5; } }
+
+.countdown-sub {
+  font-size: 14px;
+  color: var(--body-mid);
+  line-height: 1.43;
+  min-height: 2.15em;
+}
+
+#phaseLabel {
+  margin-bottom: var(--s-xxs);
+}
+
+/* ── Progress ── */
+.progress-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.overall-progress {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+}
+.progress-segment {
+  flex: 1;
+  border-radius: var(--r-full);
+  background: var(--hairline);
+  transition: all 0.3s ease;
+  min-width: 0;
+}
+.progress-segment.active {
+  background: var(--primary);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+}
+.progress-segment.done.prep-phase    { background: var(--prep); }
+.progress-segment.done.flow-phase    { background: var(--flow); }
+.progress-segment.done.switch-phase  { background: var(--switch); }
+.progress-segment.done.recover-phase { background: var(--recover); }
+.progress-segment.done.rest-phase    { background: var(--rest); }
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+/* ── Notification bar ── */
+.notif-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-sm);
+  padding: var(--s-xs) var(--s-sm);
+  background: var(--canvas-soft);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  color: var(--body-mid);
+  line-height: 1.33;
+}
+.notif-bar .btn-small {
+  padding: 2px 10px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--body);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.notif-bar .btn-small:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--ink);
+}
+
+/* ── Timeline ── */
+.timeline-card {
+  padding: var(--s-md) var(--s-lg);
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--s-sm);
+}
+.timeline-header .eyebrow { color: var(--mute); }
+
+.auto-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--body-mid);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.auto-indicator .pulse-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent-breeze);
+  box-shadow: 0 0 6px var(--accent-breeze);
+  animation: blink 1.5s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-xs);
+  padding: 6px var(--s-xs);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  transition: all 0.2s;
+  color: var(--body-mid);
+  line-height: 1.33;
+}
+.timeline-item.current {
+  background: var(--canvas-soft);
+  color: var(--ink);
+}
+.timeline-item.done { opacity: 0.35; }
+
+.timeline-item .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.timeline-item .label { flex: 1; }
+.timeline-item .duration {
+  color: var(--mute);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Controls ── */
+.controls {
+  display: flex;
+  gap: var(--s-xs);
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 18px;
+  border-radius: var(--r-full);
+  font-size: 14px;
+  font-weight: 400;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.5;
+  min-height: 36px;
+}
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* xAI white-filled pill — the primary CTA (rare) */
+.btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--r-full);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--ink-hover);
+}
+
+/* xAI outline pill — the universal interactive shape */
+.btn-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--r-full);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* outline-sm variant for utility actions */
+.btn-utility {
+  background: transparent;
+  color: var(--body-mid);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--r-full);
+  padding: 4px 14px;
+  font-size: 14px;
+  min-height: 32px;
+}
+.btn-utility:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--body);
+  background: rgba(255, 255, 255, 0.03);
+}
+.btn-utility.active {
+  background: transparent;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--error);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: var(--r-full);
+  padding: 4px 14px;
+  font-size: 14px;
+  min-height: 32px;
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.04);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.key-hint {
+  font-size: 11px;
+  color: var(--mute);
+  text-align: center;
+  font-family: var(--font-mono);
+  letter-spacing: 1.2px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RIGHT: EEG MONITOR
+   ══════════════════════════════════════════════════════════════ */
+.eeg-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-sm);
+}
+
+/* ── Waveform Card ── */
+.waveform-card {
+  position: relative;
+  min-height: 360px;
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+.waveform-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--s-sm) var(--s-md);
+  border-bottom: 1px solid var(--hairline);
+  gap: var(--s-sm);
+}
+.waveform-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--s-sm);
+  min-width: 0;
+  flex: 1;
+}
+.waveform-header .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.waveform-header .eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+.waveform-header .ch-controls {
+  display: flex;
+  gap: 2px;
+  flex-wrap: nowrap;
+}
+.waveform-header .ch-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  color: var(--body-mid);
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--hairline);
+  background: transparent;
+  transition: all 0.15s;
+  line-height: 1.3;
+  white-space: nowrap;
+  user-select: none;
+}
+.waveform-header .ch-toggle:hover { border-color: rgba(255, 255, 255, 0.25); color: var(--body); }
+.waveform-header .ch-toggle input { display: none; }
+.waveform-header .ch-toggle.toggled-on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--canvas);
+}
+
+.current-phase-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--body-mid);
+  background: var(--canvas-soft);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.waveform-canvas-wrap {
+  position: absolute;
+  top: 41px; left: 48px; right: 0; bottom: 0;
+}
+canvas#waveform {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#channelLabels {
+  position: absolute;
+  left: 0; top: 41px;
+  width: 48px; bottom: 0;
+  pointer-events: none;
+}
+#channelLabels .ch-label {
+  position: absolute;
+  right: 6px;
+  font-size: 9px;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  text-align: right;
+  transform: translateY(-50%);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* ── EEG Grid ── */
+.eeg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-sm);
+}
+
+.mini-panel {
+  padding: var(--s-sm) var(--s-md);
+}
+.mini-panel .eyebrow {
+  margin-bottom: var(--s-xxs);
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 13px;
+  line-height: 1.33;
+  border-bottom: 1px solid var(--hairline);
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-row .label { color: var(--body-mid); }
+.stat-row .value {
+  font-family: var(--font-mono);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.stream-dots {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.sdot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--mute);
+  font-family: var(--font-mono);
+}
+.sdot .led {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+}
+.sdot .led.green { background: var(--success); box-shadow: 0 0 4px var(--success); }
+.sdot .led.red   { background: var(--error); }
+
+.band-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.band-item {
+  text-align: center;
+  padding: 6px 2px;
+  border-radius: var(--r-sm);
+  background: var(--canvas-soft);
+  border: 1px solid var(--hairline);
+}
+.band-item .label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1.2px;
+  line-height: 1.33;
+  color: var(--body-mid);
+}
+.band-bar {
+  height: 4px;
+  margin: 4px auto;
+  border-radius: var(--r-full);
+  transition: width 0.2s;
+  max-width: 100%;
+  box-shadow: 0 0 6px currentColor;
+}
+.band-val {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--body-mid);
+  font-variant-numeric: tabular-nums;
+}
+
+.sq-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 12px;
+  line-height: 1.33;
+}
+.sq-ch {
+  width: 28px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+.sq-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--hairline);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.sq-fill {
+  height: 100%;
+  border-radius: var(--r-full);
+  transition: width 0.3s, background 0.3s;
+}
+.sq-status {
+  width: 34px;
+  font-size: 10px;
+  color: var(--mute);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+    padding: var(--s-md);
+  }
+  .timer-panel { max-width: 480px; margin: 0 auto; }
+}
+
+@media (max-width: 640px) {
+  .nav-bar { padding: var(--s-xs) var(--s-sm); flex-wrap: wrap; gap: var(--s-xs); }
+  .nav-bar h1 { font-size: 14px; }
+  .countdown { font-size: 48px; letter-spacing: -1.5px; }
+  .countdown-sub { font-size: 13px; }
+  .dashboard { padding: var(--s-xs); gap: var(--s-xs); }
+  .phase-card { padding: var(--s-md); }
+  .phase-name { font-size: 20px; }
+  .eeg-grid { grid-template-columns: 1fr; }
+  .controls .btn { flex: 1; min-width: 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+   ══════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+}
+
+/* Phase color utilities */
+.color-prep    { color: var(--prep); }
+.color-flow    { color: var(--flow); }
+.color-switch  { color: var(--switch); }
+.color-recover { color: var(--recover); }
+.color-rest    { color: var(--rest); }
+
+.bg-prep    { background: var(--prep); }
+.bg-flow    { background: var(--flow); }
+.bg-switch  { background: var(--switch); }
+.bg-recover { background: var(--recover); }
+.bg-rest    { background: var(--rest); }
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <div class="nav-left">
+    <div class="nav-logo">⧩</div>
+    <h1>NEUROLINK</h1>
+    <span class="badge-pill" id="deviceBadge">Ganglion (4ch)</span>
+  </div>
+  <div class="nav-right">
+    <span id="status" class="disconnected"><span class="dot"></span> 未连接</span>
+  </div>
+</nav>
+
+<div class="dashboard">
+
+  <!-- ─── LEFT ─── -->
+  <div class="timer-panel">
+
+    <div class="phase-card card-elevated">
+      <div class="eyebrow" id="phaseLabel">当前阶段</div>
+      <div class="phase-name" id="phaseName">准备开始</div>
+      <div class="countdown-wrap">
+        <div class="countdown" id="countdown">05:00</div>
+      </div>
+      <div class="countdown-sub" id="countdownSub">佩戴EEG头环 · 设备校准 · 静息态记录(1min)</div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="overall-progress" id="progressBar"></div>
+      <div class="progress-label">
+        <span>进度</span>
+        <span id="progressText">0 / 14 阶段</span>
+      </div>
+    </div>
+
+    <div class="notif-bar">
+      <span>阶段切换提醒</span>
+      <button class="btn-small" onclick="requestNotif()">启用通知</button>
+    </div>
+
+    <div class="timeline-card card">
+      <div class="timeline-header">
+        <span class="eyebrow">实验流程</span>
+        <span class="auto-indicator">
+          <span class="pulse-dot"></span> 自动进行
+        </span>
+      </div>
+      <div class="timeline-list" id="timelineList"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="btnStart" onclick="toggleTimer()">继续</button>
+      <button class="btn btn-secondary" id="btnNext" onclick="nextPhase()" disabled>下一阶段</button>
+      <button class="btn btn-utility" id="btnReset" onclick="resetTimer()">重置</button>
+      <button class="btn btn-utility" id="btnAuto" onclick="toggleAuto()">自动</button>
+    </div>
+    <div class="key-hint">Space 下一阶段 · Enter 开始/暂停 · R 重置 · A 自动/手动</div>
+  </div>
+
+  <!-- ─── RIGHT ─── -->
+  <div class="eeg-panel">
+
+    <div class="waveform-card card-elevated">
+      <div class="waveform-header">
+        <div class="header-left">
+          <span class="eyebrow">实时脑电波</span>
+          <div class="ch-controls" id="chToggles"></div>
+        </div>
+        <span class="current-phase-tag" id="currentPhaseTag">准备阶段</span>
+      </div>
+      <div id="channelLabels"></div>
+      <div class="waveform-canvas-wrap">
+        <canvas id="waveform"></canvas>
+      </div>
+    </div>
+
+    <div class="eeg-grid">
+
+      <div class="mini-panel card">
+        <div class="eyebrow">系统状态</div>
+        <div class="stat-row"><span class="label">采样率</span><span class="value" id="statRate">-- Hz</span></div>
+        <div class="stat-row"><span class="label">数据包</span><span class="value" id="statPackets">0</span></div>
+        <div class="stat-row"><span class="label">显示窗口</span><span class="value" id="statWindow">4.0 s</span></div>
+        <div class="stream-dots" id="streamDots"></div>
+      </div>
+
+      <div class="mini-panel card">
+        <div class="eyebrow">频带功率 <span style="font-weight:400;color:var(--body-mid)">CH1</span></div>
+        <div class="band-grid" id="bandGrid"></div>
+      </div>
+
+      <div class="mini-panel card" id="signalQualityPanel">
+        <div class="eyebrow">信号稳定性 <span style="font-weight:400;color:var(--body-mid)">标准差</span></div>
+        <div id="zGrid"></div>
+      </div>
+
+
+    </div>
+
+  </div>
+</div>
+
+<audio id="beep" preload="auto"></audio>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   PART 1: EXPERIMENT TIMER
+   ══════════════════════════════════════════════════════════════ */
+const PHASES = [
+  { round: 0, id: 'prep',    name: '准备阶段',          duration: 300, desc: '佩戴EEG头环 · 设备校准 · 静息态记录(1min)', color: 'prep' },
+  { round: 1, id: 'flow1',   name: '心流诱导阶段',      duration: 480, desc: '第一项学科任务（诱导心流状态）',              color: 'flow' },
+  { round: 1, id: 'switch1', name: '任务切换阶段',      duration: 120, desc: '切换为跨学科技能任务',                       color: 'switch' },
+  { round: 1, id: 'recover1',name: '状态恢复观察阶段',   duration: 600, desc: '回归原任务 · 观察EEG恢复',                  color: 'recover' },
+  { round: 1, id: 'rest1',   name: '休息与问卷',        duration: 180, desc: '填写简化版心流问卷 · 休息间隔',               color: 'rest' },
+  { round: 2, id: 'flow2',   name: '心流诱导阶段',      duration: 480, desc: '第二项学科任务（诱导心流状态）',              color: 'flow' },
+  { round: 2, id: 'switch2', name: '任务切换阶段',      duration: 120, desc: '切换为跨学科技能任务',                       color: 'switch' },
+  { round: 2, id: 'recover2',name: '状态恢复观察阶段',   duration: 600, desc: '回归原任务 · 观察EEG恢复',                  color: 'recover' },
+  { round: 2, id: 'rest2',   name: '休息与问卷',        duration: 180, desc: '填写简化版心流问卷 · 休息间隔',               color: 'rest' },
+  { round: 3, id: 'flow3',   name: '心流诱导阶段',      duration: 480, desc: '第三项学科任务（诱导心流状态）',              color: 'flow' },
+  { round: 3, id: 'switch3', name: '任务切换阶段',      duration: 120, desc: '切换为跨学科技能任务',                       color: 'switch' },
+  { round: 3, id: 'recover3',name: '状态恢复观察阶段',   duration: 600, desc: '回归原任务 · 观察EEG恢复',                  color: 'recover' },
+  { round: 3, id: 'rest3',   name: '休息与问卷',        duration: 180, desc: '填写简化版心流问卷 · 实验结束',               color: 'rest' },
+];
+
+let timerState = {
+  currentPhase: 0,
+  timeLeft: PHASES[0].duration,
+  running: false,
+  autoMode: true,
+  completed: false,
+  timerId: null,
+};
+
+const beepCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playBeep(type) {
+  try {
+    if (beepCtx.state === 'suspended') beepCtx.resume();
+    const osc = beepCtx.createOscillator();
+    const gain = beepCtx.createGain();
+    osc.connect(gain);
+    gain.connect(beepCtx.destination);
+    if (type === 'end') {
+      osc.frequency.value = 880;
+      gain.gain.value = 0.3;
+      gain.gain.exponentialRampToValueAtTime(0.01, beepCtx.currentTime + 0.8);
+      osc.start(beepCtx.currentTime); osc.stop(beepCtx.currentTime + 0.8);
+      const o2 = beepCtx.createOscillator(); const g2 = beepCtx.createGain();
+      o2.connect(g2); g2.connect(beepCtx.destination);
+      o2.frequency.value = 1108.73; g2.gain.value = 0.25;
+      g2.gain.exponentialRampToValueAtTime(0.01, beepCtx.currentTime + 1.0);
+      o2.start(beepCtx.currentTime + 0.15); o2.stop(beepCtx.currentTime + 1.0);
+    } else if (type === 'countdown') {
+      osc.frequency.value = 660; gain.gain.value = 0.2;
+      gain.gain.exponentialRampToValueAtTime(0.01, beepCtx.currentTime + 0.15);
+      osc.start(beepCtx.currentTime); osc.stop(beepCtx.currentTime + 0.15);
+    } else if (type === 'tick') {
+      osc.frequency.value = 440; gain.gain.value = 0.15;
+      gain.gain.exponentialRampToValueAtTime(0.01, beepCtx.currentTime + 0.08);
+      osc.start(beepCtx.currentTime); osc.stop(beepCtx.currentTime + 0.08);
+    }
+  } catch(e) {}
+}
+
+function requestNotif() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') return;
+  Notification.requestPermission();
+}
+
+function sendNotif(name) {
+  try {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    new Notification('实验阶段结束', { body: '"' + name + '" 已完成', silent: true });
+  } catch(e) {}
+}
+
+function fmt(s) {
+  return String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+}
+
+function fmtDur(s) {
+  if (s >= 60) { const m = Math.floor(s / 60); return s % 60 > 0 ? m + '分' + (s % 60) + '秒' : m + '分钟'; }
+  return s + '秒';
+}
+
+function renderTimer() {
+  const phase = PHASES[timerState.currentPhase];
+  if (!phase) return;
+  const bar = document.getElementById('progressBar');
+  bar.innerHTML = '';
+  PHASES.forEach((p, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'progress-segment';
+    if (i < timerState.currentPhase) seg.classList.add('done');
+    else if (i === timerState.currentPhase && !timerState.completed) seg.classList.add('active');
+    seg.classList.add(p.color + '-phase');
+    bar.appendChild(seg);
+  });
+  const pt = document.getElementById('progressText');
+  if (pt) pt.textContent = timerState.completed ? '已完成' : timerState.currentPhase + ' / ' + PHASES.length + ' 阶段';
+  const labelEl = document.getElementById('phaseLabel');
+  labelEl.textContent = timerState.completed ? '实验完成' : (timerState.running ? '进行中' : '已暂停');
+  labelEl.style.color = timerState.completed ? 'var(--success)' : 'var(--mute)';
+  const rt = phase.round > 0 ? '第' + (['一','二','三'][phase.round-1]) + '轮' : '';
+  document.getElementById('phaseName').innerHTML = phase.name + (rt ? ' <span class="round-badge">' + rt + '</span>' : '');
+  document.getElementById('phaseName').style.color = 'var(--' + phase.color + ')';
+  document.getElementById('currentPhaseTag').textContent = phase.name;
+  const cd = document.getElementById('countdown');
+  if (timerState.completed) { cd.textContent = '完成'; cd.className = 'countdown ended'; }
+  else {
+    cd.textContent = fmt(timerState.timeLeft);
+    cd.className = 'countdown' + (timerState.timeLeft <= 5 && timerState.running ? ' danger' : timerState.timeLeft <= 15 && timerState.running ? ' warning' : '');
+  }
+  document.getElementById('countdownSub').textContent = timerState.completed ? '所有实验阶段已完成' : phase.desc;
+  const list = document.getElementById('timelineList');
+  list.innerHTML = '';
+  const total = PHASES.length;
+  const start = Math.max(0, timerState.currentPhase - 2);
+  const end = Math.min(total, timerState.currentPhase + 5);
+  if (start > 0) { const d = document.createElement('div'); d.className = 'timeline-item done'; d.style.justifyContent = 'center'; d.innerHTML = '<span style="font-size:10px;color:var(--mute)">⋯ 前 ' + start + ' 阶段</span>'; list.appendChild(d); }
+  for (let i = start; i < end; i++) {
+    const p = PHASES[i]; const item = document.createElement('div');
+    item.className = 'timeline-item';
+    if (i < timerState.currentPhase) item.classList.add('done');
+    else if (i === timerState.currentPhase && !timerState.completed) item.classList.add('current');
+    item.innerHTML = '<span class="dot bg-' + p.color + '" style="background:var(--' + p.color + ')"></span><span class="label">' + (p.round > 0 ? 'R' + p.round + ' ' : '') + p.name + '</span><span class="duration">' + fmtDur(p.duration) + '</span>';
+    list.appendChild(item);
+  }
+  if (end < total) { const d = document.createElement('div'); d.className = 'timeline-item'; d.style.justifyContent = 'center'; d.style.opacity = '0.3'; d.innerHTML = '<span style="font-size:10px;color:var(--mute)">⋯ 剩余 ' + (total - end) + ' 阶段</span>'; list.appendChild(d); }
+  const bs = document.getElementById('btnStart'); const isPaused = timerState.running;
+  bs.textContent = timerState.completed ? '已完成' : (isPaused ? '暂停' : '继续');
+  bs.disabled = timerState.completed; bs.className = 'btn ' + (isPaused ? 'btn-utility active' : 'btn-primary');
+  document.getElementById('btnNext').disabled = timerState.completed;
+  const autoEl = document.getElementById('btnAuto');
+  autoEl.textContent = timerState.autoMode ? '自动' : '手动';
+  autoEl.className = 'btn btn-utility' + (timerState.autoMode ? ' active' : '');
+}
+
+function tick() {
+  if (!timerState.running || timerState.completed) return;
+  timerState.timeLeft--;
+  if (timerState.timeLeft === 10) playBeep('countdown');
+  else if (timerState.timeLeft <= 3 && timerState.timeLeft > 0) playBeep('tick');
+  if (timerState.timeLeft <= 0) {
+    timerState.timeLeft = 0; renderTimer(); playBeep('end');
+    sendNotif(PHASES[timerState.currentPhase].name);
+    timerState.running = false; clearInterval(timerState.timerId); timerState.timerId = null;
+    onPhaseComplete(PHASES[timerState.currentPhase]);
+    if (timerState.autoMode) { setTimeout(() => { if (timerState.currentPhase < PHASES.length - 1) { advanceToNext(); if (timerState.autoMode && !timerState.running) toggleTimer(); } }, 2000); }
+    renderTimer(); return;
+  }
+  renderTimer();
+}
+
+function toggleTimer() {
+  if (timerState.completed) return;
+  timerState.running = !timerState.running;
+  if (timerState.running) { if (beepCtx.state === 'suspended') beepCtx.resume(); timerState.timerId = setInterval(tick, 1000); }
+  else { clearInterval(timerState.timerId); timerState.timerId = null; }
+  renderTimer();
+}
+
+function advanceToNext() {
+  clearInterval(timerState.timerId); timerState.timerId = null;
+  timerState.running = false; timerState.currentPhase++;
+  timerState.timeLeft = PHASES[timerState.currentPhase].duration;
+  onPhaseStart(PHASES[timerState.currentPhase]); renderTimer();
+}
+
+function nextPhase() {
+  if (timerState.completed) return;
+  if (timerState.currentPhase >= PHASES.length - 1) {
+    timerState.completed = true; timerState.running = false;
+    clearInterval(timerState.timerId); timerState.timerId = null; timerState.timeLeft = 0;
+    playBeep('end'); sendNotif('全部实验完成');
+    onPhaseComplete(PHASES[PHASES.length - 1]); renderTimer(); return;
+  }
+  advanceToNext();
+}
+
+function resetTimer() {
+  if (!confirm('确定要重置所有进度吗？')) return;
+  clearInterval(timerState.timerId); timerState.timerId = null;
+  timerState.currentPhase = 0; timerState.timeLeft = PHASES[0].duration;
+  timerState.running = false; timerState.completed = false;
+  onPhaseStart(PHASES[0]); renderTimer();
+}
+
+function toggleAuto() { timerState.autoMode = !timerState.autoMode; renderTimer(); }
+
+function onPhaseStart(phase) { document.getElementById('currentPhaseTag').textContent = phase.name; console.log('[Marker] Phase start:', phase.id); }
+function onPhaseComplete(phase) { console.log('[Marker] Phase complete:', phase.id); }
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  switch (e.code) {
+    case 'Space': e.preventDefault(); if (!document.getElementById('btnNext').disabled) nextPhase(); break;
+    case 'Enter': e.preventDefault(); toggleTimer(); break;
+    case 'KeyR': if (!e.ctrlKey && !e.metaKey) resetTimer(); break;
+    case 'KeyA': toggleAuto(); break;
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   PART 2: EEG CLIENT
+   ══════════════════════════════════════════════════════════════ */
+const WS_URL = 'ws://' + location.host;
+const GANGLION_CH = ['CH1','CH2','CH3','CH4'];
+const CYTON_CH = ['CH1','CH2','CH3','CH4','CH5','CH6','CH7','CH8'];
+const CH_COLORS = ['#a0c3ec','#c4b5fd','#ff7a17','#ffc285','#7c3aed','#a0c3ec','#c4b5fd','#ff7a17','#ffc285','#7c3aed','#a0c3ec','#c4b5fd','#ff7a17','#ffc285','#7c3aed','#a0c3ec'];
+const DISPLAY_DURATION = 4;
+const MAX_POINTS = 2000;
+const BANDS = [
+  { id: 'bDelta',  label: 'δ',  color: '#a0c3ec', lo: 0.5, hi: 4 },
+  { id: 'bTheta',  label: 'θ',  color: '#c4b5fd', lo: 4,   hi: 8 },
+  { id: 'bAlpha',  label: 'α',  color: '#ff7a17', lo: 8,   hi: 13 },
+  { id: 'bBeta',   label: 'β',  color: '#ffc285', lo: 13,  hi: 32 },
+  { id: 'bGamma',  label: 'γ',  color: '#7c3aed', lo: 32,  hi: 100 },
+];
+
+let deviceType = 'ganglion', channels = 4, chNames = GANGLION_CH, sampleRate = 200, configSampleRate = 200;
+let buffer = [], packetCount = 0, enabledChans = {}, lastStreamTime = {}, animPending = false, ws = null;
+
+const canvas = document.getElementById('waveform');
+const ctx = canvas.getContext('2d');
+function resizeCanvas() {
+  const p = canvas.parentElement; const dpr = window.devicePixelRatio || 1;
+  const w = p.clientWidth, h = p.clientHeight;
+  if (w < 10 || h < 10) return { w: 400, h: 200, dpr: 1 };
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr); return { w, h, dpr };
+}
+
+function buildChannelUI(count) {
+  const ct = document.getElementById('chToggles'), lc = document.getElementById('channelLabels'), sd = document.getElementById('streamDots');
+  if (!ct || !lc || !sd) return;
+  ct.innerHTML = ''; lc.innerHTML = ''; sd.innerHTML = '';
+  const chH = canvas.parentElement.clientHeight / count;
+  for (let i = 0; i < count; i++) {
+    const lb = document.createElement('span'); lb.className = 'ch-toggle';
+    const isOn = enabledChans[i] !== false;
+    if (isOn) lb.classList.add('toggled-on');
+    const chName = chNames[i] || 'CH'+(i+1);
+    lb.textContent = chName;
+    lb.addEventListener('click', () => {
+      enabledChans[i] = enabledChans[i] === false ? true : false;
+      lb.classList.toggle('toggled-on', enabledChans[i] !== false);
+    });
+    ct.appendChild(lb);
+    const l = document.createElement('div'); l.className = 'ch-label';
+    l.style.top = (chH * (i + 0.5)) + 'px'; const d = document.createElement('span');
+    d.style.color = CH_COLORS[i % CH_COLORS.length]; d.textContent = '●'; l.appendChild(d);
+    l.appendChild(document.createTextNode(' ' + chName)); lc.appendChild(l);
+    const s = document.createElement('div'); s.className = 'sdot'; s.id = 'ed-' + i;
+    s.innerHTML = '<span class="led red"></span>' + chName; sd.appendChild(s);
+  }
+}
+
+function buildBandUI() {
+  const g = document.getElementById('bandGrid'); if (!g) return;
+  g.innerHTML = BANDS.map(b => '<div class="band-item"><div class="label">' + b.label + '</div><div class="band-bar" style="background:' + b.color + ';width:0%"></div><div class="band-val" id="' + b.id + '">0</div></div>').join('');
+}
+
+function buildZUI(count) {
+  const g = document.getElementById('zGrid'); if (!g) return;
+  g.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    g.innerHTML += '<div class="sq-meter"><span class="sq-ch" style="color:' + CH_COLORS[i % CH_COLORS.length] + '">' + (chNames[i] || 'CH'+(i+1)) + '</span><div class="sq-bar"><div class="sq-fill" id="zf-' + i + '" style="width:0%;background:#4ade80"></div></div><span class="sq-status" id="zv-' + i + '">--</span></div>';
+  }
+}
+
+function goertzel(s, f, r) {
+  const n = s.length, k = Math.round(f * n / r), o = 2 * Math.PI * k / n, c = 2 * Math.cos(o);
+  let s1 = 0, s2 = 0;
+  for (let i = 0; i < n; i++) { const y = s[i] + c * s1 - s2; s2 = s1; s1 = y; }
+  return Math.sqrt(s2 * s2 + s1 * s1 - c * s1 * s2) / n;
+}
+
+function bandsFFT(s, r) { return s.length < 32 ? BANDS.map(() => 0) : BANDS.map(b => goertzel(s, (b.lo + b.hi) / 2, r)); }
+
+function drawWaveform() {
+  const d = resizeCanvas(), { w, h } = d;
+  ctx.clearRect(0, 0, w, h);
+  if (buffer.length < 10) { ctx.fillStyle = '#7d8187'; ctx.font = '14px system-ui'; ctx.textAlign = 'center'; ctx.fillText('等待数据...', w / 2, h / 2); return; }
+  const cc = channels, chH = h / cc, vp = Math.min(buffer.length, MAX_POINTS), v = buffer.slice(-vp);
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 0.5;
+  for (let i = 1; i < cc; i++) { const y = Math.round(i * chH) + 0.5; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(255,255,255,0.02)'; ctx.setLineDash([2, 4]);
+  for (let i = 0; i < cc; i++) { const y = Math.round(i * chH + chH / 2) + 0.5; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  ctx.setLineDash([]);
+  for (let ch = 0; ch < cc; ch++) {
+    if (enabledChans[ch] === false) continue;
+    const midY = ch * chH + chH / 2, scale = chH * 0.35 / 200000, color = CH_COLORS[ch % CH_COLORS.length];
+    ctx.strokeStyle = color; ctx.globalAlpha = 0.15; ctx.lineWidth = 3; ctx.beginPath();
+    for (let i = 0; i < v.length; i++) { const x = (i / (v.length - 1 || 1)) * w, y = midY + (v[i].channels[ch] || 0) * scale; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+    ctx.stroke();
+    ctx.globalAlpha = 1; ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.beginPath();
+    for (let i = 0; i < v.length; i++) { const x = (i / (v.length - 1 || 1)) * w, y = midY + (v[i].channels[ch] || 0) * scale; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = '#7d8187'; ctx.font = '8px monospace'; ctx.textAlign = 'left'; ctx.fillText('µVrms', 2, h - 3);
+}
+
+function updateBands() {
+  if (buffer.length < 64) return;
+  const r = buffer.slice(-256).map(s => s.channels[0] || 0), p = bandsFFT(r, sampleRate), mx = Math.max(...p, 1);
+  BANDS.forEach((b, i) => {
+    const pct = Math.min(100, (p[i] / Math.max(mx * 0.1, 1)) * 60);
+    const bar = document.querySelector('#' + CSS.escape(b.id))?.parentElement?.querySelector('.band-bar');
+    const el = document.getElementById(b.id);
+    if (bar) bar.style.width = pct + '%'; if (el) el.textContent = p[i].toFixed(1);
+  });
+}
+
+function updateStreamStatus() { const n = Date.now(); for (let ch = 0; ch < channels; ch++) { const d = document.querySelector('#ed-' + ch + ' .led'); if (!d) continue; d.className = 'led ' + ((n - (lastStreamTime[ch] || 0)) < 3000 ? 'green' : 'red'); } }
+
+function updateImpedance() {
+  if (deviceType !== 'ganglion' || buffer.length < 32) return;
+  for (let ch = 0; ch < channels; ch++) {
+    const v = buffer.slice(-32).map(s => s.channels[ch] || 0), m = v.reduce((a,b) => a + b, 0) / v.length;
+    const z = Math.sqrt(v.reduce((a,b) => a + (b - m) ** 2, 0) / v.length);
+    const f = document.getElementById('zf-' + ch), e = document.getElementById('zv-' + ch);
+    if (!f || !e) continue; f.style.width = Math.min(100, Math.max(0, (z / 50000) * 100)) + '%';
+    if (z < 500)      { f.style.background = '#f87171'; e.textContent = '无信号'; }
+    else if (z < 5000) { f.style.background = '#ff7a17'; e.textContent = '微弱'; }
+    else if (z < 50000){ f.style.background = '#4ade80'; e.textContent = '正常'; }
+    else               { f.style.background = '#a0c3ec'; e.textContent = '活跃'; }
+  }
+}
+
+function appendData(packet) {
+  buffer.push(packet); packetCount++;
+  packet.channels.forEach((v, ch) => { lastStreamTime[ch] = Date.now(); });
+  const mx = Math.max(MAX_POINTS, sampleRate * DISPLAY_DURATION);
+  if (buffer.length > mx * 1.5) buffer = buffer.slice(-mx);
+  if (packetCount % 50 === 0) { document.getElementById('statPackets').textContent = packetCount; if (sampleRate) document.getElementById('statRate').textContent = sampleRate + ' Hz'; }
+  if (packetCount % Math.max(1, Math.round(sampleRate / 10)) === 0) updateBands();
+  if (packetCount % Math.max(1, Math.round(sampleRate / 2)) === 0) updateStreamStatus();
+  if (packetCount % Math.max(1, Math.round(Math.max(sampleRate,200) / 5)) === 0) updateImpedance();
+  if (!animPending) { animPending = true; requestAnimationFrame(() => { animPending = false; drawWaveform(); }); }
+}
+
+function connectWS() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => { const el = document.getElementById('status'); el.innerHTML = '<span class="dot"></span> 已连接'; el.className = 'connected'; };
+  ws.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'status') {
+        deviceType = d.deviceType || 'ganglion'; channels = d.channels || 4; configSampleRate = d.sampleRate || 200;
+        chNames = deviceType === 'ganglion' ? GANGLION_CH : CYTON_CH;
+        document.getElementById('deviceBadge').textContent = deviceType === 'ganglion' ? 'Ganglion (4ch)' : 'Cyton (' + channels + 'ch)';
+        document.getElementById('statRate').textContent = configSampleRate + ' Hz'; document.getElementById('statWindow').textContent = DISPLAY_DURATION + ' s';
+        document.getElementById('signalQualityPanel').style.display = deviceType === 'ganglion' ? '' : 'none';
+        buildChannelUI(channels); buildBandUI(); buildZUI(channels); return;
+      }
+      sampleRate = configSampleRate; appendData(d);
+    } catch(e) {}
+  };
+  ws.onclose = () => { const el = document.getElementById('status'); el.innerHTML = '<span class="dot"></span> 已断开 (5s后重连)'; el.className = 'disconnected'; buffer = []; setTimeout(connectWS, 5000); };
+  ws.onerror = () => { ws.close(); };
+}
+
+renderTimer(); onPhaseStart(PHASES[0]); buildChannelUI(4); buildBandUI(); buildZUI(4);
+setTimeout(() => resizeCanvas(), 100); connectWS();
+window.addEventListener('resize', () => { drawWaveform(); });
+</script>
+</body>
+</html>
