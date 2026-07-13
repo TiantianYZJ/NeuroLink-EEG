@@ -111,7 +111,84 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 /* 底部提示 */
 .footer-hints{padding:8px 24px 12px;font-size:12px;color:rgba(255,255,255,0.35);text-align:center;letter-spacing:0.5px}
 
-@media(max-width:900px){.dashboard{flex-direction:column}.dash-left{width:100%}}
+/* ── 受试者面板 ── */
+.subject-wrap{max-width:720px;margin:0 auto;padding:40px 24px;text-align:center}
+.subject-phase{font-family:'Inter',system-ui,sans-serif;font-size:20px;font-weight:500;color:rgba(255,255,255,0.5);letter-spacing:0;margin-bottom:4px}
+.subject-title{font-size:40px;font-weight:600;letter-spacing:-0.4px;line-height:1.2;margin-bottom:4px}
+.subject-task{font-size:16px;color:rgba(255,255,255,0.5);margin-bottom:32px}
+.subject-timer{font-size:80px;font-weight:600;letter-spacing:-0.8px;line-height:1;margin:24px 0 32px;color:#fff}
+.subject-timer.paused{color:rgba(255,255,255,0.4)}
+.subject-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:24px}
+.subject-btn{height:56px;padding:16px 40px;border-radius:9999px;font-size:16px;font-weight:600;cursor:pointer;border:none;font-family:inherit;line-height:1.5;transition:all .15s;min-width:180px}
+.subject-btn:disabled{opacity:.3;cursor:not-allowed}
+.subject-btn-enter{background:#fff;color:#000}
+.subject-btn-enter:hover:not(:disabled){background:rgba(255,255,255,0.85)}
+.subject-btn-exit{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.25)}
+.subject-btn-exit:hover:not(:disabled){border-color:#fff}
+.subject-cooldown{font-size:12px;color:rgba(255,255,255,0.35);margin-top:-16px;margin-bottom:24px;min-height:18px}
+.subject-hint{font-size:14px;color:rgba(255,255,255,0.45);padding:16px;border-radius:20px;background:#16181a;border:1px solid rgba(255,255,255,0.08);margin-bottom:24px}
+.subject-markers{font-size:13px;color:rgba(255,255,255,0.35);text-align:center}
+.subject-markers span{margin:0 6px}
+
+/* ── FSS 问卷弹窗 ── */
+.fss-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:100;padding:24px}
+.fss-overlay.active{display:flex}
+.fss-card{background:#16181a;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto}
+.fss-card h2{font-size:20px;font-weight:600;margin-bottom:4px}
+.fss-card .fss-sub{font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:24px}
+.fss-question{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.fss-question:last-child{border-bottom:none}
+.fss-question .q-text{font-size:14px;margin-bottom:10px;color:rgba(255,255,255,0.85)}
+.fss-likert{display:flex;gap:4px;justify-content:space-between}
+.fss-likert button{flex:1;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:#0a0a0a;color:rgba(255,255,255,0.5);font-size:13px;font-weight:600;cursor:pointer;transition:all .1s;font-family:inherit}
+.fss-likert button:hover{border-color:rgba(255,255,255,0.3);color:#fff}
+.fss-likert button.selected{background:#494fdf;border-color:#494fdf;color:#fff}
+.fss-labels{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;padding:0 2px}
+.fss-submit-row{display:flex;gap:12px;margin-top:24px;justify-content:flex-end}
+
+/* ── 控制台面板 ── */
+.console-wrap{max-width:960px;margin:0 auto;padding:24px}
+.console-section{margin-bottom:24px}
+.console-section-title{font-size:14px;font-weight:600;margin-bottom:12px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1px}
+.console-card{background:#16181a;border-radius:20px;padding:20px;border:1px solid rgba(255,255,255,0.08);margin-bottom:16px}
+.console-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
+.console-field{flex:1;min-width:160px}
+.console-field label{display:block;font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
+.console-field input,.console-field select,.console-field textarea{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:14px;padding:10px 14px;font-family:inherit;outline:none;transition:border-color .15s}
+.console-field input:focus,.console-field select:focus,.console-field textarea:focus{border-color:#494fdf}
+.console-field textarea{resize:vertical;min-height:60px}
+.console-field select option{background:#16181a;color:#fff}
+.console-table-wrap{overflow-x:auto}
+.console-table{width:100%;border-collapse:collapse;font-size:13px}
+.console-table th{text-align:left;padding:10px 12px;color:rgba(255,255,255,0.4);font-weight:400;font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.console-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.7)}
+.console-table tr:hover td{background:rgba(255,255,255,0.03)}
+.status-badge{padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600}
+.status-badge.pending{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4)}
+.status-badge.running{background:rgba(73,79,223,0.2);color:#494fdf}
+.status-badge.completed{background:rgba(74,222,128,0.15);color:#4ade80}
+.template-grid{display:flex;gap:12px;flex-wrap:wrap}
+.template-card{padding:14px 20px;border-radius:20px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.08);cursor:pointer;text-align:center;transition:all .15s;min-width:140px;flex:1}
+.template-card:hover{border-color:rgba(255,255,255,0.2)}
+.template-card.selected{border-color:#494fdf;background:rgba(73,79,223,0.1)}
+.template-card h4{font-size:14px;font-weight:600;margin-bottom:2px}
+.template-card p{font-size:11px;color:rgba(255,255,255,0.4)}
+.console-empty{text-align:center;padding:40px 0;color:rgba(255,255,255,0.2);font-size:14px}
+.console-btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.pill-sm{padding:4px 12px;border-radius:9999px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
+.pill-sm.danger{background:rgba(226,59,74,0.15);color:#e23b4a}
+.pill-sm.danger:hover{background:rgba(226,59,74,0.3)}
+.pill-sm.outline{background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12)}
+.pill-sm.outline:hover{border-color:rgba(255,255,255,0.3)}
+.icon-btn{background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:14px;padding:4px;font-family:inherit;transition:color .15s}
+.icon-btn:hover{color:#fff}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:9999px;font-size:14px;font-weight:600;z-index:200;display:none;animation:fadeIn .2s}
+.toast.show{display:block}
+.toast.success{background:#4ade80;color:#000}
+.toast.error{background:#e23b4a;color:#fff}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+@media(max-width:900px){.dashboard{flex-direction:column}.dash-left{width:100%}.console-row{flex-direction:column}}
 </style>
 </head>
 <body>
@@ -333,7 +410,32 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
     <h2>⧩ 受试者端</h2>
   </div>
-  <div class="placeholder">TODO: 大倒计时 + 自评按钮 + FSS 问卷</div>
+  <div class="subject-wrap">
+    <div class="subject-phase" id="subjPhaseLabel">准备阶段</div>
+    <div class="subject-title" id="subjTitle">准备开始</div>
+    <div class="subject-task" id="subjTask">请佩戴 EEG 头环，等待实验员确认</div>
+    <div class="subject-timer" id="subjTimer">05:00</div>
+    <div class="subject-btns" id="subjBtns">
+      <button class="subject-btn subject-btn-enter" id="subjBtnEnter" onclick="subjectReport('flow_enter')">进入心流</button>
+      <button class="subject-btn subject-btn-exit" id="subjBtnExit" onclick="subjectReport('flow_exit')">脱离心流</button>
+    </div>
+    <div class="subject-cooldown" id="subjCooldown"></div>
+    <div class="subject-hint" id="subjHint">请佩戴 EEG 头环，等待实验员确认</div>
+    <div class="subject-markers" id="subjMarkers"></div>
+  </div>
+
+  <!-- ── FSS 问卷弹窗 ── -->
+  <div class="fss-overlay" id="fssOverlay">
+    <div class="fss-card">
+      <h2>心流状态问卷 (FSS)</h2>
+      <div class="fss-sub">请根据刚才的任务体验，选择最符合的选项</div>
+      <div id="fssQuestions"></div>
+      <div class="fss-submit-row">
+        <button class="btn btn-outline btn-small" onclick="closeFSS()">取消</button>
+        <button class="btn btn-primary btn-small" onclick="submitFSS()">提交问卷</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ─── 面板 5: 控制台 ─── -->
@@ -342,8 +444,85 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
     <h2>⧩ 实验控制台</h2>
   </div>
-  <div class="placeholder">TODO: 受试者 CRUD + 模板选择 + 场次历史</div>
+  <div class="console-wrap">
+    <div class="console-section">
+      <div class="console-section-title">新建实验</div>
+      <div class="console-card">
+        <div class="console-row">
+          <div class="console-field">
+            <label>受试者</label>
+            <select id="consoleSubjectSelect"><option value="">— 选择受试者 —</option></select>
+          </div>
+          <div class="console-field" style="flex:0 1 auto;min-width:100px">
+            <label>&nbsp;</label>
+            <button class="btn btn-outline btn-small" onclick="showNewSubject()">+ 新建</button>
+          </div>
+          <div class="console-field">
+            <label>实验模板</label>
+            <select id="consoleTemplateSelect"><option value="">— 选择模板 —</option></select>
+          </div>
+          <div class="console-field">
+            <label>操作员</label>
+            <input type="text" id="consoleOperator" placeholder="姓名">
+          </div>
+        </div>
+        <div class="console-field">
+          <label>备注</label>
+          <textarea id="consoleNotes" placeholder="环境、异常情况记录（可选）"></textarea>
+        </div>
+        <div class="console-btn-group">
+          <button class="btn btn-primary" onclick="consoleCreateSession()">开始实验 →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="console-section">
+      <div class="console-section-title">受试者管理</div>
+      <div id="consoleSubjectList" class="console-card">
+        <div class="console-empty">加载中...</div>
+      </div>
+    </div>
+
+    <div class="console-section">
+      <div class="console-section-title">场次历史</div>
+      <div id="consoleSessionList" class="console-card">
+        <div class="console-empty">加载中...</div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<!-- ── 新建受试者弹窗 ── -->
+<div class="fss-overlay" id="newSubjectOverlay">
+  <div class="fss-card" style="max-width:400px">
+    <h2>新建受试者</h2>
+    <div class="console-field" style="margin-top:16px">
+      <label>姓名</label>
+      <input type="text" id="newSubjName" placeholder="输入姓名">
+    </div>
+    <div class="console-row" style="margin-top:12px">
+      <div class="console-field">
+        <label>年龄</label>
+        <input type="number" id="newSubjAge" placeholder="年龄">
+      </div>
+      <div class="console-field">
+        <label>性别</label>
+        <select id="newSubjGender"><option value="">—</option><option value="M">男</option><option value="F">女</option></select>
+      </div>
+    </div>
+    <div class="console-field" style="margin-top:12px">
+      <label>备注</label>
+      <textarea id="newSubjNotes" placeholder="可选备注"></textarea>
+    </div>
+    <div class="fss-submit-row" style="margin-top:20px">
+      <button class="btn btn-outline btn-small" onclick="closeNewSubject()">取消</button>
+      <button class="btn btn-primary btn-small" onclick="createSubject()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
 
 <script>
 const WS_URL = (() => {
@@ -520,6 +699,14 @@ function switchPanel(id) {
 function sendCmd(action) {
   if (ws && ws.readyState === 1) ws.send(JSON.stringify({type:'cmd', action, session_id: sessionId}));
 }
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function showEl(id, show) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (show === undefined) { el.style.display = ''; return; }
+  el.style.display = show ? '' : 'none';
+}
+function hideEl(id) { showEl(id, false); }
 
 // ── 面板更新 ──
 function updateBandPower(prefix, snapshot) {
@@ -660,6 +847,32 @@ function connectWS() {
 
       // 角色面板消息
       const prefix = currentRole === 'master' ? 'master' : (currentRole === 'monitor' ? 'monitor' : null);
+
+      // 受试者端消息
+      if (currentRole === 'subject') {
+        if (msg.type === 'phase_sync') updateSubjectUI(msg);
+        if (msg.type === 'self_report_ack') addSubjMarker(msg.state === 'flow_enter' ? '✓ 进入心流' : msg.state === 'flow_exit' ? '✗ 脱离心流' : '⚠ 分心');
+        if (msg.type === 'fss_submit_ack') showToast(msg.success ? '问卷已提交' : '提交失败: ' + msg.error, msg.success ? 'success' : 'error');
+        // 下线队列刷新
+        if (msg.type === 'room_info' && subjQueue.length > 0) {
+          const q = subjQueue.splice(0);
+          q.forEach(s => ws.send(JSON.stringify({ type:'self_report', state:s, phase:'', session_id:sessionId })));
+        }
+        return;
+      }
+
+      // 控制台消息
+      if (currentRole === 'console') {
+        if (msg.type === 'subjects_list') renderSubjects(msg.subjects);
+        if (msg.type === 'subject_created') { showToast('受试者已创建', 'success'); loadSubjects(); }
+        if (msg.type === 'templates_list') renderTemplates(msg.templates);
+        if (msg.type === 'session_created') { showToast('实验场次已创建', 'success'); loadSessions(); document.getElementById('consoleNotes').value = ''; }
+        if (msg.type === 'sessions_list') renderSessions(msg.sessions);
+        if (msg.type === 'session_detail') console.log('session_detail', msg);
+        if (msg.type === 'error') showToast(msg.message, 'error');
+        return;
+      }
+
       if (!prefix) return;
 
       if (msg.type === 'eeg_frame' && msg.channels) {
@@ -739,9 +952,9 @@ function onClaimed(role) {
   const pid = panelMap[role];
   if (pid) {
     switchPanel(pid);
-    // Init waveform buffers for this role
     if (role === 'master') initWaveform('masterWaveform');
     if (role === 'monitor') initWaveform('monitorWaveform');
+    if (role === 'console') { loadSubjects(); loadTemplates(); loadSessions(); }
   }
 }
 
@@ -769,6 +982,247 @@ document.addEventListener('change', (e) => {
     if (window._lastSnapshot) updateTopoMap(prefix, window._lastSnapshot);
   }
 });
+
+// ═══════════════════════════════════════════
+// 受试者面板
+// ═══════════════════════════════════════════
+
+const FSS_QUESTIONS = [
+  '我在任务期间完全沉浸在当前所做的事情中',
+  '我忘记了周围的环境和自我的存在',
+  '我感觉时间过得比平时快',
+  '我感到自己非常投入，不需要额外努力就能集中注意',
+  '我的思考和行动非常流畅、自然，不需要刻意控制',
+  '切换到新任务后，我感到思维被打断、需要时间重新进入状态',
+  '我感觉到任务进行中出现了明显的思维中断',
+];
+let fssRound = 0;
+let fssAnswers = [];
+let subjCooldownTimer = null;
+let subjQueue = []; // 离线自评队列
+let subjMyMarkers = [];
+
+const SUBJ_PHASE_CONFIG = {
+  prep:    { title:'准备开始', hint:'请佩戴 EEG 头环，等待实验员确认', showBtns:false, showTimer:true },
+  flow:    { title:'心流诱导阶段', hint:'请自行完成题目', showBtns:true, showTimer:true },
+  switch:  { title:'切换任务中', hint:'即将切换至新任务…', showBtns:false, showTimer:true },
+  recover: { title:'状态恢复观测', hint:'请继续原任务', showBtns:true, showTimer:true },
+  rest:    { title:'休息与问卷', hint:'请根据刚才的任务体验作答', showBtns:false, showTimer:false },
+};
+
+function updateSubjectUI(ps) {
+  const phaseId = ps.phase_id || 'prep';
+  const baseId = phaseId.replace(/\d+$/, '');
+  const cfg = SUBJ_PHASE_CONFIG[baseId] || SUBJ_PHASE_CONFIG.prep;
+  setText('subjPhaseLabel', '第 ' + (ps.round || 1) + ' 轮 · ' + (ps.phase_name || baseId));
+  setText('subjTitle', cfg.title);
+  setText('subjTask', ps.task_type ? { math:'数理推理任务', language:'语文阅读任务', art:'艺术创作任务' }[ps.task_type] || '' : '');
+  setText('subjHint', cfg.hint);
+  if (cfg.showTimer) {
+    showEl('subjTimer');
+    setText('subjTimer', formatTime(ps.time_left));
+    const timerEl = document.getElementById('subjTimer');
+    if (timerEl) timerEl.classList.toggle('paused', !ps.running);
+  } else {
+    hideEl('subjTimer');
+  }
+  showEl('subjBtns', cfg.showBtns);
+  showEl('subjBtnEnter', cfg.showBtns);
+  showEl('subjBtnExit', cfg.showBtns);
+
+  // rest 阶段弹出 FSS
+  if (baseId === 'rest') {
+    setTimeout(() => openFSS(ps.round || fssRound + 1), 500);
+  }
+}
+
+function subjectReport(state) {
+  if (!ws || ws.readyState !== 1) {
+    // 离线缓存
+    subjQueue.push(state);
+    showToast('已缓存（离线）', 'info');
+    return;
+  }
+  ws.send(JSON.stringify({ type:'self_report', state, phase: '', session_id: sessionId }));
+  // 10 秒冷却
+  const btnEnter = document.getElementById('subjBtnEnter');
+  const btnExit = document.getElementById('subjBtnExit');
+  [btnEnter, btnExit].forEach(b => { if (b) b.disabled = true; });
+  let sec = 10;
+  const el = document.getElementById('subjCooldown');
+  if (el) el.textContent = '冷却 ' + sec + 's';
+  clearInterval(subjCooldownTimer);
+  subjCooldownTimer = setInterval(() => {
+    sec--;
+    if (el) el.textContent = sec > 0 ? '冷却 ' + sec + 's' : '';
+    if (sec <= 0) {
+      clearInterval(subjCooldownTimer);
+      [btnEnter, btnExit].forEach(b => { if (b) b.disabled = false; });
+    }
+  }, 1000);
+}
+
+function addSubjMarker(label) {
+  subjMyMarkers.push({ label, ts: Date.now() });
+  const el = document.getElementById('subjMarkers');
+  if (!el) return;
+  el.innerHTML = subjMyMarkers.slice(-10).map(m => {
+    const t = new Date(m.ts);
+    return '<span>' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ' ' + m.label + '</span>';
+  }).join('');
+}
+
+// ── FSS 问卷 ──
+function openFSS(round) {
+  fssRound = round;
+  fssAnswers = FSS_QUESTIONS.map(() => 0);
+  const container = document.getElementById('fssQuestions');
+  if (!container) return;
+  container.innerHTML = FSS_QUESTIONS.map((q, i) => {
+    const labels = i === 5 || i === 6 ? '' : '<div class="fss-labels"><span>完全不同意</span><span>完全同意</span></div>';
+    return '<div class="fss-question"><div class="q-text">' + (i+1) + '. ' + q + '</div>' +
+      '<div class="fss-likert" data-q="' + i + '">' +
+      [1,2,3,4,5,6,7].map(v => '<button onclick="selectFSS(' + i + ',' + v + ')" class="' + (0 === v ? 'selected' : '') + '">' + v + '</button>').join('') +
+      '</div>' + labels + '</div>';
+  }).join('');
+  showEl('fssOverlay', true);
+}
+
+function selectFSS(qIdx, val) {
+  fssAnswers[qIdx] = val;
+  const container = document.querySelector('.fss-likert[data-q="' + qIdx + '"]');
+  if (!container) return;
+  container.querySelectorAll('button').forEach((btn, i) => {
+    btn.classList.toggle('selected', i + 1 === val);
+  });
+}
+
+function submitFSS() {
+  if (fssAnswers.some(v => v === 0)) {
+    showToast('请回答所有问题', 'error');
+    return;
+  }
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type:'fss_submit', round: fssRound, phase: 'rest' + fssRound, answers: fssAnswers, ts: Date.now() }));
+  }
+  closeFSS();
+  showToast('问卷已提交', 'success');
+}
+
+function closeFSS() {
+  document.getElementById('fssOverlay')?.classList.remove('active');
+}
+
+// ═══════════════════════════════════════════
+// 控制台面板
+// ═══════════════════════════════════════════
+
+function loadSubjects() {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type:'list_subjects' }));
+}
+function loadTemplates() {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type:'list_templates' }));
+}
+function loadSessions() {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type:'list_sessions' }));
+}
+
+function showNewSubject() {
+  document.getElementById('newSubjectOverlay')?.classList.add('active');
+}
+function closeNewSubject() {
+  document.getElementById('newSubjectOverlay')?.classList.remove('active');
+}
+
+function createSubject() {
+  const name = document.getElementById('newSubjName')?.value.trim();
+  if (!name) { showToast('请输入姓名', 'error'); return; }
+  const age = parseInt(document.getElementById('newSubjAge')?.value) || null;
+  const gender = document.getElementById('newSubjGender')?.value || null;
+  const notes = document.getElementById('newSubjNotes')?.value || null;
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type:'create_subject', name, age, gender, notes }));
+  }
+  closeNewSubject();
+  document.getElementById('newSubjName').value = '';
+  document.getElementById('newSubjAge').value = '';
+  document.getElementById('newSubjGender').value = '';
+  document.getElementById('newSubjNotes').value = '';
+}
+
+function renderSubjects(subjects) {
+  const el = document.getElementById('consoleSubjectList');
+  if (!el) return;
+  if (!subjects || subjects.length === 0) {
+    el.innerHTML = '<div class="console-empty">暂无受试者，点击上方 [+ 新建] 添加</div>';
+    return;
+  }
+  el.innerHTML = '<table class="console-table"><thead><tr><th>ID</th><th>姓名</th><th>年龄</th><th>性别</th><th>创建时间</th></tr></thead><tbody>' +
+    subjects.map(s => '<tr><td>' + s.id + '</td><td>' + escHtml(s.name) + '</td><td>' + (s.age || '—') + '</td><td>' + (s.gender || '—') + '</td><td>' + (s.created_at || '') + '</td></tr>').join('') +
+    '</tbody></table>';
+
+  // 更新选择下拉
+  const sel = document.getElementById('consoleSubjectSelect');
+  if (sel) {
+    sel.innerHTML = '<option value="">— 选择受试者 —</option>' +
+      subjects.map(s => '<option value="' + s.id + '">' + escHtml(s.name) + '</option>').join('');
+  }
+}
+
+function renderTemplates(templates) {
+  const sel = document.getElementById('consoleTemplateSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— 选择模板 —</option>' +
+    (templates || []).map(t => '<option value="' + t.id + '">' + escHtml(t.name) + ' (' + t.switch_type + ')</option>').join('');
+}
+
+function renderSessions(sessions) {
+  const el = document.getElementById('consoleSessionList');
+  if (!el) return;
+  if (!sessions || sessions.length === 0) {
+    el.innerHTML = '<div class="console-empty">暂无实验场次</div>';
+    return;
+  }
+  el.innerHTML = '<table class="console-table"><thead><tr><th>场次</th><th>受试者</th><th>模板</th><th>状态</th><th>日期</th><th></th></tr></thead><tbody>' +
+    sessions.map(s => '<tr><td style="font-family:monospace;font-size:11px">' + (s.id || '').slice(0,8) + '</td><td>' + escHtml(s.template_name || '—') + '</td><td>' + escHtml(s.template_name || '—') + '</td>' +
+    '<td><span class="status-badge ' + (s.status || 'pending') + '">' + (s.status || 'pending') + '</span></td>' +
+    '<td>' + (s.created_at || '') + '</td>' +
+    '<td><button class="icon-btn" onclick="viewSession(\'' + s.id + '\')">查看</button></td></tr>').join('') +
+    '</tbody></table>';
+}
+
+function consoleCreateSession() {
+  const subjectId = parseInt(document.getElementById('consoleSubjectSelect')?.value);
+  const templateId = parseInt(document.getElementById('consoleTemplateSelect')?.value);
+  const operator = document.getElementById('consoleOperator')?.value || '';
+  const notes = document.getElementById('consoleNotes')?.value || '';
+  if (!subjectId) { showToast('请选择受试者', 'error'); return; }
+  if (!templateId) { showToast('请选择实验模板', 'error'); return; }
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type:'create_session', subject_id: subjectId, template_id: templateId, operator_name: operator, notes }));
+  }
+}
+
+function viewSession(sessionId) {
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type:'get_session_detail', session_id: sessionId }));
+  }
+}
+
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast show ' + (type || 'success');
+  clearTimeout(el._hide);
+  el._hide = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
 
 // ── 启动 ──
 initWaveform('masterWaveform');
