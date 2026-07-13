@@ -6,7 +6,7 @@ module.exports = {
   UDP_LISTEN_PORT: parseInt(process.env.UDP_PORT || '12345', 10),
 
   // 本地 WebSocket 端口（供本地面板连接，低延迟渲染波形）
-  LOCAL_WS_PORT: parseInt(process.env.LOCAL_WS_PORT || '9080', 10),
+  LOCAL_WS_PORT: parseInt(process.env.LOCAL_WS_PORT || '9080', 10), // 与 ECS 8080 区分
 
   // 设备类型
   DEVICE_TYPE: (process.env.DEVICE_TYPE || 'ganglion').toLowerCase(),

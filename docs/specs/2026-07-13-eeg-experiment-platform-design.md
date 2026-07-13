@@ -92,7 +92,11 @@
 
 所有设备访问同一 URL（`https://eeg.yzjtiantian.cn/`），统一入口页面完成 WebSocket 配对后进入角色选择。
 
-#### 角色选择流程
+#### 统一入口与 SPA 架构
+
+所有设备访问 `https://eeg.yzjtiantian.cn/`。页面是一个 **SPA（单页应用）**，所有角色面板（上传监视端 / 纯监视端 / 受试者端 / 控制台）写在同一个 HTML 中，通过 DOM 切换显示。角色选择后**不跳转页面**，WebSocket 连接始终保留。
+
+### 角色选择流程
 
 ```
 设备打开 eeg.yzjtiantian.cn
@@ -102,25 +106,23 @@
 │  NEUROLINK · 实验平台           │
 │  连接中...                      │  ← 自动连接 WebSocket
 └────────────────────────────────┘
-        │
+        │ 发送 hello(role:pending)
         ▼
 ┌────────────────────────────────┐
 │  选择角色                       │
 │                                │
-│  [ 上传监视端 ]  — 剩 1 席     │  ← 已选则灰化 + "已被 xxx 占用"
+│  [ 上传监视端 ]  — 可用/占用   │  ← 已选则灰化
 │  [ 纯监视端   ]  — 不限        │  ← 始终可选
-│  [ 受试者端   ]  — 剩 1 席     │  ← 已选则灰化
-│  [ 控制台     ]  — 剩 1 席     │  ← 已选则灰化
+│  [ 受试者端   ]  — 可用/占用   │
+│  [ 控制台     ]  — 可用/占用   │
 │                                │
-│  在线设备: 2/4                  │
-│  ● 上传监视端                  │
-│  ● 纯监视端 x2                │
+│  在线设备: 上传监视端 + 纯×2    │
 └────────────────────────────────┘
-        │ 选择角色
+        │ claim_role
         ▼
 ┌────────────────────────────────┐
-│  加载角色面板...                 │
-│  (对应角色的 SPA 界面)          │
+│  切换 DOM 到对应角色面板         │
+│  (WS 连接不变, 不断开)          │
 └────────────────────────────────┘
 ```
 
@@ -320,15 +322,29 @@ public/
 
 所有消息为 UTF-8 JSON，通过 ECS 中转。
 
-### 3.1 连接握手
+### 3.1 连接握手（统一格式）
 
 ```json
-// 客户端 → ECS
+// 所有设备首次连接 → ECS
 { "type": "hello",
-  "role": "master" | "monitor" | "subject",
+  "role": "pending",                        // 始终为 "pending"，不在此处认领角色
+  "session_id": "uuid-v4" }
+```
+
+连接后通过独立的 `claim_role` 消息认领角色，角色槽位规则见 §2.4。
+
+主控机在 claim_role 成功后额外发送：
+```json
+{ "type": "set_udp_target",
+  "target": "192.168.1.100:12345" }        // OpenBCI GUI Marker 端口
+```
+
+断线重连时不使用 hello/claim_role，使用专用消息：
+```json
+{ "type": "reconnect",
+  "role": "master",                         // 原角色
   "session_id": "uuid-v4",
-  "subject_id": 1,                         // 仅操作员/主控机发送
-  "udp_target": "192.168.1.100:12345" }    // 仅 master 发送，OpenBCI GUI Marker 端口
+  "udp_target": "192.168.1.100:12345" }
 ```
 
 ### 3.2 EEG 实时数据
@@ -456,7 +472,7 @@ public/
 #### 连接流程
 
 ```
-所有设备通过统一入口 `index.html` 启动：
+所有设备通过 SPA 入口 `index.html` 启动：
 
 ```
 index.html 启动时:
@@ -464,24 +480,30 @@ index.html 启动时:
   2. 发送 hello: { type: "hello", role: "pending", session_id: "xxx" }
   3. ← ECS: { type: "room_info", occupants: {...} }
   4. 显示角色选择面板（已占用角色灰化）
-  
-用户选择角色后:
+
+用户选择角色后（SPA 同一页面，WS 不断开）:
   5. 发送 → { type: "claim_role", role: "master" }
   6. ← ECS: { type: "role_claimed", role: "master" }
      或 ← { type: "role_denied", role: "master", reason: "已被占用" }
-  7. 成功 → 跳转到对应角色面板（保留 WS 连接）
-  8. master 额外发送 udp_target:
+  7. 成功 → DOM 切换到对应角色面板（WS 连接保留）
+  8. master 额外发送:
      → { type: "set_udp_target", target: "192.168.1.100:12345" }
 
-角色面板加载后:
+角色面板激活后:
   master → 开始转发 eeg_frame 到 ECS
   monitor → 收到 phase_sync / eeg_frame / metrics_snapshot 渲染
   subject → 收到 phase_sync 切换界面状态
 
 断开时:
-  1. ECS 从其所在房间移除
-  2. 释放角色槽位（同房间其他端收到 room_info 更新）
-  3. 若 master 断开 → ECS 广播 { type: "alert", message: "数据源已断开" }
+  1. ECS 将有限角色槽位（master/subject/console）保留 30 秒
+  2. 30 秒内重连则发送 → { type: "reconnect", role: "master", session_id: "xxx" }
+     不释放槽位，直接恢复
+  3. 超过 30 秒 → 释放槽位，其他设备可抢占
+
+重连时:
+  1. 新 WebSocket 连接
+  2. 发送 reconnect 消息（替代 hello+claim_role 两步）
+  3. ECS 验证后恢复角色和计时器状态
 ```
 ```
 
@@ -1061,28 +1083,25 @@ module.exports = {
 ```
 客户端浏览器                           ECS
   │                                   │
-  ├── eeg.yzjtiantian.cn/              ├── nginx :80/:443
-  │   ├── index.html (统一入口+角色选择) │   ├── / → index.html
-  │   ├── master-panel.html            │   ├── /master → master-panel.html
-  │   ├── monitor-panel.html           │   ├── /monitor → monitor-panel.html
-  │   ├── subject-panel.html           │   ├── /subject → subject-panel.html
-  │   └── console-panel.html           │   └── /ws → 反代 → Node :8080
-  │                                   │
-  └── ws://eeg.yzjtiantian.cn/ws       ├── PM2 → cloud/index.js
-                                       └── MySQL 5.5 :3306
+  └── eeg.yzjtiantian.cn/              ├── nginx :80/:443
+      │                                │   ├── / → index.html (SPA)
+      ├── index.html (SPA, 所有面板)    │   ├── /master → master-panel.html (deprecated)
+      └── ws://eeg.yzjtiantian.cn/ws    │   └── /ws → 反代 → Node :8080
+                                        │
+                                        ├── PM2 → cloud/index.js
+                                        └── MySQL 5.5 :3306
 ```
 
 ### 项目文件树
 
 ```
 eeg-platform/
-├── bridge/                 # 主控机本地桥接
+├── bridge/                 # 主控机本地桥接 (端口 9080)
 │   ├── index.js            # UDP 监听 + 本地 WS + ECS 上行
 │   ├── config.js           # 端口/设备/ECS 地址配置
 │   └── package.json
-├── cloud/                  # ECS 云端
-│   ├── index.js            # WebSocket 中继 + 房间管理 + 计时器
-│   ├── timer.js            # 计时器引擎（内置于 index.js）
+├── cloud/                  # ECS 云端 (端口 8080)
+│   ├── index.js            # WS 中继 + 房间管理 + 计时器 + cmd 权限
 │   ├── metrics.js          # 指标计算 (Goertzel/熵/负载)
 │   ├── baseline.js         # 基线录制 + 恢复判定
 │   ├── db.js               # MySQL 连接池
@@ -1092,12 +1111,8 @@ eeg-platform/
 │   ├── migrations/
 │   │   └── 001_init.sql    # 7 张建表语句
 │   └── package.json
-├── web/                    # 前端页面（nginx 静态托管）
-│   ├── index.html          # 统一入口 + 角色选择
-│   ├── master-panel.html   # 上传监视端面板
-│   ├── monitor-panel.html  # 纯监视端面板
-│   ├── subject-panel.html  # 受试者端面板
-│   └── console-panel.html  # 实验控制台
+├── web/                    # 前端 SPA（nginx 静态托管）
+│   └── index.html          # 统一入口 + 4 角色面板 (SPA)
 ├── docs/
 │   └── specs/
 │       └── 2026-07-13-eeg-experiment-platform-design.md
@@ -1118,15 +1133,17 @@ eeg-platform/
 ```
 事件: master WebSocket 断开
 动作:
-  1. ECS 检测到 master WS close → 向房间内广播
-     { type: "alert", level: "warning", message: "数据源已断开，实验暂停" }
-  2. timer.js 自动暂停计时器 (running=false)
-  3. 所有端显示"数据源断开"指示器
+  1. ECS 检测到 master WS close → 暂停计时器 (running=false)
+  2. 向房间内广播 { type: "alert", level: "warning", message: "数据源已断开" }
+  3. 角色槽位保留 30 秒，不释放
+  4. 所有端显示"数据源断开"指示器
 恢复:
-  1. master 重连后发送 hello → ECS 恢复计时器 (running=true)
-  2. 继续广播 phase_sync
-  3. 断线期间的 eeg_frame 丢失（WS 队列清空）
-  4. 但 OpenBCI GUI 本地一直在录 CSV，原始数据没丢
+  1. master 重连后发送 → { type: "reconnect", role: "master", session_id: "xxx" }
+  2. ECS 验证 identity，恢复角色槽位和计时器
+  3. 继续广播 phase_sync
+  4. 断线期间的 eeg_frame 丢失（WS 队列被清空）
+  5. 但 OpenBCI GUI 本地一直在录 CSV，原始数据没丢
+  6. 若 30 秒内未重连 → 释放槽位，其他设备可抢占
 ```
 
 **监视端断网：**
@@ -1290,21 +1307,15 @@ metrics_snapshot 写入: 1 行/秒 (轻量 INSERT)
 
 | 模块 | 位置 | 工作量 |
 |------|------|--------|
-| ECS WebSocket 中继 | cloud/index.js | ~200 行 |
-| 计时器引擎 | cloud/timer.js | ~80 行 |
+| ECS WebSocket 中继 + 房间管理 + 计时器 | cloud/index.js | ~400 行 |
 | 实时指标计算引擎 | cloud/metrics.js | ~150 行 |
 | 基线录制+恢复判定 | cloud/baseline.js | ~120 行 |
-| MySQL 连接 + 查询 | cloud/db.js | ~60 行 |
-| 消息路由 | cloud/router.js | ~100 行 |
+| MySQL 连接池 | cloud/db.js | ~60 行 |
 | nginx 配置 | cloud/nginx.conf | 1 文件 |
 | PM2 配置 | cloud/ecosystem.config.js | 1 文件 |
 | MySQL 迁移脚本 | cloud/migrations/001_init.sql | 1 文件 (7 表) |
-| **统一入口（角色选择）** | **public/index.html** | 全新页面（WS 配对 + 角色面板） |
-| **上传监视端**面板 | **public/master-panel.html** | 全新页面（Revolut 深色风格） |
-| **纯监视端**面板 | **public/monitor-panel.html** | 全新页面（Revolut 深色风格） |
-| **受试者端**面板 | **public/subject-panel.html** | 全新页面（Revolut 深色风格） |
-| **实验控制台**面板 | **public/console-panel.html** | 全新页面（Revolut 深色风格） |
-| 主控机→ECS 转发模块 | bridge/index.js 增加 | ~80 行 |
+| **SPA 统一入口（4 角色面板）** | **web/index.html** | 全新 SPA（角色选择 + 上传监视 + 纯监视 + 受试者 + 控制台） |
+| 主控机→ECS 转发模块 | bridge/index.js | ~150 行 |
 
 ### 修改模块
 

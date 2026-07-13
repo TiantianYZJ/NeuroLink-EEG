@@ -4,123 +4,134 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NEUROLINK · 实验平台</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: 'Inter', system-ui, sans-serif;
-  background: #000000;
-  color: #ffffff;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  -webkit-font-smoothing: antialiased;
-}
-.container { text-align: center; max-width: 520px; width: 100%; padding: 24px; }
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-height:100vh;-webkit-font-smoothing:antialiased}
 
-/* brand */
-.brand { font-size: 24px; font-weight: 500; letter-spacing: -0.2px; margin-bottom: 4px; }
-.subtitle { font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 40px; }
+/* ── 通用 ── */
+.panel{display:none;width:100%;min-height:100vh}
+.panel.active{display:block}
+.container{max-width:520px;margin:0 auto;padding:40px 24px;text-align:center}
+.brand{font-size:24px;font-weight:600;letter-spacing:-0.2px;margin-bottom:4px}
+.subtitle{font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:28px}
+.conn-status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:24px}
+.dot{width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 2s ease-in-out infinite;flex-shrink:0}
+.dot.off{background:#666;animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:14px 28px;border-radius:9999px;font-size:16px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s;line-height:1.5}
+.btn-primary{background:#494fdf;color:#fff}
+.btn-primary:hover{background:#3a40c4}
+.btn-outline{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.25)}
+.btn-outline:hover{border-color:rgba(255,255,255,0.5)}
+.btn-small{padding:8px 16px;font-size:14px}
+.loader{width:32px;height:32px;border:2px solid rgba(255,255,255,0.1);border-top-color:#494fdf;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-/* status bar */
-.status-bar {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  margin-bottom: 32px; font-size: 13px; color: rgba(255,255,255,0.5);
-}
-.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: pulse 2s ease-in-out infinite; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+/* ── 角色选择 ── */
+.role-grid{display:flex;flex-direction:column;gap:12px}
+.role-card{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-radius:20px;background:#16181a;border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:all .15s;text-align:left}
+.role-card:hover:not(.taken){border-color:#494fdf;background:#1a1c20}
+.role-card.taken{opacity:.35;cursor:not-allowed}
+.role-card .info h3{font-size:16px;font-weight:600;margin-bottom:2px}
+.role-card .info p{font-size:13px;color:rgba(255,255,255,0.45)}
+.badge{font-size:12px;padding:4px 12px;border-radius:9999px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);white-space:nowrap}
+.badge.available{background:rgba(73,79,223,0.2);color:#494fdf}
+.badge.taken-badge{color:#f87171}
+.occupants{margin-top:24px;padding:16px 20px;border-radius:20px;background:#0a0a0a;border:1px solid rgba(255,255,255,0.06)}
+.occupants h4{font-size:12px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.occ-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;color:rgba(255,255,255,0.6)}
+.occ-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;flex-shrink:0}
+.occ-empty{font-size:12px;color:rgba(255,255,255,0.2)}
 
-/* role cards */
-.role-grid { display: flex; flex-direction: column; gap: 12px; }
-.role-card {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 24px; border-radius: 20px;
-  background: #16181a; border: 1px solid rgba(255,255,255,0.08);
-  cursor: pointer; transition: all 0.15s; text-align: left;
-}
-.role-card:hover:not(.taken) { border-color: #494fdf; background: #1a1c20; }
-.role-card.taken { opacity: 0.35; cursor: not-allowed; }
-.role-card .info h3 { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
-.role-card .info p { font-size: 13px; color: rgba(255,255,255,0.45); }
-.role-card .badge {
-  font-size: 12px; padding: 4px 12px; border-radius: 9999px;
-  background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); white-space: nowrap;
-}
-.role-card .badge.available { background: rgba(73,79,223,0.2); color: #494fdf; }
-.role-card .badge.taken-badge { color: #f87171; }
-.role-card .badge.unlimited { color: rgba(255,255,255,0.4); }
-
-/* occupant list */
-.occupants { margin-top: 24px; padding: 16px 20px; border-radius: 20px; background: #0a0a0a; border: 1px solid rgba(255,255,255,0.06); }
-.occupants h4 { font-size: 12px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-.occ-item { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; color: rgba(255,255,255,0.6); }
-.occ-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
-.occ-empty { font-size: 12px; color: rgba(255,255,255,0.2); }
-
-#connecting, #roleSelect, #loading { display: none; }
-#connecting.active, #roleSelect.active, #loading.active { display: block; }
+/* ── 角色面板占位 ── */
+.panel-header{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.panel-header h2{font-size:18px;font-weight:600}
+.panel-body{padding:24px;max-width:960px;margin:0 auto}
+.back-btn{background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:14px;padding:4px 0;font-family:inherit}
+.back-btn:hover{color:#fff}
+.placeholder{text-align:center;padding:80px 0;color:rgba(255,255,255,0.3)}
 </style>
 </head>
 <body>
-<div class="container">
 
-  <div id="connecting" class="active">
+<!-- ─── 面板 0: 连接中 ─── -->
+<div id="panel-connecting" class="panel active">
+  <div class="container" style="padding-top:120px">
+    <div class="loader"></div>
     <div class="brand">⧩ NEUROLINK</div>
     <div class="subtitle">连接到实验平台...</div>
-    <div class="status-bar"><span class="status-dot"></span><span>正在建立 WebSocket 连接</span></div>
+    <div class="conn-status"><span class="dot"></span><span>正在建立 WebSocket 连接</span></div>
   </div>
+</div>
 
-  <div id="roleSelect">
+<!-- ─── 面板 1: 角色选择 ─── -->
+<div id="panel-role" class="panel">
+  <div class="container" style="padding-top:60px">
     <div class="brand">⧩ NEUROLINK</div>
     <div class="subtitle">选择设备角色</div>
-    <div class="status-bar" id="wsStatus"><span class="status-dot"></span><span id="wsLabel">已连接</span></div>
-
+    <div class="conn-status"><span class="dot" id="roleDot"></span><span id="roleStatus">已连接</span></div>
     <div class="role-grid">
-      <div class="role-card" data-role="master" onclick="claimRole('master')">
-        <div class="info">
-          <h3>上传监视端</h3>
-          <p>接 OpenBCI 设备 · 上传 EEG 数据 · 全功能监视</p>
-        </div>
+      <div class="role-card" data-role="master" onclick="claim('master')">
+        <div class="info"><h3>上传监视端</h3><p>接 OpenBCI · 上传 EEG · 全功能监视</p></div>
         <span class="badge" id="badge-master">占用</span>
       </div>
-      <div class="role-card" data-role="monitor" onclick="claimRole('monitor')">
-        <div class="info">
-          <h3>纯监视端</h3>
-          <p>实时波形查看 · 可发控制指令 · 不上传</p>
-        </div>
-        <span class="badge unlimited" id="badge-monitor">不限</span>
+      <div class="role-card" data-role="monitor" onclick="claim('monitor')">
+        <div class="info"><h3>纯监视端</h3><p>实时波形 · 控制指令 · 不上传</p></div>
+        <span class="badge" id="badge-monitor">不限</span>
       </div>
-      <div class="role-card" data-role="subject" onclick="claimRole('subject')">
-        <div class="info">
-          <h3>受试者端</h3>
-          <p>显示任务信息 · 自评标记 · FSS 问卷</p>
-        </div>
+      <div class="role-card" data-role="subject" onclick="claim('subject')">
+        <div class="info"><h3>受试者端</h3><p>任务信息 · 自评标记 · FSS 问卷</p></div>
         <span class="badge" id="badge-subject">占用</span>
       </div>
-      <div class="role-card" data-role="console" onclick="claimRole('console')">
-        <div class="info">
-          <h3>控制台</h3>
-          <p>实验配置 · 受试者管理 · 场次历史</p>
-        </div>
+      <div class="role-card" data-role="console" onclick="claim('console')">
+        <div class="info"><h3>控制台</h3><p>实验配置 · 受试者管理 · 场次历史</p></div>
         <span class="badge" id="badge-console">占用</span>
       </div>
     </div>
-
     <div class="occupants" id="occupantsList">
       <h4>在线设备</h4>
       <div class="occ-empty" id="occEmpty">暂无其他设备</div>
     </div>
   </div>
+</div>
 
-  <div id="loading">
-    <div class="brand">⧩ NEUROLINK</div>
-    <div class="subtitle" id="loadingLabel">正在进入...</div>
-    <div class="status-bar"><span class="status-dot"></span><span>加载面板</span></div>
+<!-- ─── 面板 2: 上传监视端 ─── -->
+<div id="panel-master" class="panel">
+  <div class="panel-header">
+    <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
+    <h2>⧩ 上传监视端</h2>
+    <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="masterStatus">已连接</span>
   </div>
+  <div class="placeholder">TODO: 波形画布 + 频带功率 + 计时器 + 时间线 + 标记快捷键</div>
+</div>
 
+<!-- ─── 面板 3: 纯监视端 ─── -->
+<div id="panel-monitor" class="panel">
+  <div class="panel-header">
+    <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
+    <h2>⧩ 纯监视端</h2>
+    <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="monitorStatus">已连接</span>
+  </div>
+  <div class="placeholder">TODO: 同 master 布局，去掉上传指示</div>
+</div>
+
+<!-- ─── 面板 4: 受试者端 ─── -->
+<div id="panel-subject" class="panel">
+  <div class="panel-header">
+    <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
+    <h2>⧩ 受试者端</h2>
+  </div>
+  <div class="placeholder">TODO: 大倒计时 + 自评按钮 + FSS 问卷</div>
+</div>
+
+<!-- ─── 面板 5: 控制台 ─── -->
+<div id="panel-console" class="panel">
+  <div class="panel-header">
+    <span class="back-btn" onclick="switchPanel('panel-role')">← 返回</span>
+    <h2>⧩ 实验控制台</h2>
+  </div>
+  <div class="placeholder">TODO: 受试者 CRUD + 模板选择 + 场次历史</div>
 </div>
 
 <script>
@@ -128,43 +139,50 @@ const WS_URL = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + locati
 let ws = null;
 let sessionId = '';
 
-function genId() { return 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6); }
+// 从 URL 参数读取 session, 支持控制台创建的实验
+function getSessionFromURL() {
+  const p = new URLSearchParams(location.search);
+  return p.get('session') || '';
+}
+
+function genId() { return 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2,6); }
+
+function switchPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
 
 function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
-    document.getElementById('connecting').classList.remove('active');
-    document.getElementById('roleSelect').classList.add('active');
-    sessionId = genId();
+    sessionId = getSessionFromURL() || genId();
     ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId }));
+    switchPanel('panel-role');
   };
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'room_info') updateRoom(msg.occupants);
-      if (msg.type === 'role_claimed') onRoleClaimed(msg.role);
+      if (msg.type === 'role_claimed') onClaimed(msg.role);
       if (msg.type === 'role_denied') alert('该角色已被占用');
     } catch(_) {}
   };
   ws.onclose = () => {
-    document.getElementById('connecting').classList.add('active');
-    document.getElementById('roleSelect').classList.remove('active');
-    document.getElementById('wsLabel').textContent = '已断开，5 秒后重连';
+    document.getElementById('roleStatus').textContent = '已断开，5 秒后重连…';
+    document.getElementById('roleDot').classList.add('off');
     setTimeout(connectWS, 5000);
   };
   ws.onerror = () => ws.close();
 }
 
 function updateRoom(occ) {
-  const roles = ['master', 'subject', 'console', 'monitor'];
-  roles.forEach(r => {
+  ['master','subject','console','monitor'].forEach(r => {
     const card = document.querySelector(`[data-role="${r}"]`);
     const badge = document.getElementById('badge-' + r);
     if (!card || !badge) return;
     if (r === 'monitor') {
       card.classList.remove('taken');
-      badge.textContent = '不限 · ' + (occ.monitor || 0) + ' 台';
-      badge.className = 'badge unlimited';
+      badge.textContent = '不限 · ' + (occ.monitor||0) + ' 台';
       return;
     }
     const taken = occ[r] === true;
@@ -172,43 +190,31 @@ function updateRoom(occ) {
     badge.textContent = taken ? '已被占用' : '可用';
     badge.className = 'badge ' + (taken ? 'taken-badge' : 'available');
   });
-
-  // occupants list
-  const list = document.getElementById('occupantsList');
-  const empty = document.getElementById('occEmpty');
   let items = '';
   if (occ.master) items += '<div class="occ-item"><span class="occ-dot"></span>上传监视端</div>';
-  occ.monitor > 0 && (items += '<div class="occ-item"><span class="occ-dot"></span>纯监视端 ×' + occ.monitor + '</div>');
+  if (occ.monitor > 0) items += '<div class="occ-item"><span class="occ-dot"></span>纯监视端 ×'+occ.monitor+'</div>';
   if (occ.subject) items += '<div class="occ-item"><span class="occ-dot"></span>受试者端</div>';
   if (occ.console) items += '<div class="occ-item"><span class="occ-dot"></span>控制台</div>';
+  const empty = document.getElementById('occEmpty');
   if (items) {
     empty.style.display = 'none';
-    // remove old items except h4 and empty
-    list.querySelectorAll('.occ-item').forEach(el => el.remove());
-    list.insertAdjacentHTML('beforeend', items);
+    document.querySelectorAll('.occ-item').forEach(el => el.remove());
+    document.getElementById('occupantsList').insertAdjacentHTML('beforeend', items);
   } else {
     empty.style.display = 'block';
   }
 }
 
-function claimRole(role) {
+function claim(role) {
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type: 'claim_role', role, session_id: sessionId }));
   }
 }
 
-function onRoleClaimed(role) {
-  const panels = { master: 'master-panel.html', monitor: 'monitor-panel.html', subject: 'subject-panel.html', console: 'console-panel.html' };
-  const url = panels[role];
-  if (url) {
-    document.getElementById('roleSelect').classList.remove('active');
-    document.getElementById('loading').classList.add('active');
-    document.getElementById('loadingLabel').textContent = '正在进入 ' + (role === 'master' ? '上传监视端' : role === 'monitor' ? '纯监视端' : role === 'subject' ? '受试者端' : '控制台') + '...';
-    // 保存 WS 引用到 sessionStorage，面板页面可取用
-    sessionStorage.setItem('sessionId', sessionId);
-    sessionStorage.setItem('wsUrl', WS_URL);
-    setTimeout(() => { location.href = url + '?session=' + sessionId; }, 800);
-  }
+function onClaimed(role) {
+  const panelMap = { master:'panel-master', monitor:'panel-monitor', subject:'panel-subject', console:'panel-console' };
+  const pid = panelMap[role];
+  if (pid) switchPanel(pid);
 }
 
 connectWS();
