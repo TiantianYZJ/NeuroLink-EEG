@@ -552,6 +552,7 @@ function handleMessage(ws, raw, room, sessionId) {
       // Remove from old room, add to new room
       if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) r.sockets.delete(ws); }
       getRoom(sid).sockets.add(ws);
+      ws.sessionId = sid;
       ws.send(JSON.stringify({ type: 'room_created', code, session_id: sid, url: '/?room=' + code }));
       break;
     }
