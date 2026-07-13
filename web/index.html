@@ -917,6 +917,7 @@ function onRoomCreated(msg) {
   roomCode = msg.code;
   roomCreated = true;
   sessionId = msg.session_id;
+  try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); } catch(e) {}
   const el = document.getElementById('roomCode');
   if (el) el.textContent = msg.code;
   const urlEl = document.getElementById('roomUrl');
@@ -930,6 +931,7 @@ function onRoomCreated(msg) {
 function onRoomJoined(msg) {
   roomCode = msg.code;
   sessionId = msg.session_id;
+  try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); } catch(e) {}
   document.getElementById('roomCode').textContent = msg.code;
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomContinueBtn').style.display = '';

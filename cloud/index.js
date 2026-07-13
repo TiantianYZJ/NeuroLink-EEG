@@ -48,8 +48,11 @@ const roomCodes = new Map();
 const CODE_EXPIRE = 86400000;
 
 function generateRoomCode() {
-  let code;
-  do { code = String(Math.floor(1000 + Math.random() * 9000)); } while (roomCodes.has(code));
+  let code, attempts = 0;
+  do {
+    code = String(Math.floor(1000 + Math.random() * 9000));
+    if (++attempts > 100) return null;
+  } while (roomCodes.has(code));
   return code;
 }
 
@@ -542,9 +545,13 @@ function handleMessage(ws, raw, room, sessionId) {
 
     case 'create_room': {
       const code = generateRoomCode();
+      if (!code) { ws.send(JSON.stringify({ type: 'error', message: '所有房间号已被占用' })); break; }
       const sid = 'room-' + code + '-' + Date.now().toString(36);
       roomCodes.set(code, { sessionId: sid, createdAt: Date.now() });
-      getRoom(sid); // pre-create room
+      getRoom(sid);
+      // Remove from old room, add to new room
+      if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) r.sockets.delete(ws); }
+      getRoom(sid).sockets.add(ws);
       ws.send(JSON.stringify({ type: 'room_created', code, session_id: sid, url: '/?room=' + code }));
       break;
     }
@@ -552,6 +559,10 @@ function handleMessage(ws, raw, room, sessionId) {
     case 'join_room': {
       const entry = roomCodes.get(msg.code);
       if (entry && rooms.has(entry.sessionId)) {
+        // Remove from old room, add to new room
+        if (ws.sessionId && ws.sessionId !== entry.sessionId) { const r = rooms.get(ws.sessionId); if (r) r.sockets.delete(ws); }
+        getRoom(entry.sessionId).sockets.add(ws);
+        ws.sessionId = entry.sessionId;
         ws.send(JSON.stringify({ type: 'room_joined', session_id: entry.sessionId, code: msg.code }));
       } else {
         ws.send(JSON.stringify({ type: 'error', message: '房间号无效或已过期' }));
@@ -923,7 +934,7 @@ wss.on('connection', (ws, req) => {
       }
       handleMessage(ws, raw, room, sessionId);
     } else {
-      const sid = ws.sessionId || 'default';
+      const sid = msg.session_id || ws.sessionId || 'default';
       handleMessage(ws, raw, getRoom(sid), sid);
     }
   });
