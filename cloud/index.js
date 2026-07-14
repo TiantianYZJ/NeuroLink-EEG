@@ -498,12 +498,13 @@ function handleMessage(ws, raw, room, sessionId) {
         if (hasBridge) return;
       }
       frameRateTracker.count(ws.sessionId || sessionId);
-      if (!ws._efCount) { ws._efCount = 0; var roles = Array.from(room.sockets).map(function(s){return s.role+(s._bridge?'[B]':'')+(s===ws?'[S]':'')+' rs='+s.readyState}); console.log('[eeg_frame] FIRST | sender='+(ws._bridge?'bridge':'master')+' role='+ws.role+' sid='+(ws.sessionId||'').slice(0,16)+' | n='+room.sockets.size+' | '+roles.join(', ')); } ws._efCount++; if (ws._efCount % 1000 === 0) { var roles = Array.from(room.sockets).map(function(s){return s.role+(s._bridge?'[B]':'')+(s===ws?'[S]':'')+' rs='+s.readyState}); console.log('[eeg_frame] '+ws._efCount+' | '+roles.join(', ')); }
-      broadcastToRoles(room, { type: 'eeg_frame', seq: msg.seq, channels: msg.channels, ts: msg.ts || Date.now() }, ['master', 'monitor']);
       metrics.pushFrame(msg, ws.sessionId || sessionId);
+      // 降采样: 每2帧转发1帧 (~32Hz), 防浏览器WS缓存背压
+      room._efSkip = 1 - (room._efSkip || 0);
+      if (room._efSkip) break;
+      broadcastToRoles(room, { type: 'eeg_frame', seq: msg.seq, channels: msg.channels, ts: msg.ts || Date.now() }, ['master', 'monitor']);
       break;
     }
-
     case 'accel_frame': {
       if (ws.role !== 'master' && !ws._bridge) return;
       room.sockets.forEach(s => {
