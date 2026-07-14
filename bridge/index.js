@@ -174,7 +174,14 @@ udpServer.on('message', (msg) => {
   emitBatch(parsed);
 });
 
-udpServer.on('error', (err) => { console.error('[UDP]', err.message); });
+udpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[UDP] 端口 ${config.UDP_LISTEN_PORT} 被占用，请先关闭旧进程`);
+    process.exit(1);
+  } else {
+    console.error('[UDP]', err.message);
+  }
+});
 udpServer.on('listening', () => {
   const addr = udpServer.address();
   console.log(`[UDP] 监听 ${addr.address}:${addr.port}`);
@@ -201,13 +208,29 @@ accelServer.on('message', (msg) => {
     }
   } catch (_) {}
 });
-accelServer.on('error', (err) => { console.error('[ACCEL UDP]', err.message); });
+accelServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[ACCEL UDP] 端口 ${ACCEL_PORT} 被占用，加速度计通道不可用（不影响脑电图）`);
+  } else {
+    console.error('[ACCEL UDP]', err.message);
+  }
+});
 accelServer.bind(ACCEL_PORT, () => {
   console.log(`[ACCEL UDP] 监听 0.0.0.0:${ACCEL_PORT}`);
 });
 
 // ── 2. 本地 WebSocket 服务（供本地面板连接） ──
-const localWss = new WebSocket.Server({ port: config.LOCAL_WS_PORT });
+let localWss;
+try {
+  localWss = new WebSocket.Server({ port: config.LOCAL_WS_PORT });
+} catch (err) {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[本地WS] 端口 ${config.LOCAL_WS_PORT} 被占用，请先关闭旧桥接进程`);
+    console.log('  Windows: taskkill /F /IM node.exe  (或找到并终止旧进程)');
+    process.exit(1);
+  }
+  throw err;
+}
 localWss.on('connection', (ws) => {
   ws.send(JSON.stringify({
     type: 'status',
