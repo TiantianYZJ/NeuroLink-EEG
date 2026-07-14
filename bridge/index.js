@@ -156,7 +156,7 @@ function connectECS() {
         console.warn('[ECS] 角色被拒，5 秒后重试:', msg.reason);
         setTimeout(() => {
           if (ws.readyState === 1)
-            ws.send(JSON.stringify({ type: 'claim_role', role: 'master', session_id: ecsSessionId }));
+            ws.send(JSON.stringify({ type: 'reconnect', role: 'master', session_id: ecsSessionId }));
         }, 5000);
       }
       if (msg.type === 'marker') {
