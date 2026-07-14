@@ -106,7 +106,7 @@ function broadcast(room, msg, exclude = null) {
 function broadcastToRoles(room, msg, roles) {
   const payload = typeof msg === 'string' ? msg : JSON.stringify(msg);
   room.sockets.forEach(ws => {
-    if (ws.readyState === 1 && roles.includes(ws.role)) ws.send(payload);
+    try { if (ws.readyState === 1 && roles.includes(ws.role)) ws.send(payload); } catch(e) {}
   });
 }
 
@@ -304,7 +304,8 @@ function startTick(sessionId, timer, room) {
     const room = rooms.get(sessionId);
     if (!room) { clearInterval(timer.tickTimer); return; }
 
-    if (timer.running && !timer.completed) {
+    console.log('[timer] tick session='+sessionId.slice(0,12)+' phase='+timer.phaseIndex+' run='+timer.running);
+      if (timer.running && !timer.completed) {
       timer.timeLeft--;
       timer.timeInPhase++;
       saveTimerState(sessionId);
