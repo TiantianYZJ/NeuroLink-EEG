@@ -93,10 +93,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 .topo-electrodes{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .elec{font-size:10px;color:rgba(255,255,255,0.5);padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.06);text-align:center}
 
-/* 统计 */
-.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;color:rgba(255,255,255,0.55)}
-.stat-val{color:#fff;float:right;font-weight:500}
-
 /* 计时器 */
 .phase-name{font-size:18px;font-weight:500;margin-bottom:4px;letter-spacing:-0.2px}
 .timer-display{font-family:'Inter',system-ui,sans-serif;font-size:56px;font-weight:500;letter-spacing:-2px;line-height:1;margin:4px 0 8px}
@@ -106,10 +102,10 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 .auto-toggle{font-size:11px;color:rgba(73,79,223,0.7);cursor:pointer}
 
 /* 阶段条 */
-.phase-strip{display:flex;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)}
-.phase-chip{flex:1;padding:6px 8px;border-radius:8px;font-size:10px;text-align:center;line-height:1.3;color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.04);transition:all .3s;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.phase-chip.active{background:rgba(73,79,223,0.2);color:#494fdf;font-weight:600}
-.phase-chip.past{color:rgba(255,255,255,0.12)}
+.phase-strip{display:flex;gap:8px;margin:12px 0 6px}
+.phase-chip{flex:1;padding:8px 10px;border-radius:10px;font-size:11px;text-align:center;line-height:1.3;color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.04);border:1px solid transparent;transition:all .3s;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}
+.phase-chip.active{background:rgba(73,79,223,0.15);border-color:#494fdf;color:#8b8fff;font-weight:600}
+.phase-chip.past{color:rgba(255,255,255,0.15)}
 
 /* 频带条 */
 .band-list{display:flex;flex-direction:column;gap:8px}
@@ -347,13 +343,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
     <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 上传监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="masterStatus">已连接</span>
-  </div>
-  <div class="data-status" id="masterDataStatus">
-    <span class="ds-item"><span class="ds-dot on" id="dsWs"></span>WS</span>
-    <span class="ds-item"><span class="ds-dot" id="dsEeg"></span>EEG</span>
-    <span class="ds-item"><span class="ds-dot" id="dsMetrics"></span>指标</span>
-    <span class="ds-item"><span class="ds-dot" id="dsChart"></span>Chart.js</span>
-    <span style="margin-left:auto;font-size:10px;color:#666" id="dsFrames">0 fps</span>
+    <span style="font-size:12px;color:rgba(73,79,223,0.6);font-weight:600;margin-left:12px" id="masterFPS"></span>
   </div>
   <div class="dashboard">
     <div class="dash-left">
@@ -394,6 +384,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
         <div class="phase-name" id="masterPhaseName">准备阶段</div>
         <div class="timer-display" id="masterTimer">05:00</div>
         <div class="timer-bar"><div class="timer-bar-fill" id="masterTimerFill" style="width:100%"></div></div>
+        <div class="phase-strip" id="masterPhaseStrip"></div>
         <div class="btn-row">
           <button class="btn btn-primary btn-small" id="masterBtnStart" onclick="sendCmd('start')">开始</button>
           <button class="btn btn-outline btn-small" id="masterBtnPause" onclick="sendCmd('pause')">暂停</button>
@@ -401,7 +392,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <button class="btn btn-outline btn-small" onclick="sendCmd('reset')">重置</button>
         </div>
         <div class="auto-toggle" id="masterAuto">自动模式 ●</div>
-        <div class="phase-strip" id="masterPhaseStrip"></div>
       </div>
       <div class="card">
         <div class="card-title">频带功率</div>
@@ -416,14 +406,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="metric-row"><span class="metric-label">θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="metric-thetaAlpha">—</span></div>
           <div class="metric-row"><span class="metric-label">熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="metric-entropy">—</span></div>
           <div class="metric-row"><span class="metric-label">负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="metric-cognitiveLoad">—</span></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">系统状态</div>
-        <div class="stat-grid">
-          <div>采样率 <span class="stat-val" id="masterSampleRate">—</span></div>
-          <div>数据包 <span class="stat-val" id="masterPacketCount">0</span></div>
-          <div>窗口 <span class="stat-val" id="masterWindow">4.0 s</span></div>
         </div>
       </div>
       <div class="card recovery-card" id="masterRecovery" style="display:none">
@@ -441,13 +423,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
     <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 纯监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="monitorStatus">已连接</span>
-  </div>
-  <div class="data-status" id="monitorDataStatus">
-    <span class="ds-item"><span class="ds-dot on" id="monDsWs"></span>WS</span>
-    <span class="ds-item"><span class="ds-dot" id="monDsEeg"></span>EEG</span>
-    <span class="ds-item"><span class="ds-dot" id="monDsMetrics"></span>指标</span>
-    <span class="ds-item"><span class="ds-dot" id="monDsChart"></span>Chart.js</span>
-    <span style="margin-left:auto;font-size:10px;color:#666" id="monDsFrames">0 fps</span>
+    <span style="font-size:12px;color:rgba(73,79,223,0.6);font-weight:600;margin-left:12px" id="monitorFPS"></span>
   </div>
   <div class="dashboard">
     <div class="dash-left">
@@ -488,6 +464,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
         <div class="phase-name" id="monitorPhaseName">准备阶段</div>
         <div class="timer-display" id="monitorTimer">05:00</div>
         <div class="timer-bar"><div class="timer-bar-fill" id="monitorTimerFill" style="width:100%"></div></div>
+        <div class="phase-strip" id="monitorPhaseStrip"></div>
         <div class="btn-row">
           <button class="btn btn-primary btn-small" id="monitorBtnStart" onclick="sendCmd('start')">开始</button>
           <button class="btn btn-outline btn-small" id="monitorBtnPause" onclick="sendCmd('pause')">暂停</button>
@@ -495,7 +472,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <button class="btn btn-outline btn-small" onclick="sendCmd('reset')">重置</button>
         </div>
         <div class="auto-toggle" id="monitorAuto">自动模式 ●</div>
-        <div class="phase-strip" id="monitorPhaseStrip"></div>
       </div>
       <div class="card">
         <div class="card-title">频带功率</div>
@@ -510,13 +486,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="metric-row"><span class="metric-label">θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="mon-metric-thetaAlpha">—</span></div>
           <div class="metric-row"><span class="metric-label">熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="mon-metric-entropy">—</span></div>
           <div class="metric-row"><span class="metric-label">负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="mon-metric-cognitiveLoad">—</span></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">系统状态</div>
-        <div class="stat-grid">
-          <div>采样率 <span class="stat-val" id="monSampleRate">&#8212;</span></div>
-          <div>数据包 <span class="stat-val" id="monPacketCount">0</span></div>
         </div>
       </div>
       <div class="card recovery-card" id="monitorRecovery" style="display:none">
@@ -791,20 +760,7 @@ function renderTopoMap(canvas, grid) {
 const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
 const eegCharts = {};
 var frontendFrameCount = 0;
-var chartJsStatus = false;
-
-// 诊断: 检查 Chart.js 是否已加载
-(function checkChartJS() {
-  if (typeof Chart !== 'undefined') {
-    chartJsStatus = true;
-    setDs('dsChart', true);
-    setDs('monDsChart', true);
-    console.log('[EEG] Chart.js v' + (Chart.version || '?') + ' loaded');
-  } else {
-    console.warn('[EEG] Chart.js not loaded, retry 500ms');
-    setTimeout(checkChartJS, 500);
-  }
-})();
+var lastKnownRate = 0;
 
 function initEEGChart(id) {
   var canvas = document.getElementById(id);
@@ -869,8 +825,6 @@ function initEEGChart(id) {
     var wrapper = { chart: chart, _idx: 0, push: function(ch) { pending.push({ idx: this._idx++, ch: ch }); frontendFrameCount++; }, destroy: function() { running = false; clearInterval(timer); chart.destroy(); } };
     eegCharts[id] = wrapper;
     console.log('[EEG] chart ready:', id);
-    // Update data status
-    setDs(id.startsWith('mon') ? 'monDsChart' : 'dsChart', true);
     return wrapper;
   } catch(err) {
     console.error('[EEG] Chart creation failed:', err);
@@ -883,26 +837,20 @@ function appendEEGData(chart, channels, ts) {
   chart.push(channels);
 }
 
-// ── 数据流状态指示 ──
-function setDs(id, ok) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  el.className = 'ds-dot ' + (ok ? 'on' : 'off');
-}
-
-// 前端独立采样率计算（每 500ms 刷新）
-setInterval(function() {
-  var rate = Math.round(frontendFrameCount * 1000 / 500);
-  var el1 = document.getElementById('masterSampleRate');
-  if (el1) el1.textContent = (rate > 0 ? rate + ' Hz' : '—');
-  var el2 = document.getElementById('monSampleRate');
-  if (el2) el2.textContent = (rate > 0 ? rate + ' Hz' : '—');
-  var fpsEl = document.getElementById('dsFrames');
-  if (fpsEl) fpsEl.textContent = rate + ' fps';
-  var fpsEl2 = document.getElementById('monDsFrames');
-  if (fpsEl2) fpsEl2.textContent = rate + ' fps';
+// 前端采样率计算（1s 滑动窗口，保留上次有效值防闪烁）
+var fsInterval = setInterval(function() {
+  var rate = Math.round(frontendFrameCount * 1000 / 1000);
+  if (rate > 0) lastKnownRate = rate;
+  // 如果连续 3 秒为 0 才显示 0，否则显示最后有效值
+  var displayRate = (rate === 0 && lastKnownRate > 0) ? lastKnownRate : rate;
+  var fpsText = displayRate > 0 ? displayRate + ' Hz' : '—';
+  var fpsDim = rate === 0 && lastKnownRate > 0;
+  var fpsEl1 = document.getElementById('masterFPS');
+  if (fpsEl1) { fpsEl1.textContent = fpsText; fpsEl1.style.opacity = fpsDim ? '0.4' : '1'; }
+  var fpsEl2 = document.getElementById('monitorFPS');
+  if (fpsEl2) { fpsEl2.textContent = fpsText; fpsEl2.style.opacity = fpsDim ? '0.4' : '1'; }
   frontendFrameCount = 0;
-}, 500);
+}, 1000);
 
 // ── 工具 ──
 function getSessionFromURL() {
@@ -989,7 +937,7 @@ function updatePhaseStrip(prefix, phaseSync) {
   const el = document.getElementById(prefix + 'PhaseStrip');
   if (!el) return;
   const allPhases = [
-    { id:'prep', name:'准备' }, { id:'flow1', name:'R1 诱导' }, { id:'switch1', name:'R1 切换' },
+    { id:'prep', name:'准备阶段' }, { id:'flow1', name:'R1 诱导' }, { id:'switch1', name:'R1 切换' },
     { id:'recover1', name:'R1 恢复' }, { id:'rest1', name:'R1 休息' },
     { id:'flow2', name:'R2 诱导' }, { id:'switch2', name:'R2 切换' },
     { id:'recover2', name:'R2 恢复' }, { id:'rest2', name:'R2 休息' },
@@ -1187,10 +1135,6 @@ function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
     sessionId = getSessionFromURL() || genId();
-    sessionStorage.setItem('ns_session_id', sessionId);
-    // WS connected
-    setDs('dsWs', true);
-    setDs('monDsWs', true);
     ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120), nickname: getNickname() } }));
     // Check if URL has ?room= code
     const p = new URLSearchParams(location.search);
@@ -1308,22 +1252,12 @@ function connectWS() {
 
       if (msg.type === 'eeg_frame' && msg.channels) {
         const ch = eegCharts[prefix + 'Waveform'];
-        if (ch) { appendEEGData(ch, msg.channels, msg.ts || Date.now()); setDs(prefix === 'master' ? 'dsEeg' : 'monDsEeg', true); }
-        // Reset EEG indicator after 3s of no data
-        if (window._eegAliveTimer) clearTimeout(window._eegAliveTimer);
-        window._eegAliveTimer = setTimeout(function() { setDs(prefix === 'master' ? 'dsEeg' : 'monDsEeg', false); }, 3000);
+        if (ch) appendEEGData(ch, msg.channels, msg.ts || Date.now());
       }
       if (msg.type === 'metrics_snapshot') {
         window._lastSnapshot = msg;
-        setDs(prefix === 'master' ? 'dsMetrics' : 'monDsMetrics', true);
-        if (window._metAliveTimer) clearTimeout(window._metAliveTimer);
-        window._metAliveTimer = setTimeout(function() { setDs(prefix === 'master' ? 'dsMetrics' : 'monDsMetrics', false); }, 5000);
         updateBandPower(prefix, msg);
         updateTopoMap(prefix, msg);
-        if (msg.sample_rate) {
-          const rateEl = document.getElementById(prefix === 'master' ? 'masterSampleRate' : 'monSampleRate');
-          if (rateEl) rateEl.textContent = msg.sample_rate + ' Hz';
-        }
       }
       if (msg.type === 'phase_sync') {
         updateTimer(prefix, msg);
