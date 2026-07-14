@@ -93,6 +93,8 @@ function broadcastToRoles(room, msg, roles) {
 function getOccupantSummary(room) {
   return {
     master: !!room.occupants.master,
+    locked: room.locked !== false,
+    hasConsole: !!room.occupants.console,
     monitor: room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).length,
     subject: !!room.occupants.subject,
     console: !!room.occupants.console,
@@ -446,6 +448,7 @@ function handleMessage(ws, raw, room, sessionId) {
         ws.deviceInfo = msg.device_info || ws.deviceInfo || {};
         if (msg.udpTarget) { room.udpTargets.set('master', msg.udpTarget); }
         ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
+        if (room.config) ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
       } else {
         ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '已被占用' }));
       }
@@ -629,7 +632,7 @@ function handleMessage(ws, raw, room, sessionId) {
         ws.sessionId = entry.sessionId;
         ws.send(JSON.stringify({ type: 'room_joined', session_id: entry.sessionId, code: msg.code }));
       } else {
-        ws.send(JSON.stringify({ type: 'error', message: '房间号无效或已过期' }));
+        ws.send(JSON.stringify({ type: 'error', message: '房间不存在或已过期' }));
       }
       break;
     }
@@ -832,6 +835,8 @@ localWss.on('connection', (ws) => {
       const msg = JSON.parse(raw);
       if (msg.type === 'set_session' && msg.session_id) {
         ecsSessionId = msg.session_id;
+        try{require('fs').writeFileSync(require('path').join(__dirname,'ecs-session.id'),ecsSessionId,'utf8')}catch(e){};
+
         if (ecsWs) ecsWs._reconnectOnClose = false;
         ecsWs.close();
         setTimeout(() => connectECS(), 1000);
@@ -843,7 +848,7 @@ localWss.on('connection', (ws) => {
 
 // ── 3. ECS 上行 WebSocket 客户端 ──
 let ecsWs = null;
-let ecsSessionId = config.SESSION_ID || ('bridge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+let ecsSessionId = (function(){try{var p=require('path').join(__dirname,'ecs-session.id'),d=require('fs').readFileSync(p,'utf8').trim();if(d)return d}catch(e){}return config.SESSION_ID||('bridge-'+Date.now()+'-'+Math.random().toString(36).slice(2,6))})();
 let ecsConnected = false;
 let pendingRoomCode = process.env.ROOM_CODE || '';
 let roomJoinAttempted = false;
@@ -901,6 +906,8 @@ function connectECS() {
         console.log('[ECS] room joined:', msg.code);
         pendingRoomCode = '';
         ecsSessionId = msg.session_id;
+        try{require('fs').writeFileSync(require('path').join(__dirname,'ecs-session.id'),ecsSessionId,'utf8')}catch(e){};
+
         if (ecsWs) ecsWs._reconnectOnClose = false;
         ecsWs.close();
         setTimeout(() => connectECS(), 1000);

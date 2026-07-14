@@ -244,7 +244,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span></div>
     <div class="subtitle" id="roomSubtitle">创建或加入一个实验房间</div>
     <div class="conn-status"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
-    <div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:16px;padding:12px 16px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" onblur="this.style.borderColor=''"></div><div class="role-grid" style="margin-bottom:20px">
+    <div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:16px;padding:12px 16px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" onblur="this.style.borderColor='';try{localStorage.setItem('ns_nick',this.value.trim())}catch(e){}"></div><div class="role-grid" style="margin-bottom:20px">
       <div class="room-card" onclick="createRoom()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <div class="info"><h3>创建房间</h3><p>获得四位房间号，分享给其他设备</p></div>
@@ -560,6 +560,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <button class="btn btn-primary" onclick="consoleCreateSession()">创建实验场次</button>
           <button class="btn btn-primary" onclick="consoleStartExperiment()" style="background:#4ade80;color:#000">解锁房间并开始</button>
         </div>
+      <div id="consoleInviteCard" style="display:none;margin-top:12px"></div>
       </div>
     </div>
 
@@ -786,7 +787,7 @@ function getSessionFromURL() {
 }
 function genId() {
   const id = 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
-  try { localStorage.setItem('ns_sid', id); localStorage.removeItem('ns_role'); } catch(e) {}
+  try { localStorage.setItem('ns_sid', id); } catch(e) {}
   return id;
 }
 // 恢复上次角色
@@ -908,21 +909,12 @@ function updateRecovery(prefix, msg) {
 
 // ── 房间管理 ──
 function createRoom() {
+  const nick = getNickname();
+  if (!nick) { showToast('请先输入昵称', 'error'); document.getElementById('nicknameInput')?.focus(); return; }
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type: 'create_room', session_id: sessionId }));
     showToast('正在创建房间...', 'info');
   }
-}
-function showJoinRoom() {
-  const ri = document.getElementById('roomJoinInput');
-  const rc = document.getElementById('roomResult');
-  const cb = document.getElementById('roomContinueBtn');
-  if (ri) ri.style.display = '';
-  if (rc) rc.style.display = '';
-  if (cb) cb.style.display = 'none';
-  document.getElementById('roomCodeLabel').textContent = '输入房间号';
-  document.getElementById('roomUrlWrap').style.display = 'none';
-  setTimeout(() => document.getElementById('roomCodeInput')?.focus(), 100);
 }
 function onRoomCreated(msg) {
   roomCode = msg.code;
@@ -976,6 +968,7 @@ function pinInput(idx) {
   const code = pinValues.join('');
   document.getElementById('roomError').style.display = 'none';
   if (code.length === 4 && ws && ws.readyState === 1) {
+    if (!getNickname()) { showToast('请先输入昵称', 'error'); pinValues=['','','','']; for(let i=0;i<4;i++){const e=document.getElementById('pin'+i);if(e){e.value='';e.classList.remove('filled')}} document.getElementById('nicknameInput')?.focus(); return; }
     document.getElementById('roomCode').textContent = code;
     ws.send(JSON.stringify({ type: 'join_room', code: code, session_id: sessionId }));
   }
@@ -986,6 +979,7 @@ function pinKey(idx, e) {
   }
 }
 function showJoinRoom() {
+  if (!getNickname()) { showToast('请先输入昵称', 'error'); document.getElementById('nicknameInput')?.focus(); return; }
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomPinWrap').style.display = '';
   document.getElementById('roomUrlWrap').style.display = 'none';
@@ -1039,7 +1033,7 @@ function connectWS() {
     const urlRoom = p.get('room');
     if (urlRoom && urlRoom.length === 4) {
       ws.send(JSON.stringify({ type: 'join_room', code: urlRoom, session_id: sessionId }));
-    } else if (lastRole) {
+    } else if (lastRole && lastRole !== 'monitor') {
       // Check stored room: try reconnect, fallback to room panel if stale
       ws.send(JSON.stringify({ type: 'reconnect', role: lastRole, session_id: sessionId }));
     }
@@ -1064,6 +1058,7 @@ function connectWS() {
         switchPanel('panel-room');
       }
     }
+      return;
       if (msg.type === 'role_claimed') onClaimed(msg.role);
       if (msg.type === 'role_denied') {
         showToast('角色不可用: ' + (msg.reason || ''), 'error');
@@ -1086,6 +1081,17 @@ function connectWS() {
       const prefix = currentRole === 'master' ? 'master' : (currentRole === 'monitor' ? 'monitor' : null);
 
       if (currentRole === 'subject') {
+      if (msg.type === 'error') {
+        showToast(msg.message, 'error');
+        if (msg.message.includes('房间')) {
+          const errEl = document.getElementById('roomError');
+          if (errEl) { errEl.textContent = msg.message; errEl.style.display = ''; }
+          pinValues = ['','','',''];
+          try { localStorage.removeItem('ns_room_code'); } catch(e) {}
+          roomCode = null;
+        }
+        return;
+      }
         if (msg.type === 'phase_sync') updateSubjectUI(msg);
         if (msg.type === 'self_report_ack') addSubjMarker(msg.state === 'flow_enter' ? '✓ 进入心流' : msg.state === 'flow_exit' ? '✗ 脱离心流' : '⚠ 分心');
         if (msg.type === 'fss_submit_ack') showToast(msg.success ? '问卷已提交' : '提交失败: ' + msg.error, msg.success ? 'success' : 'error');
@@ -1100,18 +1106,11 @@ function connectWS() {
         if (msg.type === 'subjects_list') renderSubjects(msg.subjects);
         if (msg.type === 'subject_created') { showToast('受试者已创建', 'success'); loadSubjects(); }
         if (msg.type === 'templates_list') renderTemplates(msg.templates);
-        if (msg.type === 'session_created') { showToast('实验场次已创建', 'success'); loadSessions(); document.getElementById('consoleNotes').value = ''; }
+        if (msg.type === 'session_created') { showToast('实验场次已创建', 'success'); loadSessions(); document.getElementById('consoleNotes').value = '';
+          showInviteCard(); }
         if (msg.type === 'experiment_started') { showToast('实验已启动, 房间解锁', 'success'); }
         if (msg.type === 'sessions_list') renderSessions(msg.sessions);
         if (msg.type === 'session_detail') renderSessionDetail(msg);
-        if (msg.type === 'error') {
-      showToast(msg.message, 'error');
-      // If room code expired, clear stored code
-      if (msg.message.includes('房间号') || msg.message.includes('房间')) {
-        try { localStorage.removeItem('ns_room_code'); } catch(e) {}
-        roomCode = null;
-      }
-    }
         return;
       }
 
@@ -1156,7 +1155,7 @@ function getNickname() {
   const el = document.getElementById('nicknameInput');
   if (el && el.value.trim()) return el.value.trim();
   try { const saved = localStorage.getItem('ns_nick'); if (saved) return saved; } catch(e) {}
-  return 'Guest' + Math.random().toString(36).slice(2,5);
+  return '';
 }
 
 function leaveRoom() {
@@ -1547,6 +1546,18 @@ function consoleStartExperiment() {
   }
 }
 
+function showInviteCard() {
+  const card = document.getElementById('consoleInviteCard');
+  if (!card) return;
+  const url = location.origin + '/?room=' + (roomCode || '----');
+  card.innerHTML = '<div class="console-card" style="margin:0;padding:16px">' +
+    '<div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">邀请链接</div>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<input type="text" readonly value="' + url + '" style="flex:1;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:14px;padding:10px 14px;font-family:inherit">' +
+    '<button class="btn btn-small btn-outline" style="white-space:nowrap" onclick="navigator.clipboard.writeText(\'' + url + '\').then(()=>showToast(\'链接已复制\',\'success\'))">复制</button>' +
+    '</div></div>';
+  card.style.display = '';
+}
 function viewSession(sessionId) {
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type:'get_session_detail', session_id: sessionId }));

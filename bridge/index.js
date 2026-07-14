@@ -11,6 +11,8 @@
 
 const dgram = require('dgram');
 const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
 const config = require('./config');
 
 // ── 状态 ──
@@ -86,6 +88,7 @@ localWss.on('connection', (ws) => {
       if (msg.type === 'set_session' && msg.session_id) {
         console.log('[本地WS] 收到房间 sessionId:', msg.session_id);
         ecsSessionId = msg.session_id;
+        saveSessionId(ecsSessionId);
         // 断开 ECS 连接以新 sessionId 重连
         if (ecsWs) {
           if (ecsWs) ecsWs._reconnectOnClose = false; // 阻止旧重连
@@ -100,7 +103,16 @@ localWss.on('connection', (ws) => {
 
 // ── 3. ECS 上行 WebSocket 客户端 ──
 let ecsWs = null;
-let ecsSessionId = config.SESSION_ID || ('bridge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+const SESSION_FILE = path.join(__dirname, 'ecs-session.id');
+function loadSessionId() {
+  try { return fs.readFileSync(SESSION_FILE, 'utf8').trim(); } catch (_) {}
+  return '';
+}
+function saveSessionId(id) {
+  try { fs.writeFileSync(SESSION_FILE, id, 'utf8'); } catch (_) {}
+}
+let ecsSessionId = config.SESSION_ID || loadSessionId() || ('bridge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+if (!config.SESSION_ID && !loadSessionId()) saveSessionId(ecsSessionId);
 let ecsConnected = false;
 let pendingRoomCode = process.env.ROOM_CODE || '';  // 从环境变量读取房间号
 let roomJoinAttempted = false;
@@ -159,13 +171,14 @@ function connectECS() {
       if (msg.type === 'room_joined') {
         console.log('[ECS] 加入房间成功:', msg.code);
         pendingRoomCode = '';
-        // 使用房间 sessionId 重新连接
+        // 使用房间 sessionId 重新连接并持久化
         ecsSessionId = msg.session_id;
+        saveSessionId(ecsSessionId);
         if (ecsWs) ecsWs._reconnectOnClose = false;
         ecsWs.close();
         setTimeout(() => connectECS(), 1000);
       }
-      if (msg.type === 'error' && pendingRoomCode && msg.message && msg.message.includes('房间号')) {
+      if (msg.type === 'error' && pendingRoomCode && msg.message && msg.message.includes('房间')) {
         console.error('[ECS] 房间号无效或已过期:', pendingRoomCode);
         pendingRoomCode = '';
         process.exit(1);
