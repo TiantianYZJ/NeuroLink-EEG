@@ -980,12 +980,13 @@ stdinex.on("data", (key) => {
 });
 process.on("SIGINT", () => { sendLeaveRoom(); setTimeout(() => process.exit(0), 500); });
 
-console.log(`── OpenBCI UDP → WebSocket Bridge ──`);
-console.log(`  Device      : ${isGanglion ? 'Ganglion (4ch 200Hz)' : 'Cyton'}`);
-console.log(`  UDP 监听    : ${config.UDP_LISTEN_PORT}`);
-console.log(`  本地面板 WS : :${config.LOCAL_WS_PORT}`);
-console.log(`  ECS 上行    : ${config.ECS_WS_URL}`);
+console.log(\`── OpenBCI UDP → WebSocket Bridge ──\`);
+console.log(\`  Device      : \${isGanglion ? 'Ganglion (4ch 200Hz)' : 'Cyton'}\`);
+console.log(\`  UDP 监听    : \${config.UDP_LISTEN_PORT}\`);
+console.log(\`  本地面板 WS : :\${config.LOCAL_WS_PORT}\`);
+console.log(\`  ECS 上行    : \${config.ECS_WS_URL}\`);
 console.log('  \u8fd0\u884c\u4e2d: \u8f93\u5165 l \u9000\u51fa\u623f\u95f4 \u00b7 Ctrl+C \u9000\u51fa\u6865\u63a5');
+    `,
     };
     const data = files[file];
     if (!data) { res.writeHead(403); res.end('Forbidden'); return; }
