@@ -181,7 +181,7 @@ udpServer.on('listening', () => {
 });
 
 // ── 1b. 加速度计 UDP 监听（额外端口，OpenBCI GUI Accel/Aux 类型） ──
-const ACCEL_PORT = parseInt(process.env.ACCEL_UDP_PORT || '12346', 10);
+const ACCEL_PORT = parseInt(process.env.ACCEL_UDP_PORT || '12347', 10);
 const accelServer = dgram.createSocket('udp4');
 accelServer.on('message', (msg) => {
   // Format: {"type":"accelerometer","data":[[x0,x1,...],[y0,y1,...],[z0,z1,...]]}
