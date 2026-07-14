@@ -404,7 +404,7 @@ function handleMessage(ws, raw, room, sessionId) {
       else if (targetRole === 'console') room.occupants.console = ws;
 
       ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
-      ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
+      if (room.config) ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
       broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
 
       const timer = timers.get(sessionId);
@@ -598,7 +598,7 @@ function handleMessage(ws, raw, room, sessionId) {
       room.locked = true;
       const timer = timers.get(sessionId);
       if (timer) { clearInterval(timer.tickTimer); timer.running = false; timer.completed = true; }
-      broadcast(room, { type: 'room_config', locked: true, config: null });
+      broadcast(room, { type: 'room_config', locked: true, config: room.config });
       break;
     }
 

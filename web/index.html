@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NEUROLINK · 实验平台</title>
+<title>NeuroLink · 实验平台</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -232,7 +232,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <div id="panel-connecting" class="panel active">
   <div class="container" style="padding-top:120px">
     <div class="loader"></div>
-    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> NEUROLINK</div>
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span></div>
     <div class="subtitle">连接到实验平台...</div>
     <div class="conn-status"><span class="dot"></span><span>正在建立 WebSocket 连接</span></div>
   </div>
@@ -241,7 +241,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <!-- ─── 面板 1: 房间 ─── -->
 <div id="panel-room" class="panel">
   <div class="container" style="padding-top:60px">
-    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> NEUROLINK</div>
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span></div>
     <div class="subtitle" id="roomSubtitle">创建或加入一个实验房间</div>
     <div class="conn-status"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
     <div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:16px;padding:12px 16px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" onblur="this.style.borderColor=''"></div><div class="role-grid" style="margin-bottom:20px">
@@ -279,11 +279,12 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     </div></div>
   </div>
 </div>
+<div style="position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:50;pointer-events:none"><span style="color:rgba(255,255,255,0.2);font-size:11px;pointer-events:auto">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.35);text-decoration:none;transition:color .15s;pointer-events:auto" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color=''">@TiantianYZJ</a> · EEG BCI Platform</span></div>
 
 <!-- ─── 面板 2: 角色选择 ─── -->
 <div id="panel-role" class="panel">
   <div class="container" style="padding-top:60px">
-    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> NEUROLINK</div>
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span></div>
     <div class="subtitle" id="roleSubtitle">选择设备角色 · 房间 <span id="roomCodeDisplay" style="color:#494fdf">----</span></div>
     <div class="conn-status"><span class="dot" id="roleDot"></span><span id="roleStatus">已连接</span></div>
     <div class="role-grid">
@@ -1039,17 +1040,30 @@ function connectWS() {
     if (urlRoom && urlRoom.length === 4) {
       ws.send(JSON.stringify({ type: 'join_room', code: urlRoom, session_id: sessionId }));
     } else if (lastRole) {
-      // Reconnect with last role
+      // Check stored room: try reconnect, fallback to room panel if stale
       ws.send(JSON.stringify({ type: 'reconnect', role: lastRole, session_id: sessionId }));
-    } else {
-      switchPanel('panel-room');
-      setTimeout(() => checkBridge(function(alive) { updateBridgeStatus(alive); }), 500);
     }
+    // Always show room panel on fresh load; reconnect will auto-switch if valid
+    setTimeout(() => {
+      if (document.querySelector('.panel.active')?.id === 'panel-connecting') {
+        switchPanel('panel-room');
+        setTimeout(() => checkBridge(function(alive) { updateBridgeStatus(alive); }), 500);
+      }
+    }, 100);
   };
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.type === 'room_info') updateRoom(msg.occupants);
+      if (msg.type === 'room_info') {
+      updateRoom(msg.occupants);
+      // Stale room detection: locked + no console + we have a stored room = server restart
+      if (msg.locked !== false && !msg.hasConsole && !currentRole && localStorage.getItem('ns_room_code')) {
+        showToast('房间已过期（服务端重启），请创建新房间', 'error');
+        lastRole = null; persistRole(''); roomCode = null;
+        try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); } catch(e) {}
+        switchPanel('panel-room');
+      }
+    }
       if (msg.type === 'role_claimed') onClaimed(msg.role);
       if (msg.type === 'role_denied') {
         showToast('角色不可用: ' + (msg.reason || ''), 'error');
@@ -1057,7 +1071,8 @@ function connectWS() {
           setTimeout(() => claim(currentPendingRole), 5000);
         } else if (lastRole && !msg.reason.includes('已注册')) {
           // Fallback: clear lastRole and go to room select
-          lastRole = null; persistRole('');
+          lastRole = null; persistRole(''); roomCode = null;
+          try { localStorage.removeItem('ns_room_code'); } catch(e) {}
           switchPanel('panel-room');
         }
       }
@@ -1089,7 +1104,14 @@ function connectWS() {
         if (msg.type === 'experiment_started') { showToast('实验已启动, 房间解锁', 'success'); }
         if (msg.type === 'sessions_list') renderSessions(msg.sessions);
         if (msg.type === 'session_detail') renderSessionDetail(msg);
-        if (msg.type === 'error') showToast(msg.message, 'error');
+        if (msg.type === 'error') {
+      showToast(msg.message, 'error');
+      // If room code expired, clear stored code
+      if (msg.message.includes('房间号') || msg.message.includes('房间')) {
+        try { localStorage.removeItem('ns_room_code'); } catch(e) {}
+        roomCode = null;
+      }
+    }
         return;
       }
 
@@ -1143,7 +1165,7 @@ function leaveRoom() {
       ws.send(JSON.stringify({ type: 'leave_room', session_id: sessionId }));
     }
     lastRole = null; persistRole(''); roomCode = null;
-    try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); } catch(e) {}
+    try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); localStorage.removeItem('ns_sid'); } catch(e) {}
     switchPanel('panel-room');
     document.getElementById('roomResult').style.display = 'none';
     document.getElementById('roomOccupants').style.display = 'none';
@@ -1244,11 +1266,11 @@ function downloadScript() {
 }
 
 function generateBat() {
-  return '@echo off\r\nchcp 65001 >nul\r\ntitle NEUROLINK Bridge\r\necho ========================================\r\necho   NEUROLINK OpenBCI Bridge - One-Click Start\r\necho ========================================\r\necho.\r\ncd /d "%~dp0"\r\nset BRIDGE_DIR=%CD%\\neurolink-bridge\r\nwhere node >nul 2>nul\r\nif %ERRORLEVEL% neq 0 (\r\n  echo [ERROR] Node.js not found. Install from: https://nodejs.org/\r\n  pause & exit /b 1\r\n)\r\nfor /f "tokens=*" %%i in (\'node -v\') do echo [OK] Node.js %%i\r\necho.\r\nif not exist "%BRIDGE_DIR%\\index.js" (\r\n  echo [..] Downloading bridge module...\r\n  if not exist "%BRIDGE_DIR%" mkdir "%BRIDGE_DIR%"\r\n  cd /d "%BRIDGE_DIR%"\r\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json\r\n  if %ERRORLEVEL% neq 0 ( echo [ERROR] Download failed. & pause & exit /b 1 )\r\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\r\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\r\n  if not exist "index.js" ( echo [ERROR] Incomplete download. & pause & exit /b 1 )\r\n  echo [OK] Bridge module downloaded\r\n  echo [..] Installing dependencies...\r\n  call npm install\r\n  if %ERRORLEVEL% neq 0 ( echo [ERROR] npm install failed & pause & exit /b 1 )\r\n  echo [OK] Dependencies installed\r\n) else ( cd /d "%BRIDGE_DIR%" & echo [OK] Bridge module ready )\r\necho.\r\necho [..] Starting OpenBCI bridge...\r\necho  UDP: 12345 ^| WS: 9080 ^| ECS: eeg.yzjtiantian.cn\r\necho.\r\necho Press Ctrl+C to stop\r\necho ----------------------------------------\r\nnode index.js\r\nif %ERRORLEVEL% neq 0 ( echo. & echo [ERROR] Bridge exited abnormally & pause )\r\n';
+  return '@echo off\r\nchcp 65001 >nul\r\ntitle <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> Bridge\r\necho ========================================\r\necho   <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> OpenBCI Bridge - One-Click Start\r\necho ========================================\r\necho.\r\ncd /d "%~dp0"\r\nset BRIDGE_DIR=%CD%\\neurolink-bridge\r\nwhere node >nul 2>nul\r\nif %ERRORLEVEL% neq 0 (\r\n  echo [ERROR] Node.js not found. Install from: https://nodejs.org/\r\n  pause & exit /b 1\r\n)\r\nfor /f "tokens=*" %%i in (\'node -v\') do echo [OK] Node.js %%i\r\necho.\r\nif not exist "%BRIDGE_DIR%\\index.js" (\r\n  echo [..] Downloading bridge module...\r\n  if not exist "%BRIDGE_DIR%" mkdir "%BRIDGE_DIR%"\r\n  cd /d "%BRIDGE_DIR%"\r\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json\r\n  if %ERRORLEVEL% neq 0 ( echo [ERROR] Download failed. & pause & exit /b 1 )\r\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\r\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\r\n  if not exist "index.js" ( echo [ERROR] Incomplete download. & pause & exit /b 1 )\r\n  echo [OK] Bridge module downloaded\r\n  echo [..] Installing dependencies...\r\n  call npm install\r\n  if %ERRORLEVEL% neq 0 ( echo [ERROR] npm install failed & pause & exit /b 1 )\r\n  echo [OK] Dependencies installed\r\n) else ( cd /d "%BRIDGE_DIR%" & echo [OK] Bridge module ready )\r\necho.\r\necho [..] Starting OpenBCI bridge...\r\necho  UDP: 12345 ^| WS: 9080 ^| ECS: eeg.yzjtiantian.cn\r\necho.\r\necho Press Ctrl+C to stop\r\necho ----------------------------------------\r\nnode index.js\r\nif %ERRORLEVEL% neq 0 ( echo. & echo [ERROR] Bridge exited abnormally & pause )\r\n';
 }
 
 function generateSh() {
-  return '#!/bin/bash\nSCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\nBRIDGE_DIR="$SCRIPT_DIR/neurolink-bridge"\necho "========================================="\necho "  NEUROLINK OpenBCI Bridge - One-Click Start"\necho "========================================="\necho ""\nROOM_CODE="${1:-}"\nif [ -z "$ROOM_CODE" ]; then\n  read -p "Enter 4-digit room code (or leave blank): " ROOM_CODE\nfi\nif [ -n "$ROOM_CODE" ]; then\n  echo "[OK] Room code: $ROOM_CODE"\n  export ROOM_CODE\nfi\necho ""\nif ! command -v node &> /dev/null; then\n  echo "[ERROR] Node.js not found. Install from: https://nodejs.org/"\n  exit 1\nfi\necho "[OK] Node.js $(node --version)"\necho ""\nif [ ! -f "$BRIDGE_DIR/index.js" ]; then\n  echo "[..] Downloading bridge module..."\n  mkdir -p "$BRIDGE_DIR"\n  cd "$BRIDGE_DIR"\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json || { echo "[ERROR] Download failed."; exit 1; }\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\n  if [ ! -f "index.js" ]; then echo "[ERROR] Incomplete download."; exit 1; fi\n  echo "[OK] Bridge module downloaded"\n  echo "[..] Installing dependencies..."\n  npm install || { echo "[ERROR] npm install failed"; exit 1; }\n  echo "[OK] Dependencies installed"\nelse\n  cd "$BRIDGE_DIR"\n  echo "[OK] Bridge module ready"\nfi\necho ""\necho "[..] Starting OpenBCI bridge..."\necho " UDP: 12345 | WS: 9080 | ECS: eeg.yzjtiantian.cn"\necho ""\necho "Press Ctrl+C to stop"\necho "----------------------------------------"\nnode index.js\n';
+  return '#!/bin/bash\nSCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\nBRIDGE_DIR="$SCRIPT_DIR/neurolink-bridge"\necho "========================================="\necho "  <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> OpenBCI Bridge - One-Click Start"\necho "========================================="\necho ""\nROOM_CODE="${1:-}"\nif [ -z "$ROOM_CODE" ]; then\n  read -p "Enter 4-digit room code (or leave blank): " ROOM_CODE\nfi\nif [ -n "$ROOM_CODE" ]; then\n  echo "[OK] Room code: $ROOM_CODE"\n  export ROOM_CODE\nfi\necho ""\nif ! command -v node &> /dev/null; then\n  echo "[ERROR] Node.js not found. Install from: https://nodejs.org/"\n  exit 1\nfi\necho "[OK] Node.js $(node --version)"\necho ""\nif [ ! -f "$BRIDGE_DIR/index.js" ]; then\n  echo "[..] Downloading bridge module..."\n  mkdir -p "$BRIDGE_DIR"\n  cd "$BRIDGE_DIR"\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json || { echo "[ERROR] Download failed."; exit 1; }\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\n  curl -sL "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\n  if [ ! -f "index.js" ]; then echo "[ERROR] Incomplete download."; exit 1; fi\n  echo "[OK] Bridge module downloaded"\n  echo "[..] Installing dependencies..."\n  npm install || { echo "[ERROR] npm install failed"; exit 1; }\n  echo "[OK] Dependencies installed"\nelse\n  cd "$BRIDGE_DIR"\n  echo "[OK] Bridge module ready"\nfi\necho ""\necho "[..] Starting OpenBCI bridge..."\necho " UDP: 12345 | WS: 9080 | ECS: eeg.yzjtiantian.cn"\necho ""\necho "Press Ctrl+C to stop"\necho "----------------------------------------"\nnode index.js\n';
 }
 
 function onClaimed(role) {
@@ -1420,7 +1442,8 @@ function closeFSS() {
 function updateRoomLock(msg) {
   const overlay = document.getElementById('roomLockOverlay');
   if (!overlay) return;
-  if (msg.locked) {
+  // 有显式 config 时(console已操作)才控制蒙版, 默认锁定不显示
+  if (msg.locked && msg.config !== undefined && msg.config !== null) {
     overlay.classList.add('active');
   } else {
     overlay.classList.remove('active');
