@@ -25,7 +25,9 @@ const chCount = isGanglion ? 4 : 8;
 // ── 1. UDP 监听（接收 OpenBCI 数据） ──
 const udpServer = dgram.createSocket('udp4');
 
-function parseOpenBCIPacket(msg) {
+let udpFormat = null; // null=undetected, 'binary', 'float32'
+
+function parseBinaryPacket(msg) {
   const len = msg.length;
   if (len < 5) return null;
   let offset = 0;
@@ -44,6 +46,35 @@ function parseOpenBCIPacket(msg) {
     offset += 3;
   }
   return { sampleNumber, channels };
+}
+
+function parseFloat32Packet(msg) {
+  const len = msg.length;
+  if (len < 8) return null;
+  // OpenBCI float32 format: [sample#(f32), ch1(f32), ch2(f32), ...] repeated
+  // Each "record" = (1 + chCount) × 4 bytes
+  const recordBytes = (1 + chCount) * 4;
+  // Use the first complete record
+  if (len < recordBytes) return null;
+  const dv = new DataView(msg.buffer, msg.byteOffset, msg.byteLength);
+  const sampleNumber = Math.round(dv.getFloat32(0, true));
+  const channels = [];
+  for (let i = 0; i < chCount; i++) {
+    const val = dv.getFloat32((1 + i) * 4, true);
+    channels.push(val);
+  }
+  return { sampleNumber, channels: channels.map(v => Math.round(v)) };
+}
+
+function parseOpenBCIPacket(msg) {
+  if (udpFormat === 'binary') return parseBinaryPacket(msg);
+  if (udpFormat === 'float32') return parseFloat32Packet(msg);
+  // Auto-detect: try binary first
+  const bin = parseBinaryPacket(msg);
+  if (bin) { udpFormat = 'binary'; console.log('[UDP] 检测到数据格式: 二进制 0xA0'); return bin; }
+  const f32 = parseFloat32Packet(msg);
+  if (f32) { udpFormat = 'float32'; console.log('[UDP] 检测到数据格式: float32'); return f32; }
+  return null;
 }
 
 const frameBroadcast = (parsed) => {
