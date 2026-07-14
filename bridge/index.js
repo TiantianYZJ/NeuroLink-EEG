@@ -165,7 +165,7 @@ function connectECS() {
         udpServer.send(buf, 0, 4, config.GUI_MARKER_PORT, '127.0.0.1');
       }
       if (msg.type === 'room_info' && !ecsConnected) {
-        ws.send(JSON.stringify({ type: 'claim_role', role: 'master', session_id: ecsSessionId }));
+        ws.send(JSON.stringify({ type: 'reconnect', role: 'master', session_id: ecsSessionId }));
       }
       // 房间号响应
       if (msg.type === 'room_joined') {

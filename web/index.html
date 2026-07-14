@@ -251,7 +251,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span></div>
     <div class="subtitle" id="roomSubtitle">创建或加入一个实验房间</div>
     <div class="conn-status"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
-    <div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:16px;padding:12px 16px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" onblur="this.style.borderColor='';try{localStorage.setItem('ns_nick',this.value.trim())}catch(e){}"></div><div class="role-grid" style="margin-bottom:20px">
+    <div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:16px;padding:12px 16px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" oninput="tryAutoJoinRoom(this)" onblur="this.style.borderColor='';try{localStorage.setItem('ns_nick',this.value.trim())}catch(e){}"></div><div class="role-grid" style="margin-bottom:20px">
       <div class="room-card" onclick="createRoom()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <div class="info"><h3>创建房间</h3><p>获得四位房间号，分享给其他设备</p></div>
@@ -645,6 +645,8 @@ let currentPendingRole = null;
 let lastRole = null;
 let roomCode = null;
 let roomCreated = false;
+let pendingUrlRoom = null;
+let autoJoinAfterNickname = false;
 
 // ── 地形图 ──
 const CHANNEL_POSITIONS = [
@@ -922,6 +924,7 @@ function createRoom() {
   if (!nick) { showToast('请先输入昵称', 'error'); document.getElementById('nicknameInput')?.focus(); return; }
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type: 'create_room', session_id: sessionId }));
+    ws.send(JSON.stringify({ type: 'update_device_info', nickname: nick, session_id: sessionId }));
     showToast('正在创建房间...', 'info');
   }
 }
@@ -1006,6 +1009,15 @@ function openRolePopup() {
   if (d && roomCode) d.textContent = roomCode;
   document.getElementById('rolePopup')?.classList.add('active');
 }
+function tryAutoJoinRoom(input) {
+  if (autoJoinAfterNickname && input && input.value.trim() && pendingUrlRoom && ws && ws.readyState === 1) {
+    document.getElementById('roomCode').textContent = pendingUrlRoom;
+    ws.send(JSON.stringify({ type: 'join_room', code: pendingUrlRoom, session_id: sessionId }));
+    ws.send(JSON.stringify({ type: 'update_device_info', nickname: input.value.trim(), session_id: sessionId }));
+    const code = pendingUrlRoom;
+    pendingUrlRoom = null; autoJoinAfterNickname = false;
+  }
+}
 function closeRolePopup() {
   document.getElementById('rolePopup')?.classList.remove('active');
 }
@@ -1043,9 +1055,9 @@ function connectWS() {
     ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120), nickname: getNickname() } }));
     // Check if URL has ?room= code
     const p = new URLSearchParams(location.search);
-    const urlRoom = p.get('room');
-    if (urlRoom && urlRoom.length === 4) {
-      ws.send(JSON.stringify({ type: 'join_room', code: urlRoom, session_id: sessionId }));
+    pendingUrlRoom = p.get('room');
+    if (pendingUrlRoom && pendingUrlRoom.length === 4) {
+      // Don't auto-join yet; wait for nickname. Will trigger after panel shows.
     } else if (lastRole && lastRole !== 'monitor') {
       // Check stored room: try reconnect, fallback to room panel if stale
       ws.send(JSON.stringify({ type: 'reconnect', role: lastRole, session_id: sessionId }));
@@ -1054,6 +1066,22 @@ function connectWS() {
     setTimeout(() => {
       if (document.querySelector('.panel.active')?.id === 'panel-connecting') {
         switchPanel('panel-room');
+        if (pendingUrlRoom) {
+          showJoinRoom();
+          for (let i = 0; i < 4; i++) {
+            const el = document.getElementById('pin' + i);
+            if (el) { el.value = pendingUrlRoom[i] || ''; el.classList.add('filled'); pinValues[i] = pendingUrlRoom[i] || ''; }
+          }
+          const nick = getNickname();
+          if (nick && ws && ws.readyState === 1) {
+            document.getElementById('roomCode').textContent = pendingUrlRoom;
+            ws.send(JSON.stringify({ type: 'join_room', code: pendingUrlRoom, session_id: sessionId }));
+            pendingUrlRoom = null; autoJoinAfterNickname = false;
+          } else if (!nick) {
+            autoJoinAfterNickname = true;
+            document.getElementById('nicknameInput')?.focus();
+          }
+        }
         setTimeout(() => checkBridge(function(alive) { updateBridgeStatus(alive); }), 500);
       }
     }, 100);
@@ -1063,14 +1091,7 @@ function connectWS() {
       const msg = JSON.parse(e.data);
       if (msg.type === 'room_info') {
       updateRoom(msg.occupants);
-      // Stale room detection: locked + no console + we have a stored room = server restart
-      if (msg.locked !== false && !msg.hasConsole && !currentRole && localStorage.getItem('ns_room_code')) {
-        showToast('房间已过期（服务端重启），请创建新房间', 'error');
-        lastRole = null; persistRole(''); roomCode = null;
-        try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); } catch(e) {}
-        switchPanel('panel-room');
-      }
-          return;
+      return;
     }
       if (msg.type === 'error') {
         showToast(msg.message, 'error');

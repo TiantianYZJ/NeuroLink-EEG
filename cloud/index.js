@@ -563,6 +563,12 @@ function handleMessage(ws, raw, room, sessionId) {
       break;
     }
 
+    case 'update_device_info': {
+      if (msg.nickname) ws.nickname = msg.nickname;
+      if (msg.device_info) ws.deviceInfo = msg.device_info;
+      break;
+    }
+
     case 'leave_room': {
       if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
       if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) { r.sockets.delete(ws); ws.role = 'pending'; ws.roleLock = null; } }
