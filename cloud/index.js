@@ -139,7 +139,15 @@ function saveTimerState(sessionId) {
        auto_mode=VALUES(auto_mode), template_type=VALUES(template_type)`,
     [sessionId, timer.phaseIndex, timer.timeLeft, timer.timeInPhase,
      timer.running ? 1 : 0, timer.autoMode ? 1 : 0, templateType]
-  ).catch(e => console.warn('[DB]', e.message));
+  ).catch(e => {
+    if (e.code === 'ER_NO_REFERENCED_ROW_2') {
+      db.query('INSERT IGNORE INTO sessions (id, subject_id, template_id, status) VALUES (?, 1, 1, "pending")', [sessionId])
+        .then(() => saveTimerState(sessionId))
+        .catch(() => {});
+    } else {
+      console.warn('[DB]', e.message);
+    }
+  });
 }
 
 // ── 阶段模板 ──
