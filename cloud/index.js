@@ -69,6 +69,8 @@ function getRoom(sessionId) {
       sockets: new Set(),
       occupants: { master: null, monitor: [], subject: null, console: null },
       udpTargets: new Map(),
+      locked: true,
+      config: null,
     });
   }
   return rooms.get(sessionId);
