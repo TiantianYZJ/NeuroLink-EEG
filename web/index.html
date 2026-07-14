@@ -351,7 +351,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="dash-left">
       <div class="card">
         <div class="card-title">实时脑电波</div>
-        <div style="position:relative;width:100%;height:240px"><canvas id="masterWaveform"></canvas></div>
+        <div style="position:relative;width:100%;height:240px"><canvas id="masterWaveform" style="width:100%;height:240px"></canvas></div>
         <div class="ch-legend">
           <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
@@ -437,7 +437,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="dash-left">
       <div class="card">
         <div class="card-title">实时脑电波</div>
-        <div style="position:relative;width:100%;height:240px"><canvas id="monitorWaveform"></canvas></div>
+        <div style="position:relative;width:100%;height:240px"><canvas id="monitorWaveform" style="width:100%;height:240px"></canvas></div>
         <div class="ch-legend">
           <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
@@ -778,11 +778,15 @@ var frontendFrameCount = 0;
 function initEEGChart(id) {
   var canvas = document.getElementById(id);
   if (!canvas || typeof Chart === 'undefined') return null;
-  if (canvas.clientWidth === 0 || canvas.clientHeight === 0) {
-    return setTimeout(function(){ initEEGChart(id); }, 200), null;
+  // Retry if parent isn't visible yet
+  var pr = canvas.parentNode;
+  if (!pr || pr.clientWidth === 0) {
+    return setTimeout(function(){ initEEGChart(id); }, 100), null;
   }
-  // Chart.js config: 4 datasets, no axes, dark
+  canvas.setAttribute('width', Math.floor(pr.clientWidth));
+  canvas.setAttribute('height', Math.floor(pr.clientHeight));
   var ctx = canvas.getContext('2d');
+  if (!ctx) return null;
   var chart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -811,21 +815,21 @@ function initEEGChart(id) {
   var timer = setInterval(function() {
     if (!running || pending.length === 0) return;
     var n = pending.length;
-    // Batch-flush pending data
     for (var p = 0; p < n; p++) {
-      var s = pending[p];
-      chart.data.labels.push(s.idx);
-      for (var c = 0; c < 4; c++) chart.data.datasets[c].data.push(s.ch[c] !== undefined ? s.ch[c] : 0);
+      var row = pending[p];
+      chart.data.labels.push(row.idx);
+      for (var c = 0; c < 4; c++) chart.data.datasets[c].data.push(row.ch[c] !== undefined ? row.ch[c] : 0);
     }
-    pending.splice(0, n);
-    // Trim to keep ~500 points
+    pending.length = 0;
     if (chart.data.labels.length > 600) {
       var trim = chart.data.labels.length - 500;
       chart.data.labels.splice(0, trim);
       for (var c = 0; c < 4; c++) chart.data.datasets[c].data.splice(0, trim);
     }
-    chart.update('none'); // 'none' mode skips animation
+    chart.update('none');
   }, 33);
+  // Force initial render so canvas gets painted immediately
+  chart.render();
   var wrapper = { chart: chart, _idx: 0, push: function(ch) { pending.push({ idx: this._idx++, ch: ch }); frontendFrameCount++; }, destroy: function() { running = false; clearInterval(timer); chart.destroy(); } };
   eegCharts[id] = wrapper;
   return wrapper;
@@ -1409,8 +1413,11 @@ function onClaimed(role) {
   const pid = panelMap[role];
   if (pid) {
     switchPanel(pid);
-    if (role === 'master') initEEGChart('masterWaveform');
-    if (role === 'monitor') initEEGChart('monitorWaveform');
+    // 等待浏览器 reflow 后再初始化图表
+    setTimeout(function() {
+      if (role === 'master') initEEGChart('masterWaveform');
+      if (role === 'monitor') initEEGChart('monitorWaveform');
+    }, 50);
     if (role === 'console') { loadSubjects(); loadTemplates(); loadSessions(); }
   }
 }
