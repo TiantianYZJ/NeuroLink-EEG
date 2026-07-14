@@ -1478,7 +1478,7 @@ function closeFSS() {
 function updateRoomLock(msg) {
   const overlay = document.getElementById('roomLockOverlay');
   if (!overlay) return;
-  if (msg.locked) {
+  if (msg.locked && msg.config) {
     overlay.classList.add('active');
   } else {
     overlay.classList.remove('active');
