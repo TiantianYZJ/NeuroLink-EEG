@@ -803,7 +803,7 @@ const config = require('./config');
 let packetCount = 0;
 let lastStatsTime = Date.now();
 let sampleRate = 0;
-let lastParsed = null;
+
 const isGanglion = config.DEVICE_TYPE === 'ganglion';
 const chCount = isGanglion ? 4 : 8;
 
