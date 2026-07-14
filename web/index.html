@@ -1011,7 +1011,7 @@ function closeRolePopup() {
 }
 function refreshRoom() {
   if (ws && ws.readyState === 1 && sessionId) {
-    ws.send(JSON.stringify({ type: 'room_info', session_id: sessionId }));
+    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120), nickname: getNickname() } }));
     showToast('刷新设备状态', 'success');
   }
 }

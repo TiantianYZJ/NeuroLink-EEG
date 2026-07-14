@@ -399,7 +399,7 @@ function handleMessage(ws, raw, room, sessionId) {
       // 立即清除旧锁, 允许重连
       unlockRole(sessionId, targetRole);
       // 如果槽位还有旧 socket, 释放它
-      if (targetRole === 'master' && room.occupants.master) room.occupants.master = null;
+      if (targetRole === 'master' && !ws._bridge && room.occupants.master) room.occupants.master = null;
       if (targetRole === 'subject' && room.occupants.subject) room.occupants.subject = null;
 
       room.sockets.add(ws);
@@ -420,7 +420,7 @@ function handleMessage(ws, raw, room, sessionId) {
       broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
 
       const timer = timers.get(sessionId);
-      if (timer && targetRole === 'master') { timer.running = false; broadcastSync(sessionId, timer, room); }
+      if (timer && targetRole === 'master' && !ws._bridge) { timer.running = false; broadcastSync(sessionId, timer, room); }
       break;
     }
 
@@ -466,6 +466,11 @@ function handleMessage(ws, raw, room, sessionId) {
 
     case 'eeg_frame': {
       if (ws.role !== 'master' && !ws._bridge) return;
+      // If a bridge is present, only bridge-produced frames are authoritative
+      if (!ws._bridge) {
+        const hasBridge = Array.from(room.sockets).some(s => s._bridge);
+        if (hasBridge) return;
+      }
       room.sockets.forEach(s => {
         if (s !== ws && s.role === 'monitor' && s.readyState === 1) s.send(raw);
       });
@@ -691,7 +696,8 @@ function handleMessage(ws, raw, room, sessionId) {
     }
 
     case 'create_session': {
-      const sid = msg.sessionId || ('sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+      const baseId = msg.session_id || ('sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
+      const sid = baseId + '-' + Date.now().toString(36);
       db.query(
         'INSERT INTO sessions (id, subject_id, template_id, operator_name, status, notes) VALUES (?,?,?,?,?,?)',
         [sid, msg.subject_id || 1, msg.template_id || 1, msg.operator_name || '', 'pending', msg.notes || null]
@@ -1152,7 +1158,7 @@ console.log('  \u8fd0\u884c\u4e2d: \u8f93\u5165 l \u9000\u51fa\u623f\u95f4 \u00b
     const url = new URL(req.url, 'http://localhost');
     const sid = url.searchParams.get('session_id') || '';
     const room = sid ? rooms.get(sid) : null;
-    const masterAlive = room && room.occupants && !!room.occupants.master;
+    const masterAlive = room && room.occupants && !!(room.occupants.master || Array.from(room.sockets).some(s => s._bridge));
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ master: masterAlive }));
     return;
