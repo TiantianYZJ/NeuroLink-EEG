@@ -59,6 +59,7 @@ udpServer.on('message', (msg) => {
     sampleRate = Math.round(packetCount * 1000 / (now - lastStatsTime));
     packetCount = 0;
     lastStatsTime = now;
+    console.log('[DATA] ' + sampleRate + ' pkt/s | CH1~4: ' + (parsed.channels || []).map(v => v.toFixed(0)).join(' '));
   }
   frameBroadcast(parsed);
 });
@@ -122,7 +123,7 @@ function connectECS() {
   const ws = new WebSocket(config.ECS_WS_URL);
   ws.on('open', () => {
     console.log('[ECS] 已连接');
-    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: ecsSessionId }));
+    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: ecsSessionId, device_info: { platform: 'Node.js Bridge', userAgent: 'bridge', nickname: 'Bridge ' + ecsSessionId.slice(-6), isBridge: true } }));
     // 如果有房间号，hello 后立即尝试加入房间
     if (pendingRoomCode && !roomJoinAttempted) {
       roomJoinAttempted = true;

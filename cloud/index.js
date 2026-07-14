@@ -95,10 +95,10 @@ function getOccupantSummary(room) {
     subject: !!room.occupants.subject,
     console: !!room.occupants.console,
     devices: [
-      ...(room.occupants.master ? [{ role: 'master', info: room.occupants.master.deviceInfo || {} }] : []),
-      ...room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).map(s => ({ role: 'monitor', info: s.deviceInfo || {} })),
-      ...(room.occupants.subject ? [{ role: 'subject', info: room.occupants.subject.deviceInfo || {} }] : []),
-      ...(room.occupants.console ? [{ role: 'console', info: room.occupants.console.deviceInfo || {} }] : []),
+      ...(room.occupants.master ? [{ role: 'master', nickname: room.occupants.master.nickname || '', isBridge: room.occupants.master._bridge || false, info: room.occupants.master.deviceInfo || {} }] : []),
+      ...room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).map(s => ({ role: 'monitor', nickname: s.nickname || '', info: s.deviceInfo || {} })),
+      ...(room.occupants.subject ? [{ role: 'subject', nickname: room.occupants.subject.nickname || '', info: room.occupants.subject.deviceInfo || {} }] : []),
+      ...(room.occupants.console ? [{ role: 'console', nickname: room.occupants.console.nickname || '', info: room.occupants.console.deviceInfo || {} }] : []),
     ],
   };
 }
@@ -371,6 +371,7 @@ function handleMessage(ws, raw, room, sessionId) {
       ws.role = 'pending';
       ws.sessionId = sessionId;
       ws.deviceInfo = msg.device_info || {};
+      ws.nickname = msg.device_info && msg.device_info.nickname ? msg.device_info.nickname : 'Anonymous';
       ws.send(JSON.stringify({ type: 'room_info', occupants: getOccupantSummary(room) }));
       break;
     }
@@ -427,7 +428,8 @@ function handleMessage(ws, raw, room, sessionId) {
       else if (targetRole === 'monitor') canClaim = true;
 
       if (canClaim) {
-        // Reject if this socket already has a role
+        // Clear old role lock for same socket so it can re-claim
+        if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
         if (ws.role !== 'pending') {
           ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '该设备已注册角色' }));
           break;
@@ -550,12 +552,21 @@ function handleMessage(ws, raw, room, sessionId) {
       break;
     }
 
+    case 'leave_room': {
+      if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
+      if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) { r.sockets.delete(ws); ws.role = 'pending'; ws.roleLock = null; } }
+      ws.send(JSON.stringify({ type: 'room_left' }));
+      break;
+    }
+
     case 'release_role': {
       const occ = room.occupants;
       if (ws.roleLock === 'master' && occ.master === ws) occ.master = null;
       else if (ws.roleLock === 'subject' && occ.subject === ws) occ.subject = null;
       else if (ws.roleLock === 'console' && occ.console === ws) occ.console = null;
       else if (ws.roleLock === 'monitor') { occ.monitor = occ.monitor.filter(s => s !== ws); }
+      // Clean role lock for this socket so it can re-claim
+      if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
       ws.role = 'pending'; ws.roleLock = null;
       broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
       ws.send(JSON.stringify({ type: 'role_released' }));

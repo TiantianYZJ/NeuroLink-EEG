@@ -104,6 +104,12 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 .btn-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .auto-toggle{font-size:12px;color:rgba(73,79,223,0.8);cursor:pointer}
 
+/* 阶段条 */
+.phase-strip{display:flex;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)}
+.phase-chip{flex:1;padding:5px 6px;border-radius:8px;font-size:10px;text-align:center;line-height:1.2;color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.04);transition:all .3s;min-width:0;overflow:hidden}
+.phase-chip.active{background:rgba(73,79,223,0.2);color:#494fdf}
+.phase-chip.past{color:rgba(255,255,255,0.15)}
+
 /* 频带条 */
 .band-list{display:flex;flex-direction:column;gap:6px}
 .band-row{display:flex;align-items:center;gap:8px;font-size:13px}
@@ -231,7 +237,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="brand">⧩ NEUROLINK</div>
     <div class="subtitle" id="roomSubtitle">创建或加入一个实验房间</div>
     <div class="conn-status"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
-    <div class="role-grid" style="margin-bottom:20px">
+    <div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:16px;padding:12px 16px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" onblur="this.style.borderColor=''"></div><div class="role-grid" style="margin-bottom:20px">
       <div class="room-card" onclick="createRoom()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <div class="info"><h3>创建房间</h3><p>获得四位房间号，分享给其他设备</p></div>
@@ -261,10 +267,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
       <button class="btn btn-primary" id="roomContinueBtn" onclick="showRoleSelect()" style="display:none">选择角色 →</button>
       <div id="roomError" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
     </div>
-    <div class="occupants" id="roomOccupants" style="display:none">
-      <h4>在线设备</h4>
+    <div style="margin-top:8px;display:none" id="roomOccupants"><div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn btn-primary btn-small" style="flex:1" onclick="showRoleSelect()">选择角色 →</button><button class="btn btn-outline btn-small" onclick="leaveRoom()">退出</button></div><h4>在线设备</h4>
       <div class="devices" id="roomDevicesList"></div>
-    </div>
+    </div></div>
   </div>
 </div>
 
@@ -299,7 +304,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
         <span class="badge" id="badge-console">占用</span>
       </div>
     </div>
-    <div class="occupants" id="occupantsList">
+    <div style="margin-top:16px"><button class="btn btn-outline btn-small" onclick="leaveRoom()" style="width:100%">退出房间</button></div><div class="occupants" id="occupantsList">
       <h4>在线设备</h4>
       <div class="occ-empty" id="occEmpty">暂无其他设备</div>
     </div>
@@ -366,6 +371,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <button class="btn btn-outline btn-small" onclick="sendCmd('reset')">重置</button>
         </div>
         <div class="auto-toggle" id="masterAuto">自动模式 ●</div>
+        <div class="phase-strip" id="masterPhaseStrip"></div>
       </div>
       <div class="card">
         <div class="card-title">频带功率</div>
@@ -381,10 +387,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="metric-row">熵 <span class="metric-val" id="metric-entropy">—</span><span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></div>
           <div class="metric-row">负载 <span class="metric-val" id="metric-cognitiveLoad">—</span><span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></div>
         </div>
-      </div>
-      <div class="card">
-        <div class="card-title">实验流程</div>
-        <div id="masterTimeline"></div>
       </div>
       <div class="card recovery-card" id="masterRecovery" style="display:none">
         <div class="card-title">恢复状态</div>
@@ -447,6 +449,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <button class="btn btn-outline btn-small" onclick="sendCmd('reset')">重置</button>
         </div>
         <div class="auto-toggle" id="monitorAuto">自动模式 ●</div>
+        <div class="phase-strip" id="monitorPhaseStrip"></div>
       </div>
       <div class="card">
         <div class="card-title">频带功率</div>
@@ -462,10 +465,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="metric-row">熵 <span class="metric-val" id="mon-metric-entropy">—</span><span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></div>
           <div class="metric-row">负载 <span class="metric-val" id="mon-metric-cognitiveLoad">—</span><span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></div>
         </div>
-      </div>
-      <div class="card">
-        <div class="card-title">实验流程</div>
-        <div id="monitorTimeline"></div>
       </div>
       <div class="card recovery-card" id="monitorRecovery" style="display:none">
         <div class="card-title">恢复状态</div>
@@ -836,44 +835,24 @@ function formatTime(sec) {
   return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
 
-function updateTimeline(prefix, phaseSync) {
-  const el = document.getElementById(prefix + 'Timeline');
+function updatePhaseStrip(prefix, phaseSync) {
+  const el = document.getElementById(prefix + 'PhaseStrip');
   if (!el) return;
-  el.innerHTML = '';
-  const allPhases = getPhaseList(phaseSync);
-  allPhases.forEach((ph, i) => {
-    const active = i === (phaseSync.phase_index !== undefined ? phaseSync.phase_index : 0);
-    const past = i < (phaseSync.phase_index || 0);
-    const cls = active ? 'active' : (past ? 'past' : 'future');
-    const div = document.createElement('div');
-    div.className = 'timeline-item' + (active ? ' active' : '');
-    const dot = document.createElement('span');
-    dot.className = 'timeline-dot ' + cls;
-    div.appendChild(dot);
-    const label = document.createElement('span');
-    label.textContent = ph.name || ph.id || '—';
-    div.appendChild(label);
-    if (active) div.innerHTML += ' <span style="color:#494fdf;font-size:11px">当前</span>';
-    el.appendChild(div);
-  });
-}
-
-function getPhaseList(phaseSync) {
-  return [
-    { id:'prep', name:'准备' },
-    { id:'flow1', name:'R1 心流诱导' },
-    { id:'switch1', name:'R1 切换' },
-    { id:'recover1', name:'R1 恢复' },
-    { id:'rest1', name:'R1 休息' },
-    { id:'flow2', name:'R2 心流诱导' },
-    { id:'switch2', name:'R2 切换' },
-    { id:'recover2', name:'R2 恢复' },
-    { id:'rest2', name:'R2 休息' },
-    { id:'flow3', name:'R3 心流诱导' },
-    { id:'switch3', name:'R3 切换' },
-    { id:'recover3', name:'R3 恢复' },
-    { id:'rest3', name:'R3 休息' },
+  const allPhases = [
+    { id:'prep', name:'准备' }, { id:'flow1', name:'R1 诱导' }, { id:'switch1', name:'R1 切换' },
+    { id:'recover1', name:'R1 恢复' }, { id:'rest1', name:'R1 休息' },
+    { id:'flow2', name:'R2 诱导' }, { id:'switch2', name:'R2 切换' },
+    { id:'recover2', name:'R2 恢复' }, { id:'rest2', name:'R2 休息' },
+    { id:'flow3', name:'R3 诱导' }, { id:'switch3', name:'R3 切换' },
+    { id:'recover3', name:'R3 恢复' }, { id:'rest3', name:'R3 休息' },
   ];
+  const idx = phaseSync.phase_index || 0;
+  const prev = idx > 0 ? allPhases[idx - 1] : null;
+  const curr = allPhases[idx] || allPhases[0];
+  const next = idx < allPhases.length - 1 ? allPhases[idx + 1] : null;
+  el.innerHTML = (prev ? '<div class="phase-chip past">' + prev.name + '</div>' : '<div class="phase-chip" style="visibility:hidden"></div>') +
+    '<div class="phase-chip active">' + curr.name + '</div>' +
+    (next ? '<div class="phase-chip">' + next.name + '</div>' : '<div class="phase-chip" style="visibility:hidden"></div>');
 }
 
 // ── 热力图更新 ──
@@ -928,7 +907,8 @@ function onRoomCreated(msg) {
   roomCode = msg.code;
   roomCreated = true;
   sessionId = msg.session_id;
-  try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); } catch(e) {}
+  const nick = getNickname();
+  try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); localStorage.setItem('ns_nick', nick); } catch(e) {}
   syncSessionToBridge();
   showEl('roomOccupants', true);
   const el = document.getElementById('roomCode');
@@ -939,18 +919,21 @@ function onRoomCreated(msg) {
   document.getElementById('roomUrlWrap').style.display = '';
   document.getElementById('roomContinueBtn').style.display = '';
   document.getElementById('roomCodeLabel').textContent = '房间号';
+  const nick = getNickname(); try { localStorage.setItem('ns_nick', nick); } catch(e) {}
   document.getElementById('roomJoinInput').style.display = 'none';
 }
 function onRoomJoined(msg) {
   roomCode = msg.code;
   sessionId = msg.session_id;
-  try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); } catch(e) {}
+  const nick = getNickname();
+  try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); localStorage.setItem('ns_nick', nick); } catch(e) {}
   syncSessionToBridge();
   showEl('roomOccupants', true);
   document.getElementById('roomCode').textContent = msg.code;
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomContinueBtn').style.display = '';
   document.getElementById('roomCodeLabel').textContent = '已加入房间';
+  const nick = getNickname(); try { localStorage.setItem('ns_nick', nick); } catch(e) {}
   document.getElementById('roomJoinInput').style.display = 'none';
   document.getElementById('roomError').style.display = 'none';
 }
@@ -1032,7 +1015,7 @@ function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
     sessionId = getSessionFromURL() || genId();
-    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120) } }));
+    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120), nickname: getNickname() } }));
     // Check if URL has ?room= code
     const p = new URLSearchParams(location.search);
     const urlRoom = p.get('room');
@@ -1063,7 +1046,8 @@ function connectWS() {
       }
       if (msg.type === 'room_created') { onRoomCreated(msg); return; }
       if (msg.type === 'room_joined') { onRoomJoined(msg); return; }
-      if (msg.type === 'role_released') { showEl('roomOccupants', true); switchPanel('panel-room'); return; }
+      if (msg.type === 'role_released') { switchPanel('panel-role'); document.getElementById('roleSubtitle').textContent = '选择设备角色 · 房间 ' + (roomCode || '----'); return; }
+      if (msg.type === 'room_left') { switchPanel('panel-room'); document.getElementById('roomResult').style.display = 'none'; document.getElementById('roomOccupants').style.display = 'none'; return; }
       if (msg.type === 'claim_role') return;
 
       const prefix = currentRole === 'master' ? 'master' : (currentRole === 'monitor' ? 'monitor' : null);
@@ -1102,7 +1086,7 @@ function connectWS() {
       }
       if (msg.type === 'phase_sync') {
         updateTimer(prefix, msg);
-        updateTimeline(prefix, msg);
+        updatePhaseStrip(prefix, msg);
         const btnStart = document.getElementById(prefix + 'BtnStart');
         const btnPause = document.getElementById(prefix + 'BtnPause');
         if (btnStart) btnStart.textContent = msg.running ? '运行中' : '开始';
@@ -1125,6 +1109,26 @@ function connectWS() {
     setTimeout(connectWS, 5000);
   };
   ws.onerror = () => ws.close();
+}
+
+function getNickname() {
+  const el = document.getElementById('nicknameInput');
+  if (el && el.value.trim()) return el.value.trim();
+  try { const saved = localStorage.getItem('ns_nick'); if (saved) return saved; } catch(e) {}
+  return 'Guest' + Math.random().toString(36).slice(2,5);
+}
+
+function leaveRoom() {
+  if (confirm('确定退出房间？')) {
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'leave_room', session_id: sessionId }));
+    }
+    lastRole = null; persistRole(''); roomCode = null;
+    try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); } catch(e) {}
+    switchPanel('panel-room');
+    document.getElementById('roomResult').style.display = 'none';
+    document.getElementById('roomOccupants').style.display = 'none';
+  }
 }
 
 function updateRoom(occ) {
@@ -1169,7 +1173,7 @@ function updateRoom(occ) {
         const ua = info.userAgent || '';
         const browser = ua.includes('Chrome') ? 'Chrome' : ua.includes('Firefox') ? 'Firefox' : ua.includes('Safari') ? 'Safari' : 'Browser';
         const os = pf.startsWith('Win') ? 'Windows' : pf.startsWith('Mac') ? 'macOS' : pf.startsWith('Linux') ? 'Linux' : pf;
-        return '<div class="occ-item"><span class="occ-dot"></span>' + (roleNames[d.role] || d.role) + ' · ' + os + ' · ' + browser + '</div>';
+        const bridgeTag = d.isBridge ? ' 🔌' : ''; const nick = d.nickname || ''; return '<div class="occ-item"><span class="occ-dot"></span><b>' + nick + '</b> ' + (roleNames[d.role] || d.role) + bridgeTag + ' · ' + os + ' · ' + browser + '</div>';
       }).join('');
     }
   }
