@@ -814,11 +814,11 @@ function parseJSONPacket(msg) {
       const channels = raw.slice(0, chCount).map(ch => {
         if (!Array.isArray(ch) || ch.length === 0) return 0;
         const v = ch[ch.length - 1];
-        return typeof v === "number" ? Math.round(v) : 0;
+        return typeof v === "number" ? v : 0;
       });
       return { sampleNumber: obj.sample || obj.sampleNumber || 0, channels };
     }
-    const channels = raw.slice(0, chCount).map(v => typeof v === "number" ? Math.round(v) : 0);
+    const channels = raw.slice(0, chCount).map(v => typeof v === "number" ? v : 0);
     return { sampleNumber: obj.sample || obj.sampleNumber || 0, channels };
   } catch (_) {}
   return null;
@@ -833,7 +833,7 @@ function parseFloat32BEPacket(msg) {
   const sampleNumber = Math.round(dv.getFloat32(0, false));
   const channels = [];
   for (let i = 0; i < chCount; i++) {
-    channels.push(Math.round(dv.getFloat32((1 + i) * 4, false)));
+    channels.push(dv.getFloat32((1 + i) * 4, false));
   }
   return { sampleNumber, channels };
 }
