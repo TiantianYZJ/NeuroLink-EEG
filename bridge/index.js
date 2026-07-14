@@ -19,6 +19,7 @@ const config = require('./config');
 let packetCount = 0;
 let lastStatsTime = Date.now();
 let sampleRate = 0;
+let frameCount = 0;         // 实际 EEG 帧计数器（emitBatch 拆分后）
 const isGanglion = config.DEVICE_TYPE === 'ganglion';
 const chCount = isGanglion ? 4 : 8;
 
@@ -117,18 +118,20 @@ const frameBroadcast = (parsed) => {
 // Emit all samples in a 2D batch as individual eeg_frames
 const emitBatch = (parsed) => {
   if (!Array.isArray(parsed.channels) || !Array.isArray(parsed.channels[0])) {
+    frameCount++;
     frameBroadcast(parsed);
     return;
   }
   const chBatch = parsed.channels;
   const n = Math.min(chBatch[0] ? chBatch[0].length : 1, 30);
-  if (n <= 1) { frameBroadcast(parsed); return; }
+  if (n <= 1) { frameCount++; frameBroadcast(parsed); return; }
   const now = Date.now();
   for (let s = 0; s < n; s++) {
     const sample = chBatch.map(ch => (Array.isArray(ch) && s < ch.length) ? ch[s] : 0);
     const payload = JSON.stringify({ type: 'eeg_frame', seq: parsed.sampleNumber * n + s || 0, channels: sample, ts: now });
     localWss.clients.forEach(c => { if (c.readyState === 1) c.send(payload); });
     if (ecsWs && ecsWs.readyState === 1 && ecsConnected) ecsWs.send(payload);
+    frameCount++;
   }
 };
 
@@ -164,10 +167,13 @@ udpServer.on('message', (msg) => {
   packetCount++;
   const now = Date.now();
   if (now - lastStatsTime >= 200) {
-    sampleRate = Math.round(packetCount * 1000 / (now - lastStatsTime));
+    const uPkt = Math.round(packetCount * 1000 / (now - lastStatsTime));
+    const uFrameRate = Math.round(frameCount * 1000 / (now - lastStatsTime));
+    sampleRate = uFrameRate; // actual sample/frame rate for status messages
     const ch = getLastSample(lastParsed);
     const chStr = ch.slice(0,4).map(v => typeof v === 'number' ? v.toFixed(0).padStart(6) : '     0').join(' ');
-    console.log('[' + sampleRate.toString().padStart(3) + ' pkt/s] ' + chStr + ' | ECS: ' + (ecsConnected ? '●' : '○'));
+    console.log('[' + uFrameRate.toString().padStart(3) + ' fps | ' + uPkt.toString().padStart(2) + ' pkt] ' + chStr + ' | ECS: ' + (ecsConnected ? '●' : '○'));
+    frameCount = 0;
     packetCount = 0;
     lastStatsTime = now;
   }
