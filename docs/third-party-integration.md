@@ -11,6 +11,35 @@ NeuroLink 平台通过 WebSocket 对外提供实时 EEG 数据流。第三方应
 
 ---
 
+## 设备身份标识
+
+每个连接在 `hello` 时必须通过 `device_info` 字段声明自己的身份。平台据此在房间设备列表中显示你的应用名称和类型。
+
+```json
+{
+  "type": "hello",
+  "role": "pending",
+  "session_id": "my-app-1710400000",
+  "device_info": {
+    "platform": "MyApp",          // 应用名称（必填）
+    "userAgent": "MyApp/1.0",     // 版本标识（必填）
+    "nickname": "监视器-实验室A", // 自定义昵称（必填）
+    "isBridge": false              // 是否为硬件桥接（第三方固定 false）
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| `platform` | string | ✅ | 应用/平台名称，如 `"PythonMonitor"`、`"AndroidApp"` |
+| `userAgent` | string | ✅ | 版本号，如 `"v1.0.0"` |
+| `nickname` | string | ✅ | 在房间设备列表中显示的自定义名称 |
+| `isBridge` | boolean | ❌ | 固定传 `false`（仅硬件桥接脚本传 `true`） |
+
+**注意**: 服务端会记录每台设备的 `nickname` 并在房间面板中展示。建议设为有辨识度的名称（如 `"Python数据分析-张三"`），方便实验员区分。
+
+---
+
 ## 快速开始
 
 ```js
