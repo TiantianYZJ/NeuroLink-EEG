@@ -461,6 +461,7 @@ function handleMessage(ws, raw, room, sessionId) {
       }
 
       let canClaim = false;
+      // Bridge 连接不占用 master 槽位: 浏览器仍可认领 master
       if (targetRole === 'master' && (!occ.master || occ.master._bridge)) canClaim = true;
       else if (targetRole === 'subject' && !occ.subject) canClaim = true;
       else if (targetRole === 'console') canClaim = true;
