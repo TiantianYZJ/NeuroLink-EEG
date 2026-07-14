@@ -15,7 +15,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 .panel.active{display:block}
 .container{max-width:520px;margin:0 auto;padding:40px 24px;text-align:center}
 .brand{font-size:24px;font-weight:500;letter-spacing:0;margin-bottom:4px}
-.subtitle{font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:28px}
+.subtitle{font-size:16px;color:rgba(255,255,255,0.5);margin-bottom:32px}
 .conn-status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:24px}
 .dot{width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 2s ease-in-out infinite;flex-shrink:0}
 .dot.off{background:#666;animation:none}
@@ -49,15 +49,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 .bridge-status.down{color:#e23b4a}
 .bridge-status.down::before{background:#e23b4a}
 /* ── 房间 ── */
-.room-card{display:flex;align-items:center;gap:12px;padding:20px 24px;border-radius:20px;background:#16181a;border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:all .15s;text-align:left}
-.room-card:hover{border-color:#494fdf;background:#1a1c20}
-.room-card svg{width:28px;height:28px;opacity:.6;flex-shrink:0}
-.room-card h3{font-size:16px;font-weight:600;margin-bottom:2px}
-.room-card p{font-size:13px;color:rgba(255,255,255,0.45)}
-.room-code{font-size:48px;font-weight:600;letter-spacing:8px;color:#fff;margin:16px 0}
+.room-card{display:flex;align-items:center;gap:16px;padding:28px 32px;border-radius:20px;background:#16181a;border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:all .15s;text-align:left}
+.room-card:hover{border-color:#494fdf;background:#1a1c20;transform:translateY(-1px)}
+.room-card svg{width:36px;height:36px;opacity:.6;flex-shrink:0}
+.room-card h3{font-size:20px;font-weight:600;margin-bottom:4px}
+.room-card p{font-size:15px;color:rgba(255,255,255,0.45)}
+.room-code{font-size:56px;font-weight:600;letter-spacing:10px;color:#fff;margin:16px 0}
 .room-url{font-size:12px;color:rgba(255,255,255,0.4);word-break:break-all;background:#0a0a0a;padding:10px 14px;border-radius:12px;margin:8px 0 16px}
 .pin-grid{display:flex;gap:12px;justify-content:center;margin:16px 0}
-.pin-input{width:56px;height:64px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:28px;font-weight:600;text-align:center;font-family:'Inter',system-ui,sans-serif;outline:none;transition:all .15s;caret-color:#494fdf}
+.pin-input{width:64px;height:72px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.12);border-radius:14px;color:#fff;font-size:32px;font-weight:600;text-align:center;font-family:'Inter',system-ui,sans-serif;outline:none;transition:all .15s;caret-color:#494fdf}
 .pin-input:focus{border-color:#494fdf}
 .pin-input.filled{border-color:rgba(73,79,223,0.4);background:rgba(73,79,223,0.08)}
 .devices{max-height:240px;overflow-y:auto}
@@ -138,9 +138,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 .status-badge.pending{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4)}
 .status-badge.running{background:rgba(73,79,223,0.2);color:#494fdf}
 .status-badge.completed{background:rgba(74,222,128,0.15);color:#4ade80}
-.studio-badge{display:inline-flex;align-items:center;gap:4px;margin-left:6px;font-size:9px;color:rgba(255,255,255,0.5);font-weight:600;vertical-align:middle;letter-spacing:0}
-.studio-badge .logo-mini{width:16px;height:16px;border-radius:4px;vertical-align:middle}
-.studio-badge em{font-style:normal;font-weight:400;font-size:9px;letter-spacing:1.5px}
+.studio-badge{display:inline-flex;align-items:center;gap:6px;margin-left:8px;font-size:11px;color:rgba(255,255,255,0.5);font-weight:600;vertical-align:middle;letter-spacing:0}
+.studio-badge .logo-mini{width:18px;height:18px;border-radius:4px;vertical-align:middle}
+.studio-badge em{font-style:normal;font-weight:400;font-size:11px;letter-spacing:2px}
 .template-grid{display:flex;gap:12px;flex-wrap:wrap}
 .template-card{padding:14px 20px;border-radius:20px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.08);cursor:pointer;text-align:center;transition:all .15s;min-width:140px;flex:1}
 .template-card:hover{border-color:rgba(255,255,255,0.2)}
@@ -222,7 +222,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 <div id="panel-connecting" class="panel active">
   <div class="container" style="padding-top:120px">
     <div class="loader"></div>
-    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> <span style="font-size:11px;color:rgba(255,255,255,0.3)">by</span> <img src="PEYT-Studio-LOGO.png" style="width:16px;height:16px;border-radius:4px;vertical-align:-3px"> <span style="color:rgba(255,255,255,0.6);font-weight:600;font-size:13px">PEYT-Studio</span></div>
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> <span style="font-size:12px;color:rgba(255,255,255,0.25);margin:0 4px">by</span> <img src="PEYT-Studio-LOGO.png" style="width:20px;height:20px;border-radius:4px;vertical-align:-4px;margin-right:2px"> <span style="color:rgba(255,255,255,0.5);font-weight:600;font-size:14px">PEYT-Studio</span> <span style="font-size:11px;color:rgba(255,255,255,0.2);margin-left:4px">// @TiantianYZJ</span></div>
     <div class="subtitle">连接到实验平台...</div>
     <div class="conn-status"><span class="dot"></span><span>正在建立 WebSocket 连接</span></div>
   </div>
@@ -234,7 +234,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
     <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> <span style="font-size:11px;color:rgba(255,255,255,0.3)">by</span> <img src="PEYT-Studio-LOGO.png" style="width:16px;height:16px;border-radius:4px;vertical-align:-3px"> <span style="color:rgba(255,255,255,0.6);font-weight:600;font-size:13px">PEYT-Studio</span></div>
     <div class="subtitle" id="roomSubtitle">创建或加入一个实验房间</div>
     <div class="conn-status"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
-    <div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:16px;padding:12px 16px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" oninput="tryAutoJoinRoom(this)" onblur="this.style.borderColor='';try{localStorage.setItem('ns_nick',this.value.trim())}catch(e){}"></div><div class="role-grid" style="margin-bottom:20px">
+    <div style="margin-bottom:16px"><div style="font-size:13px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:18px;padding:14px 18px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" oninput="tryAutoJoinRoom(this)" onblur="this.style.borderColor='';try{localStorage.setItem('ns_nick',this.value.trim())}catch(e){}"></div><div class="role-grid" style="margin-bottom:20px">
       <div class="room-card" onclick="createRoom()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <div class="info"><h3>创建房间</h3><p>获得四位房间号，分享给其他设备</p></div>
@@ -253,13 +253,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         <button class="btn btn-small btn-outline" onclick="copyRoomUrl()" style="margin-bottom:16px">复制链接</button>
       </div>
       <div id="roomPinWrap" style="display:none;margin-bottom:16px">
-        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:8px">输入四位房间号</div>
-        <div class="pin-grid" id="pinGrid">
-          <input class="pin-input" id="pin0" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(0)" onkeydown="pinKey(0,event)">
-          <input class="pin-input" id="pin1" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(1)" onkeydown="pinKey(1,event)">
-          <input class="pin-input" id="pin2" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(2)" onkeydown="pinKey(2,event)">
-          <input class="pin-input" id="pin3" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(3)" onkeydown="pinKey(3,event)">
-        </div>
+        <button class="btn btn-primary" onclick="openPinPopup()" style="width:100%">输入房间号</button>
       </div>
 <div id="roomError" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
     </div>
@@ -329,6 +323,25 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
     <div style="display:flex;gap:8px">
       <button class="btn btn-outline btn-small" onclick="closeDevicePopup()" style="flex:1">关闭</button>
       <button class="btn btn-primary btn-small" onclick="refreshPanel();closeDevicePopup()" style="flex:1">刷新设备</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ─── PIN 输入弹窗 ─── -->
+<div class="role-popup" id="pinPopup">
+  <div class="rp-card" style="max-width:400px;text-align:center">
+    <div class="rp-title">加入房间</div>
+    <div class="rp-sub">输入实验员提供的四位房间号</div>
+    <div class="pin-grid" id="pinGrid">
+      <input class="pin-input" id="pin0" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(0)" onkeydown="pinKey(0,event)">
+      <input class="pin-input" id="pin1" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(1)" onkeydown="pinKey(1,event)">
+      <input class="pin-input" id="pin2" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(2)" onkeydown="pinKey(2,event)">
+      <input class="pin-input" id="pin3" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(3)" onkeydown="pinKey(3,event)">
+    </div>
+    <div id="roomError" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-outline btn-small" onclick="closePinPopup()" style="flex:1">取消</button>
     </div>
   </div>
 </div>
@@ -1166,6 +1179,7 @@ function pinInput(idx) {
   if (code.length === 4 && ws && ws.readyState === 1) {
     if (!getNickname()) { showToast('请先输入昵称', 'error'); pinValues=['','','','']; for(let i=0;i<4;i++){const e=document.getElementById('pin'+i);if(e){e.value='';e.classList.remove('filled')}} document.getElementById('nicknameInput')?.focus(); return; }
     document.getElementById('roomCode').textContent = code;
+    closePinPopup();
     ws.send(JSON.stringify({ type: 'join_room', code: code, session_id: sessionId }));
   }
 }
@@ -1173,6 +1187,18 @@ function pinKey(idx, e) {
   if (e.key === 'Backspace' && !pinValues[idx] && idx > 0) {
     document.getElementById('pin' + (idx - 1)).focus();
   }
+}
+function openPinPopup() {
+  document.getElementById('pinPopup')?.classList.add('active');
+  pinValues = ['', '', '', ''];
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('pin' + i);
+    if (el) { el.value = ''; el.classList.remove('filled'); }
+  }
+  setTimeout(() => { const p0 = document.getElementById('pin0'); if (p0) p0.focus(); }, 100);
+}
+function closePinPopup() {
+  document.getElementById('pinPopup')?.classList.remove('active');
 }
 function showJoinRoom() {
   if (!getNickname()) { showToast('请先输入昵称', 'error'); document.getElementById('nicknameInput')?.focus(); return; }
@@ -1261,7 +1287,7 @@ function connectWS() {
       if (document.querySelector('.panel.active')?.id === 'panel-connecting') {
         switchPanel('panel-room');
         if (pendingUrlRoom) {
-          showJoinRoom();
+          openPinPopup();
           for (let i = 0; i < 4; i++) {
             const el = document.getElementById('pin' + i);
             if (el) { el.value = pendingUrlRoom[i] || ''; el.classList.add('filled'); pinValues[i] = pendingUrlRoom[i] || ''; }
@@ -1803,7 +1829,7 @@ function renderSessions(sessions) {
   }
   el.innerHTML = '<table class="console-table"><thead><tr><th>场次</th><th>受试者</th><th>模板</th><th>状态</th><th>日期</th><th></th></tr></thead><tbody>' +
     sessions.map(s => '<tr><td style="font-family:monospace;font-size:11px">' + (s.id || '').slice(0,8) + '</td><td>' + escHtml(s.subject_name || '—') + '</td><td>' + escHtml(s.template_name || '—') + '</td>' +
-    '<td><span class="status-badge ' + (s.status || 'pending') + '">' + (s.status || 'pending') + '</span></td>' +
+    '<td><span class="status-badge ' + (s.status || 'pending') + '">' + ({pending:'待开始',running:'运行中',paused:'已暂停',completed:'已完成'}[s.status] || s.status || '待开始') + '</span></td>' +
     '<td>' + fmtTS(s.created_at) + '</td>' +
     '<td><button class="icon-btn" onclick="viewSession(\'' + s.id + '\')">查看</button></td></tr>').join('') +
     '</tbody></table>';
@@ -1854,42 +1880,52 @@ function renderSessionDetail(data) {
   const body = document.getElementById('detailBody');
   if (!overlay || !body) return;
   const s = data.session || {};
-  title.textContent = '场次详情 · ' + (s.id || '').slice(0, 8);
+  const roomCodeStr = roomCode || '----';
+  title.innerHTML = '<span style="color:#494fdf;font-size:14px">&#9733;</span> 场次详情';
+
+  const statusLabels = { pending:'待开始', running:'运行中', paused:'已暂停', completed:'已完成' };
+  const st = statusLabels[s.status] || s.status || '—';
+
   const markers = (data.markers || []).slice(-50);
   const fss = data.fss_results || [];
 
-  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;padding:12px;background:#0a0a0a;border-radius:12px">';
-  html += '<div><span style="color:rgba(255,255,255,0.4)">受试者</span><br><b>' + escHtml(s.operator_name || '—') + '</b></div>';
-  html += '<div><span style="color:rgba(255,255,255,0.4)">状态</span><br><span class="status-badge ' + (s.status || '') + '">' + (s.status || '—') + '</span></div>';
-  html += '<div><span style="color:rgba(255,255,255,0.4)">模板 ID</span><br><b>' + (s.template_id || '—') + '</b></div>';
-  html += '<div><span style="color:rgba(255,255,255,0.4)">备注</span><br><b>' + escHtml(s.notes || '无') + '</b></div></div>';
+  let html = '';
+  html += '<div style="background:#0a0a0a;border-radius:14px;padding:16px;margin-bottom:16px;border:1px solid rgba(255,255,255,0.06)">';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+  html += '<div><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">房间</span><br><span style="font-size:22px;font-weight:600;color:#fff;letter-spacing:3px">' + roomCodeStr + '</span></div>';
+  html += '<div style="text-align:right"><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">状态</span><br><span class="status-badge ' + (s.status || '') + '" style="font-size:13px;padding:4px 14px">' + st + '</span></div>';
+  html += '<div><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">受试者</span><br><span style="color:#fff;font-size:15px;font-weight:500">' + escHtml(s.operator_name || '—') + '</span></div>';
+  html += '<div><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">记录 ID</span><br><span style="color:rgba(255,255,255,0.5);font-size:12px;font-family:monospace">' + (s.id || '').slice(0,12) + '</span></div>';
+  if (s.notes) html += '<div style="grid-column:1/-1"><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">备注</span><br><span style="color:rgba(255,255,255,0.6);font-size:13px">' + escHtml(s.notes) + '</span></div>';
+  html += '</div></div>';
 
-  html += '<div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">标记时间线 (' + markers.length + ')</div>';
+  html += '<div style="margin-bottom:16px"><div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">事件标记 (' + markers.length + ')</div>';
   if (markers.length === 0) {
-    html += '<div style="color:rgba(255,255,255,0.2);font-size:12px">暂无标记</div>';
+    html += '<div style="color:rgba(255,255,255,0.15);font-size:12px;padding:8px 0">暂无事件标记</div>';
   } else {
-    html += '<div style="max-height:200px;overflow-y:auto">';
+    html += '<div style="max-height:180px;overflow-y:auto;background:#0a0a0a;border-radius:10px;padding:8px">';
     markers.forEach(m => {
-      html += '<div style="display:flex;gap:8px;padding:3px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.03)">';
-      html += '<span style="color:rgba(255,255,255,0.3);white-space:nowrap">' + fmtTS(m.ts || m.created_at) + '</span>';
-      html += '<span style="color:#494fdf;font-weight:600">' + (m.code || 0) + '</span>';
-      html += '<span style="color:rgba(255,255,255,0.5)">' + (m.source || '') + '</span>';
-      html += '<span>' + (m.label || '') + '</span></div>';
+      var srcLabels = { operator:'操作员', subject:'受试者', auto:'自动' };
+      html += '<div style="display:flex;gap:8px;padding:4px 6px;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center">';
+      html += '<span style="color:rgba(255,255,255,0.25);white-space:nowrap;font-size:11px">' + fmtTS(m.ts || m.created_at) + '</span>';
+      html += '<span style="color:#494fdf;font-weight:700;font-size:11px">#' + (m.code || 0) + '</span>';
+      html += '<span style="color:rgba(255,255,255,0.4);font-size:11px">' + (srcLabels[m.source] || m.source || '') + '</span>';
+      html += '<span style="color:rgba(255,255,255,0.7)">' + (m.label || '') + '</span></div>';
     });
     html += '</div>';
   }
   html += '</div>';
 
   if (fss.length > 0) {
-    html += '<div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">FSS 问卷 (' + fss.length + ' 轮)</div>';
+    html += '<div><div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">FSS 问卷 (' + fss.length + ' 轮)</div>';
     fss.forEach(f => {
-      const answers = (typeof f.answers === 'string' ? JSON.parse(f.answers) : f.answers) || [];
-      html += '<div style="padding:8px;margin-bottom:8px;background:#0a0a0a;border-radius:10px">';
-      html += '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px">第 ' + (f.round || 0) + ' 轮 · ' + (f.phase || '') + '</div>';
-      answers.forEach((a, i) => {
-        const q = FSS_QUESTIONS[i] || ('Q' + (i+1));
-        html += '<div style="display:flex;gap:8px;padding:2px 0;font-size:12px">';
-        html += '<span style="color:rgba(255,255,255,0.7);flex:1">' + (i+1) + '. ' + q + '</span>';
+      var answers = (typeof f.answers === 'string' ? JSON.parse(f.answers) : f.answers) || [];
+      html += '<div style="padding:10px;margin-bottom:8px;background:#0a0a0a;border-radius:10px;border:1px solid rgba(255,255,255,0.04)">';
+      html += '<div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">第 ' + (f.round || 0) + ' 轮 · ' + (f.phase || '') + '</div>';
+      answers.forEach(function(a, i) {
+        var q = FSS_QUESTIONS[i] || ('Q' + (i+1));
+        html += '<div style="display:flex;gap:8px;padding:3px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.03)">';
+        html += '<span style="color:rgba(255,255,255,0.6);flex:1">' + (i+1) + '. ' + q + '</span>';
         html += '<span style="font-weight:600;color:#494fdf;white-space:nowrap">' + a + '/7</span></div>';
       });
       html += '</div>';
@@ -1922,6 +1958,6 @@ function escHtml(s) {
 
 connectWS();
 </script>
-<div class="page-footer"><img src="PEYT-Studio-LOGO.png" style="width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:4px"><span style="color:rgba(255,255,255,0.4);font-weight:600;margin-right:4px">PEYT-Studio</span> · Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener">@TiantianYZJ</a> · NeuroLink EEG BCI Platform</div>
+<div class="page-footer"><span style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap"><img src="PEYT-Studio-LOGO.png" style="width:16px;height:16px;border-radius:4px;vertical-align:-3px"><span style="color:rgba(255,255,255,0.4);font-weight:600">PEYT-Studio</span><span style="color:rgba(255,255,255,0.15)">·</span><span style="color:rgba(255,255,255,0.3)">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.5);text-decoration:none">@TiantianYZJ</a></span><span style="color:rgba(255,255,255,0.15)">·</span><span style="color:rgba(255,255,255,0.25)">NeuroLink EEG BCI</span></span></div>
 </body>
 </html>
