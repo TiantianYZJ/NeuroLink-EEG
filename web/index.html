@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NeuroLink · 实验平台</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<script src="smoothie.js"></script>
+<link rel="stylesheet" href="uplot.min.css">
+<script src="uplot.min.js"></script>
 <style>
+/* uPlot 暗色主题 */
+canvas[style]{border-radius:12px}.uplot{background:#000;width:100%!important;border-radius:12px;overflow:hidden}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-height:100vh;-webkit-font-smoothing:antialiased}
 
@@ -770,31 +773,52 @@ function renderTopoMap(canvas, grid) {
   ctx.putImageData(imgData, 0, 0);
 }
 
-// ── Smoothie Charts（专业实时波形） ──
+// ── uPlot 实时 EEG 波形 ──
 const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
-const CH_NAMES = ['Fp1', 'Fp2', 'C3', 'C4'];
-const smoothies = {};
+const eegCharts = {};
 
-function initSmoothie(id) {
-  if (typeof SmoothieChart === 'undefined' || typeof TimeSeries === 'undefined') return;
-  const canvas = document.getElementById(id);
-  if (!canvas) return;
-  const chart = new SmoothieChart({
-    millisPerPixel: 6,
-    grid: { fillStyle: '#000000', strokeStyle: 'rgba(255,255,255,0.05)', verticalSections: 6 },
-    labels: { fillStyle: 'rgba(255,255,255,0.3)', fontSize: 10 },
-    yRangeFunction: () => ({ min: -1, max: 1 }),
-    maxValueScale: 1.5,
-    minValueScale: 1.5,
-  });
-  const series = [];
-  for (let i = 0; i < 4; i++) {
-    const ts = new TimeSeries();
-    chart.addTimeSeries(ts, { strokeStyle: CH_COLORS[i], lineWidth: 1.5 });
-    series.push(ts);
+function initEEGChart(id) {
+  const el = document.getElementById(id);
+  if (!el || typeof uPlot === 'undefined') return null;
+  const timestamps = [];
+  const chData = [[], [], [], []];
+  const opts = {
+    width: el.clientWidth || 480,
+    height: el.clientHeight || 240,
+    cursor: { show: false },
+    legend: { show: false },
+    select: { show: false },
+    focus: { alpha: 1 },
+    axes: [{ show: false }, { show: false }],
+    series: [
+      {},
+      { label: 'Fp1', stroke: CH_COLORS[0], width: 1.5 },
+      { label: 'Fp2', stroke: CH_COLORS[1], width: 1.5 },
+      { label: 'C3', stroke: CH_COLORS[2], width: 1.5 },
+      { label: 'C4', stroke: CH_COLORS[3], width: 1.5 },
+    ],
+    scales: {
+      x: { time: true },
+      y: { auto: true },
+    },
+  };
+  const uplot = new uPlot(opts, [timestamps, ...chData], el);
+  const chart = { uplot, timestamps, chData };
+  eegCharts[id] = chart;
+  return chart;
+}
+
+function appendEEGData(chart, channels, ts) {
+  if (!chart) return;
+  const { uplot, timestamps, chData } = chart;
+  if (timestamps.length >= 500) {
+    const trim = Math.ceil(timestamps.length - 400);
+    timestamps.splice(0, trim);
+    for (let i = 0; i < 4; i++) chData[i].splice(0, trim);
   }
-  chart.streamTo(canvas, 50);
-  smoothies[id] = { chart, series };
+  timestamps.push(ts);
+  for (let i = 0; i < 4 && i < channels.length; i++) chData[i].push(channels[i]);
+  uplot.setData([timestamps, ...chData]);
 }
 
 // ── 工具 ──
@@ -1195,11 +1219,8 @@ function connectWS() {
       if (!prefix) return;
 
       if (msg.type === 'eeg_frame' && msg.channels) {
-        const sm = smoothies[prefix + 'Waveform'];
-        if (sm) {
-          const t = msg.ts || Date.now();
-          msg.channels.forEach((v, i) => { if (i < 4 && sm.series[i]) sm.series[i].append(t, v); });
-        }
+        const ch = eegCharts[prefix + 'Waveform'];
+        if (ch) appendEEGData(ch, msg.channels, msg.ts || Date.now());
       }
       if (msg.type === 'metrics_snapshot') {
         window._lastSnapshot = msg;
@@ -1370,8 +1391,8 @@ function onClaimed(role) {
   const pid = panelMap[role];
   if (pid) {
     switchPanel(pid);
-    if (role === 'master') initSmoothie('masterWaveform');
-    if (role === 'monitor') initSmoothie('monitorWaveform');
+    if (role === 'master') initEEGChart('masterWaveform');
+    if (role === 'monitor') initEEGChart('monitorWaveform');
     if (role === 'console') { loadSubjects(); loadTemplates(); loadSessions(); }
   }
 }
@@ -1739,8 +1760,8 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-initSmoothie('masterWaveform');
-initSmoothie('monitorWaveform');
+initEEGChart('masterWaveform');
+initEEGChart('monitorWaveform');
 connectWS();
 </script>
 <div class="page-footer">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener">@TiantianYZJ</a> · EEG BCI Platform</div>
