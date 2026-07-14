@@ -553,6 +553,20 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
   </div>
   <div class="console-wrap">
     <div class="console-section">
+      <div class="console-section-title">实验实时状态</div>
+      <div class="console-card">
+        <div class="stat-grid" style="grid-template-columns:1fr 1fr 1fr">
+          <div>阶段 <span class="stat-val" id="consolePhaseName">—</span></div>
+          <div>采样率 <span class="stat-val" id="consoleSampleRate">—</span></div>
+          <div>数据 <span class="stat-val" id="consolePacketCount">—</span></div>
+        </div>
+        <div style="text-align:center;padding:8px 0 0">
+          <div class="timer-display" id="consoleTimer" style="font-size:36px">—</div>
+          <div class="timer-bar" style="margin-top:4px"><div class="timer-bar-fill" id="consoleTimerFill" style="width:0%;height:6px"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="console-section">
       <div class="console-section-title">新建实验</div>
       <div class="console-card">
         <div class="console-row">
@@ -1160,6 +1174,21 @@ function connectWS() {
         if (msg.type === 'experiment_started') { showToast('实验已启动, 房间解锁', 'success'); }
         if (msg.type === 'sessions_list') renderSessions(msg.sessions);
         if (msg.type === 'session_detail') renderSessionDetail(msg);
+        if (msg.type === 'metrics_snapshot') {
+          window._lastSnapshot = msg;
+          const el = document.getElementById('consoleSampleRate');
+          if (el && msg.sample_rate) el.textContent = msg.sample_rate + ' Hz';
+          document.getElementById('consolePacketCount').textContent = msg.cognitive_load_index !== undefined ? '运行中' : '等待数据';
+        }
+        if (msg.type === 'phase_sync') {
+          document.getElementById('consolePhaseName').textContent = msg.phase_name || '—';
+          document.getElementById('consoleTimer').textContent = formatTime(msg.time_left);
+          const pct = msg.phase_duration > 0 ? (msg.time_left / msg.phase_duration * 100) : 100;
+          document.getElementById('consoleTimerFill').style.width = Math.max(0, pct) + '%';
+        }
+        if (msg.type === 'action_notice') {
+          showToast(msg.label || msg.action, 'info');
+        }
         return;
       }
 
@@ -1195,6 +1224,9 @@ function connectWS() {
       if (msg.type === 'alert') {
         const statusEl = document.getElementById(prefix + 'Status');
         if (statusEl) statusEl.textContent = '⚠ ' + msg.message;
+      }
+      if (msg.type === 'action_notice') {
+        showToast((msg.role === 'subject' ? '受试者' : (msg.role || '')) + ' ' + (msg.label || msg.action), 'info');
       }
     } catch(_) {}
   };
@@ -1245,6 +1277,7 @@ function updateRoom(occ) {
   if (occ.monitor > 0) items += '<div class="occ-item"><span class="occ-dot"></span>纯监视端 ×'+occ.monitor+'</div>';
   if (occ.subject) items += '<div class="occ-item"><span class="occ-dot"></span>受试者端</div>';
   if (occ.console) items += '<div class="occ-item"><span class="occ-dot"></span>控制台</div>';
+  if (occ.bridge > 0) items += '<div class="occ-item"><span class="occ-dot"></span>桥接 ×'+occ.bridge+'</div>';
   const empty = document.getElementById('occEmpty');
   if (items) {
     empty.style.display = 'none';
@@ -1256,7 +1289,7 @@ function updateRoom(occ) {
   // Room page devices list
   const devEl = document.getElementById('roomDevicesList');
   if (devEl && occ.devices) {
-    const roleNames = { master:'上传监视端', monitor:'纯监视端', subject:'受试者端', console:'控制台' };
+    const roleNames = { master:'上传监视端', monitor:'纯监视端', subject:'受试者端', console:'控制台', bridge:'桥接' };
     if (occ.devices.length === 0) {
       devEl.innerHTML = '<div class="occ-empty">暂无其他设备</div>';
     } else {
@@ -1266,7 +1299,7 @@ function updateRoom(occ) {
         const ua = info.userAgent || '';
         const browser = ua.includes('Chrome') ? 'Chrome' : ua.includes('Firefox') ? 'Firefox' : ua.includes('Safari') ? 'Safari' : 'Browser';
         const os = pf.startsWith('Win') ? 'Windows' : pf.startsWith('Mac') ? 'macOS' : pf.startsWith('Linux') ? 'Linux' : pf;
-        const bridgeTag = d.isBridge ? ' 🔌' : ''; const nick = d.nickname || ''; return '<div class="occ-item"><span class="occ-dot"></span><b>' + nick + '</b> ' + (roleNames[d.role] || d.role) + bridgeTag + ' · ' + os + ' · ' + browser + '</div>';
+        const bridgeTag = d.isBridge ? ' 🔌' : ''; const nick = d.nickname || ''; return '<div class="occ-item"><span class="occ-dot"></span><b>' + nick + '</b> ' + (roleNames[d.role] || (d.isBridge ? '桥接' : d.role)) + bridgeTag + ' · ' + os + ' · ' + browser + '</div>';
       }).join('');
     }
   }

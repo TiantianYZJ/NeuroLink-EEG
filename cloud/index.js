@@ -111,19 +111,24 @@ function broadcastToRoles(room, msg, roles) {
 }
 
 function getOccupantSummary(room, sessionId) {
+  const alive = (s) => s.readyState === 1 || s.readyState === 2;
+  // Collect all bridge sockets from room
+  const bridgeSockets = Array.from(room.sockets).filter(s => s._bridge);
   return {
     frame_rate: sessionId ? frameRateTracker.getRate(sessionId) : 0,
     master: !!(room.occupants.master && !room.occupants.master._bridge),
     locked: room.locked !== false,
-    hasConsole: room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).length > 0,
-    monitor: room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).length,
+    hasConsole: room.occupants.console.filter(alive).length > 0,
+    monitor: room.occupants.monitor.filter(alive).length,
     subject: !!room.occupants.subject,
-    console: room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).length,
+    console: room.occupants.console.filter(alive).length,
+    bridge: bridgeSockets.length,
     devices: [
       ...(room.occupants.master && !room.occupants.master._bridge ? [{ role: 'master', nickname: room.occupants.master.nickname || '', isBridge: false, info: room.occupants.master.deviceInfo || {} }] : []),
-      ...room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).map(s => ({ role: 'monitor', nickname: s.nickname || '', info: s.deviceInfo || {} })),
+      ...room.occupants.monitor.filter(alive).map(s => ({ role: 'monitor', nickname: s.nickname || '', info: s.deviceInfo || {} })),
       ...(room.occupants.subject ? [{ role: 'subject', nickname: room.occupants.subject.nickname || '', info: room.occupants.subject.deviceInfo || {} }] : []),
-      ...room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).map(s => ({ role: 'console', nickname: s.nickname || '', info: s.deviceInfo || {} })),
+      ...room.occupants.console.filter(alive).map(s => ({ role: 'console', nickname: s.nickname || '', info: s.deviceInfo || {} })),
+      ...bridgeSockets.map(s => ({ role: s.role || 'bridge', nickname: s.nickname || ('Bridge ' + (s.sessionId || '').slice(-6)), isBridge: true, info: s.deviceInfo || {} })),
     ],
   };
 }
@@ -327,7 +332,7 @@ function startTick(sessionId, timer, room) {
         ).catch(e => console.warn('[DB]', e.message));
 
         // 3. metrics 广播 (master + monitor)
-        broadcastToRoles(room, { type: 'metrics_snapshot', ...snapshot }, ['master', 'monitor']);
+        broadcastToRoles(room, { type: 'metrics_snapshot', ...snapshot }, ['master', 'monitor', 'console']);
 
         // 4. 基线录制 + 恢复判定
         const msgs = await baseline.tick(sessionId, phase.id, timer.timeInPhase, snapshot);
@@ -547,6 +552,10 @@ function handleMessage(ws, raw, room, sessionId) {
         case 'set_auto':     timer.autoMode = !timer.autoMode; break;
         case 'set_task_type': if (msg.value) { timer.taskType = msg.value; } break;
       }
+      // Broadcast action notice to all roles
+      const actor = ws.nickname || ws.role || 'unknown';
+      const actionLabels = { start:'▶ 开始实验', pause:'⏸ 暂停', next_phase:'⏭ 下一阶段', reset:'⟳ 重置', set_auto:'🔄 切换自动模式' };
+      broadcast(room, { type: 'action_notice', action: msg.action, actor, label: actionLabels[msg.action] || msg.action, role: ws.role, ts: Date.now() });
       broadcastSync(sessionId, timer, room);
       break;
     }
@@ -580,6 +589,7 @@ function handleMessage(ws, raw, room, sessionId) {
       ).catch(e => console.warn('[DB]', e.message));
       broadcast(room, markerMsg);
       sendMarkerUDP(room, markerMsg);
+      broadcast(room, { type: 'action_notice', action: msg.state, actor: ws.nickname || '受试者', label: label, role: 'subject', ts: Date.now() });
       ws.send(JSON.stringify({ type: 'self_report_ack', state: msg.state }));
       break;
     }
