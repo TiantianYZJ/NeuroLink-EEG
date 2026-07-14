@@ -5,12 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NeuroLink · 实验平台</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="uplot.min.css">
-<script src="uplot.min.js"></script>
+<script src="chart.min.js"></script>
 <style>
-/* uPlot 暗色主题 */
-canvas[style]{border-radius:12px}.uplot{background:#000;width:100%!important;border-radius:12px;overflow:hidden}
-.uplot .u-wrap{overflow:hidden}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-height:100vh;-webkit-font-smoothing:antialiased}
 
@@ -355,7 +351,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="dash-left">
       <div class="card">
         <div class="card-title">实时脑电波</div>
-        <div id="masterWaveform" style="width:100%;min-width:200px;height:240px;overflow:hidden"></div>
+        <div style="position:relative;width:100%;height:240px"><canvas id="masterWaveform"></canvas></div>
         <div class="ch-legend">
           <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
@@ -441,7 +437,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="dash-left">
       <div class="card">
         <div class="card-title">实时脑电波</div>
-        <div id="monitorWaveform" style="width:100%;min-width:200px;height:240px;overflow:hidden"></div>
+        <div style="position:relative;width:100%;height:240px"><canvas id="monitorWaveform"></canvas></div>
         <div class="ch-legend">
           <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
@@ -774,67 +770,78 @@ function renderTopoMap(canvas, grid) {
   ctx.putImageData(imgData, 0, 0);
 }
 
-// ── uPlot 实时 EEG 波形 ──
+// ── Chart.js 实时 EEG 波形 ──
+const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
+// ── Chart.js 实时 EEG 波形 ──
 const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
 const eegCharts = {};
-var eegFrameCount = 0;
+var frontendFrameCount = 0;
 
 function initEEGChart(id) {
-  var el = document.getElementById(id);
-  if (!el || typeof uPlot === 'undefined') return null;
-  if (el.clientWidth === 0 || el.clientHeight === 0) {
+  var canvas = document.getElementById(id);
+  if (!canvas || typeof Chart === 'undefined') return null;
+  if (canvas.clientWidth === 0 || canvas.clientHeight === 0) {
     return setTimeout(function(){ initEEGChart(id); }, 200), null;
   }
-  var w = el.clientWidth, h = el.clientHeight;
-  var x = [], d = [[], [], [], []];
+  // Chart.js config: 4 datasets, no axes, dark
+  var ctx = canvas.getContext('2d');
+  var chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Fp1', data: [], borderColor: CH_COLORS[0], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
+        { label: 'Fp2', data: [], borderColor: CH_COLORS[1], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
+        { label: 'C3', data: [], borderColor: CH_COLORS[2], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
+        { label: 'C4', data: [], borderColor: CH_COLORS[3], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: { display: false },
+      },
+      elements: { point: { radius: 0 } },
+    },
+  });
   var pending = [];
   var running = true;
-  var opts = {
-    width: w, height: h,
-    cursor: { show: false },
-    legend: { show: false },
-    select: { show: false },
-    focus: { alpha: 1 },
-    axes: [{ show: false }, { show: false }],
-    series: [
-      {},
-      { stroke: CH_COLORS[0], width: 1.5 },
-      { stroke: CH_COLORS[1], width: 1.5 },
-      { stroke: CH_COLORS[2], width: 1.5 },
-      { stroke: CH_COLORS[3], width: 1.5 },
-    ],
-    scales: { x: { time: false, auto: true }, y: { auto: true } },
-  };
-  var u = new uPlot(opts, [x, d[0], d[1], d[2], d[3]], el);
-  // Render at 30fps — skip if no pending data
-  setInterval(function() {
+  var timer = setInterval(function() {
     if (!running || pending.length === 0) return;
-    for (var p = 0; p < pending.length; p++) {
+    var n = pending.length;
+    // Batch-flush pending data
+    for (var p = 0; p < n; p++) {
       var s = pending[p];
-      x.push(s.idx);
-      for (var c = 0; c < 4; c++) d[c].push(s.ch[c] !== undefined ? s.ch[c] : 0);
+      chart.data.labels.push(s.idx);
+      for (var c = 0; c < 4; c++) chart.data.datasets[c].data.push(s.ch[c] !== undefined ? s.ch[c] : 0);
     }
-    pending.length = 0;
-    if (x.length > 600) { var trim = x.length - 500; x.splice(0, trim); for (var c = 0; c < 4; c++) d[c].splice(0, trim); }
-    u.setData([x, d[0], d[1], d[2], d[3]]);
+    pending.splice(0, n);
+    // Trim to keep ~500 points
+    if (chart.data.labels.length > 600) {
+      var trim = chart.data.labels.length - 500;
+      chart.data.labels.splice(0, trim);
+      for (var c = 0; c < 4; c++) chart.data.datasets[c].data.splice(0, trim);
+    }
+    chart.update('none'); // 'none' mode skips animation
   }, 33);
-  var chart = { _idx: 0, push: function(ch) { pending.push({ idx: this._idx++, ch: ch }); frontendFrameCount++; }, destroy: function() { running = false; } };
-  eegCharts[id] = chart;
-  return chart;
+  var wrapper = { chart: chart, _idx: 0, push: function(ch) { pending.push({ idx: this._idx++, ch: ch }); frontendFrameCount++; }, destroy: function() { running = false; clearInterval(timer); chart.destroy(); } };
+  eegCharts[id] = wrapper;
+  return wrapper;
 }
 
 function appendEEGData(chart, channels, ts) {
   if (!chart) return;
-  eegFrameCount++;
   chart.push(channels);
 }
 
-// 前端独立采样率计算（不依赖服务器推送）
-var frontendFrameCount = 0;
-var frontendRateTimer = setInterval(function() {
+// 前端独立采样率计算（每 500ms 刷新）
+setInterval(function() {
   var rate = Math.round(frontendFrameCount * 1000 / 500);
   frontendFrameCount = 0;
-  // Update both master and monitor sample rate displays
   var el1 = document.getElementById('masterSampleRate');
   if (el1) el1.textContent = rate + ' Hz';
   var el2 = document.getElementById('monSampleRate');

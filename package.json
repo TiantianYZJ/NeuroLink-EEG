@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "chart.js": "^4.5.1",
     "smoothie": "^1.36.1",
     "uplot": "^1.6.32"
   }
