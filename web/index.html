@@ -944,6 +944,7 @@ function onRoomCreated(msg) {
   document.getElementById('roomUrlWrap').style.display = '';
   document.getElementById('roomCodeLabel').textContent = '房间号';
   document.getElementById('roomPinWrap').style.display = 'none';
+  setTimeout(openRolePopup, 300);
 }
 function onRoomJoined(msg) {
   roomCode = msg.code;
@@ -966,6 +967,7 @@ function autoJoinRoom(input) {
     }
   }
   document.getElementById('roomError').style.display = 'none';
+  setTimeout(openRolePopup, 300);
 }
 var pinValues = ['', '', '', ''];
 function pinInput(idx) {
@@ -1307,6 +1309,7 @@ function generateSh() {
 }
 
 function onClaimed(role) {
+  closeRolePopup();
   currentRole = role;
   lastRole = role;
   persistRole(role);

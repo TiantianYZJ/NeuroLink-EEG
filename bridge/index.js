@@ -61,7 +61,7 @@ udpServer.on('message', (msg) => {
     sampleRate = Math.round(packetCount * 1000 / (now - lastStatsTime));
     packetCount = 0;
     lastStatsTime = now;
-    console.log('[DATA] ' + sampleRate + ' pkt/s | CH1~4: ' + (parsed.channels || []).map(v => v.toFixed(0)).join(' '));
+    console.log('[DATA] ' + sampleRate + ' pkt/s | CH1~4: ' + (parsed.channels || []).map(v => v.toFixed(0)).join(' ') + ' | ECS: ' + (ecsConnected ? '●' : '○'));
   }
   frameBroadcast(parsed);
 });

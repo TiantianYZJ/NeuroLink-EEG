@@ -67,7 +67,7 @@ function getRoom(sessionId) {
   if (!rooms.has(sessionId)) {
     rooms.set(sessionId, {
       sockets: new Set(),
-      occupants: { master: null, monitor: [], subject: null, console: null },
+      occupants: { master: null, monitor: [], subject: null, console: [] },
       udpTargets: new Map(),
       locked: true,
       config: null,
@@ -94,15 +94,15 @@ function getOccupantSummary(room) {
   return {
     master: !!room.occupants.master,
     locked: room.locked !== false,
-    hasConsole: !!room.occupants.console,
+    hasConsole: room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).length > 0,
     monitor: room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).length,
     subject: !!room.occupants.subject,
-    console: !!room.occupants.console,
+    console: room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).length,
     devices: [
       ...(room.occupants.master ? [{ role: 'master', nickname: room.occupants.master.nickname || '', isBridge: room.occupants.master._bridge || false, info: room.occupants.master.deviceInfo || {} }] : []),
       ...room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).map(s => ({ role: 'monitor', nickname: s.nickname || '', info: s.deviceInfo || {} })),
       ...(room.occupants.subject ? [{ role: 'subject', nickname: room.occupants.subject.nickname || '', info: room.occupants.subject.deviceInfo || {} }] : []),
-      ...(room.occupants.console ? [{ role: 'console', nickname: room.occupants.console.nickname || '', info: room.occupants.console.deviceInfo || {} }] : []),
+      ...room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).map(s => ({ role: 'console', nickname: s.nickname || '', info: s.deviceInfo || {} })),
     ],
   };
 }
@@ -392,7 +392,6 @@ function handleMessage(ws, raw, room, sessionId) {
       // 如果槽位还有旧 socket, 释放它
       if (targetRole === 'master' && room.occupants.master) room.occupants.master = null;
       if (targetRole === 'subject' && room.occupants.subject) room.occupants.subject = null;
-      if (targetRole === 'console' && room.occupants.console) room.occupants.console = null;
 
       room.sockets.add(ws);
       ws.role = targetRole;
@@ -405,7 +404,7 @@ function handleMessage(ws, raw, room, sessionId) {
       // 恢复槽位
       if (targetRole === 'master') room.occupants.master = ws;
       else if (targetRole === 'subject') room.occupants.subject = ws;
-      else if (targetRole === 'console') room.occupants.console = ws;
+      else if (targetRole === 'console') { room.occupants.console.push(ws); }
 
       ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
       if (room.config) ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
@@ -429,7 +428,7 @@ function handleMessage(ws, raw, room, sessionId) {
       let canClaim = false;
       if (targetRole === 'master' && !occ.master) canClaim = true;
       else if (targetRole === 'subject' && !occ.subject) canClaim = true;
-      else if (targetRole === 'console' && !occ.console) canClaim = true;
+      else if (targetRole === 'console') canClaim = true;
       else if (targetRole === 'monitor') canClaim = true;
 
       if (canClaim) {
@@ -441,7 +440,7 @@ function handleMessage(ws, raw, room, sessionId) {
         }
         if (targetRole === 'master') { occ.master = ws; ws.roleLock = 'master'; }
         else if (targetRole === 'subject') { occ.subject = ws; ws.roleLock = 'subject'; }
-        else if (targetRole === 'console') { occ.console = ws; ws.roleLock = 'console'; }
+        else if (targetRole === 'console') { occ.console.push(ws); ws.roleLock = 'console'; }
         else { occ.monitor.push(ws); ws.roleLock = 'monitor'; }
         ws.role = targetRole;
         ws.sessionId = sessionId;
@@ -580,7 +579,7 @@ function handleMessage(ws, raw, room, sessionId) {
       const occ = room.occupants;
       if (ws.roleLock === 'master' && occ.master === ws) occ.master = null;
       else if (ws.roleLock === 'subject' && occ.subject === ws) occ.subject = null;
-      else if (ws.roleLock === 'console' && occ.console === ws) occ.console = null;
+      else if (ws.roleLock === 'console') { occ.console = occ.console.filter(s => s !== ws); }
       else if (ws.roleLock === 'monitor') { occ.monitor = occ.monitor.filter(s => s !== ws); }
       // Clean role lock for this socket so it can re-claim
       if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
@@ -817,6 +816,7 @@ udpServer.on('message', (msg) => {
     sampleRate = Math.round(packetCount * 1000 / (now - lastStatsTime));
     packetCount = 0;
     lastStatsTime = now;
+    console.log("[DATA] " + sampleRate + " pkt/s | CH1~4: " + (parsed.channels || []).map(v => v.toFixed(0)).join(" ") + " | ECS: " + (ecsConnected ? "●" : "○"));
   }
   frameBroadcast(parsed);
 });
@@ -1108,7 +1108,7 @@ wss.on('connection', (ws, req) => {
           broadcast(room, { type: 'alert', level: 'warning', message: '数据源已断开' });
         }
         if (roleLock === 'subject' && room.occupants.subject === ws) room.occupants.subject = null;
-        if (roleLock === 'console' && room.occupants.console === ws) room.occupants.console = null;
+        if (roleLock === 'console') { room.occupants.console = room.occupants.console.filter(s => s !== ws); }
 
         lockRole(sid, roleLock, 30000);
         setTimeout(() => {
