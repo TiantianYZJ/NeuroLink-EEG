@@ -1057,8 +1057,19 @@ function connectWS() {
         try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); } catch(e) {}
         switchPanel('panel-room');
       }
+          return;
     }
-      return;
+      if (msg.type === 'error') {
+        showToast(msg.message, 'error');
+        if (msg.message.includes('房间')) {
+          const errEl = document.getElementById('roomError');
+          if (errEl) { errEl.textContent = msg.message; errEl.style.display = ''; }
+          pinValues = ['','','',''];
+          try { localStorage.removeItem('ns_room_code'); } catch(e) {}
+          roomCode = null;
+        }
+        return;
+      }
       if (msg.type === 'role_claimed') onClaimed(msg.role);
       if (msg.type === 'role_denied') {
         showToast('角色不可用: ' + (msg.reason || ''), 'error');
@@ -1081,17 +1092,6 @@ function connectWS() {
       const prefix = currentRole === 'master' ? 'master' : (currentRole === 'monitor' ? 'monitor' : null);
 
       if (currentRole === 'subject') {
-      if (msg.type === 'error') {
-        showToast(msg.message, 'error');
-        if (msg.message.includes('房间')) {
-          const errEl = document.getElementById('roomError');
-          if (errEl) { errEl.textContent = msg.message; errEl.style.display = ''; }
-          pinValues = ['','','',''];
-          try { localStorage.removeItem('ns_room_code'); } catch(e) {}
-          roomCode = null;
-        }
-        return;
-      }
         if (msg.type === 'phase_sync') updateSubjectUI(msg);
         if (msg.type === 'self_report_ack') addSubjMarker(msg.state === 'flow_enter' ? '✓ 进入心流' : msg.state === 'flow_exit' ? '✗ 脱离心流' : '⚠ 分心');
         if (msg.type === 'fss_submit_ack') showToast(msg.success ? '问卷已提交' : '提交失败: ' + msg.error, msg.success ? 'success' : 'error');
