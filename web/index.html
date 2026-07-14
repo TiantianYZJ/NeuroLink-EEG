@@ -793,7 +793,7 @@ function initEEGChart(id) {
   console.log('[EEG] creating', id, pr.clientWidth+'x'+pr.clientHeight);
   var ctx = canvas.getContext('2d');
   if (!ctx) { console.warn('[EEG] no ctx for', id); return null; }
-  try {
+
     var chart = new Chart(ctx, {
       type: 'line',
       data: {
