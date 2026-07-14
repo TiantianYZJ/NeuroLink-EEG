@@ -84,6 +84,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e10}
 .raw-data{width:100%;margin-top:8px;background:#0a0a0a;border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#8a8a8f;font-size:11px;font-family:monospace;padding:8px 10px;outline:none;resize:none;overflow:hidden;line-height:1.5}
 .raw-data:focus{border-color:rgba(73,79,223,0.3)}
+.sample-rate-select{background:#0a0a0a;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:4px 8px;font-size:11px;font-family:inherit;cursor:pointer;outline:none}
+.sample-rate-select option{background:#16181a}
 .ch-legend{display:flex;gap:12px;font-size:12px;color:rgba(255,255,255,0.6);padding:6px 0}
 .ch-dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;margin-right:2px}
 
@@ -352,7 +354,14 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
   <div class="dashboard">
     <div class="dash-left">
       <div class="card">
-        <div class="card-title">实时脑电波</div>
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">实时脑电波
+          <select id="masterSampleRate" class="sample-rate-select" title="前端采样率压缩">
+            <option value="1">200Hz</option>
+            <option value="2" selected>100Hz</option>
+            <option value="4">50Hz</option>
+            <option value="8">25Hz</option>
+          </select>
+        </div>
         <div style="position:relative;width:100%;height:240px"><canvas id="masterWaveform" style="width:100%;height:240px"></canvas></div>
         <textarea class="raw-data" id="masterRawData" readonly rows="2" spellcheck="false" placeholder="等待数据..."></textarea>
         <div class="ch-legend">
@@ -439,7 +448,14 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
   <div class="dashboard">
     <div class="dash-left">
       <div class="card">
-        <div class="card-title">实时脑电波</div>
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">实时脑电波
+          <select id="monitorSampleRate" class="sample-rate-select" title="前端采样率压缩">
+            <option value="1">200Hz</option>
+            <option value="2" selected>100Hz</option>
+            <option value="4">50Hz</option>
+            <option value="8">25Hz</option>
+          </select>
+        </div>
         <div style="position:relative;width:100%;height:240px"><canvas id="monitorWaveform" style="width:100%;height:240px"></canvas></div>
         <textarea class="raw-data" id="monitorRawData" readonly rows="2" spellcheck="false" placeholder="等待数据..."></textarea>
         <div class="ch-legend">
@@ -844,7 +860,15 @@ function initEEGChart(id) {
   // Force initial render so canvas gets painted immediately
   chart.render();
   console.log('[EEG] chart ready:', id);
-  var wrapper = { chart: chart, _idx: 0, push: function(ch) { pending.push({ idx: this._idx++, ch: ch }); frontendFrameCount++; }, destroy: function() { running = false; clearInterval(timer); wrapper._ro && wrapper._ro.disconnect(); chart.destroy(); } };
+  var _rateEl = document.getElementById(id.replace('Waveform','SampleRate'));
+  var _skip = 0;
+  var wrapper = { chart: chart, _idx: 0, push: function(ch) {
+    _skip++;
+    var N = _rateEl ? parseInt(_rateEl.value, 10) || 1 : 1;
+    if (_skip % N !== 0) return;
+    pending.push({ idx: this._idx++, ch: ch });
+    frontendFrameCount++;
+  }, destroy: function() { running = false; clearInterval(timer); wrapper._ro && wrapper._ro.disconnect(); chart.destroy(); } };
   eegCharts[id] = wrapper;
   // Resize handler (silently skip if not supported)
   if (typeof ResizeObserver !== 'undefined') {

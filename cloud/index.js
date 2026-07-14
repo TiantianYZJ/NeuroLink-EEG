@@ -491,7 +491,7 @@ function handleMessage(ws, raw, room, sessionId) {
       break;
     }
 
-    case 'eeg_frame': {
+        case 'eeg_frame': {
       if (ws.role !== 'master' && !ws._bridge) return;
       if (!ws._bridge) {
         const hasBridge = Array.from(room.sockets).some(s => s._bridge);
@@ -499,13 +499,11 @@ function handleMessage(ws, raw, room, sessionId) {
       }
       frameRateTracker.count(ws.sessionId || sessionId);
       metrics.pushFrame(msg, ws.sessionId || sessionId);
-      // 降采样: 每2帧转发1帧 (~32Hz), 防浏览器WS缓存背压
-      room._efSkip = 1 - (room._efSkip || 0);
-      if (room._efSkip) break;
-      broadcastToRoles(room, { type: 'eeg_frame', seq: msg.seq, channels: msg.channels, ts: msg.ts || Date.now() }, ['master', 'monitor']);
+      broadcastToRoles(room, msg, ['master', 'monitor']);
       break;
     }
-    case 'accel_frame': {
+
+case 'accel_frame': {
       if (ws.role !== 'master' && !ws._bridge) return;
       room.sockets.forEach(s => {
         if (s !== ws && (s.role === 'master' || s.role === 'monitor') && s.readyState === 1) s.send(raw);
