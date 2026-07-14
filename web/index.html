@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NeuroLink · 实验平台</title>
+<title>NeuroLink · PEYT-Studio · EEG BCI</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <script src="chart.min.js"></script>
 <style>
@@ -138,6 +138,8 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 .status-badge.pending{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4)}
 .status-badge.running{background:rgba(73,79,223,0.2);color:#494fdf}
 .status-badge.completed{background:rgba(74,222,128,0.15);color:#4ade80}
+.studio-badge{display:inline-flex;align-items:center;gap:2px;margin-left:6px;font-size:9px;color:#ff1493;font-weight:600;vertical-align:middle;letter-spacing:0}
+.studio-badge em{font-style:normal;color:rgba(255,255,255,0.35);font-weight:400;font-size:9px;letter-spacing:1.5px}
 .template-grid{display:flex;gap:12px;flex-wrap:wrap}
 .template-card{padding:14px 20px;border-radius:20px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.08);cursor:pointer;text-align:center;transition:all .15s;min-width:140px;flex:1}
 .template-card:hover{border-color:rgba(255,255,255,0.2)}
@@ -219,7 +221,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 <div id="panel-connecting" class="panel active">
   <div class="container" style="padding-top:120px">
     <div class="loader"></div>
-    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span></div>
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> <span style="font-size:11px;color:rgba(255,255,255,0.3)">by</span> <span style="color:#ff1493;font-weight:600">&gt;_</span><span style="color:rgba(255,255,255,0.5);font-weight:600;font-size:13px">PEYT-Studio</span></div>
     <div class="subtitle">连接到实验平台...</div>
     <div class="conn-status"><span class="dot"></span><span>正在建立 WebSocket 连接</span></div>
   </div>
@@ -228,7 +230,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 <!-- ─── 面板 1: 房间 ─── -->
 <div id="panel-room" class="panel">
   <div class="container" style="padding-top:60px">
-    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span></div>
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> <span style="font-size:11px;color:rgba(255,255,255,0.3)">by</span> <span style="color:#ff1493;font-weight:600">&gt;_</span><span style="color:rgba(255,255,255,0.5);font-weight:600;font-size:13px">PEYT-Studio</span></div>
     <div class="subtitle" id="roomSubtitle">创建或加入一个实验房间</div>
     <div class="conn-status"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
     <div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:16px;padding:12px 16px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" oninput="tryAutoJoinRoom(this)" onblur="this.style.borderColor='';try{localStorage.setItem('ns_nick',this.value.trim())}catch(e){}"></div><div class="role-grid" style="margin-bottom:20px">
@@ -334,7 +336,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 <div id="panel-master" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 上传监视端</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge">&gt;_<em>PEYT</em></span> 上传监视端</h2>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.45);flex-wrap:wrap">
       <span class="kbd">Space</span><span style="font-size:10px;color:rgba(255,255,255,0.25)">暂停/继续</span>
       <span class="kbd">Enter</span><span style="font-size:10px;color:rgba(255,255,255,0.25)">下一阶段</span>
@@ -445,7 +447,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 <div id="panel-monitor" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 纯监视端</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge">&gt;_<em>PEYT</em></span> 纯监视端</h2>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.45);flex-wrap:wrap">
       <span class="kbd">Space</span><span style="font-size:10px;color:rgba(255,255,255,0.25)">暂停/继续</span>
       <span class="kbd">Enter</span><span style="font-size:10px;color:rgba(255,255,255,0.25)">下一阶段</span>
@@ -553,7 +555,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 <div id="panel-subject" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 受试者端</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge">&gt;_<em>PEYT</em></span> 受试者端</h2>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <button class="icon-btn" title="在线设备" onclick="showDevicePopup()" style="font-size:13px">📡</button>
       <button class="icon-btn" title="刷新" onclick="refreshPanel()" style="font-size:13px">↻</button>
@@ -591,7 +593,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 <div id="panel-console" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 实验控制台</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge">&gt;_<em>PEYT</em></span> 实验控制台</h2>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <button class="icon-btn" title="在线设备" onclick="showDevicePopup()" style="font-size:13px">📡</button>
       <button class="icon-btn" title="刷新" onclick="refreshPanel()" style="font-size:13px">↻</button>
@@ -1919,6 +1921,6 @@ function escHtml(s) {
 
 connectWS();
 </script>
-<div class="page-footer">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener">@TiantianYZJ</a> · EEG BCI Platform</div>
+<div class="page-footer"><span style="color:#ff1493;font-weight:600">&gt;_</span><span style="color:rgba(255,255,255,0.4);font-weight:600;margin-right:4px">PEYT-Studio</span> · Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener">@TiantianYZJ</a> · NeuroLink EEG BCI Platform</div>
 </body>
 </html>
