@@ -68,6 +68,12 @@ ws.on('message', (raw) => {
       cognitive_load_index, // 认知负载
     } = msg;
   }
+
+  if (msg.type === 'accel_frame') {
+    // 7. 处理加速度计数据
+    const { axes } = msg;
+    console.log('±8g:', axes.map(v => v.toFixed(3)));
+  }
 });
 ```
 
@@ -168,7 +174,30 @@ Client                          Server
 
 ---
 
+## 房间配置 (`room_config`)
+
+控制台开始/结束实验时广播，通知所有角色房间锁定状态。
+
+```json
+{
+  "type": "room_config",
+  "locked": true,
+  "config": {
+    "template": "1",
+    "switch_type": "math_art"
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `locked` | bool | true=锁定(等待配置), false=已解锁(实验进行中) |
+| `config` | object | 实验配置, null 或 {template, switch_type} |
+
+---
+
 ## 实验阶段同步 (`phase_sync`)
+
 
 ```json
 {
@@ -264,6 +293,8 @@ def on_message(ws, raw):
     if msg['type'] == 'eeg_frame':
         ch = msg['channels']
         print(f"CH1={ch[0]:.2f} CH2={ch[1]:.2f} CH3={ch[2]:.2f} CH4={ch[3]:.2f}")
+    elif msg['type'] == 'accel_frame':
+        print(f"accel X={msg['axes'][0]:.3f} Y={msg['axes'][1]:.3f} Z={msg['axes'][2]:.3f}")
     elif msg['type'] == 'metrics_snapshot':
         bp = msg['band_power']
         print(f"θ/α={msg['theta_alpha_ratio']:.3f} 熵={msg['spectral_entropy']:.3f}")
@@ -288,7 +319,7 @@ ws.run_forever()
 
 ## 注意事项
 
-1. **采样率**: Ganglion 固定 200 Hz，每帧 1 个采样点，4 通道
+1. **采样率**: Ganglion 实际 ~120 Hz，每帧 1 个采样点，4 通道
 2. **数据格式**: 微伏（μV），浮点数，openBCI GUI 输出 JSON 格式时的原始值
 3. **房间号**: 4 位数字，由创建者生成，24 小时有效
 4. **监视端无数量限制**: 多个第三方客户端可以同时以 monitor 角色接入
