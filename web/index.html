@@ -210,6 +210,13 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 .room-lock-overlay .lock-icon{width:48px;height:48px;opacity:.4;margin-bottom:16px}
 .room-lock-overlay h2{font-size:24px;font-weight:600;margin-bottom:8px}
 .room-lock-overlay p{font-size:14px;color:rgba(255,255,255,0.5);text-align:center;max-width:360px}
+/* ── 角色选择弹窗 ── */
+.role-popup{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:100;padding:24px}
+.role-popup.active{display:flex}
+.role-popup .rp-card{background:#16181a;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto}
+.role-popup .rp-title{font-size:18px;font-weight:600;margin-bottom:4px}
+.role-popup .rp-sub{font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px}
+.role-popup .rp-room{color:#494fdf;font-weight:600}
 .pill-sm{padding:4px 12px;border-radius:9999px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
 .pill-sm.danger{background:rgba(226,59,74,0.15);color:#e23b4a}
 .pill-sm.danger:hover{background:rgba(226,59,74,0.3)}
@@ -271,22 +278,20 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <input class="pin-input" id="pin3" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(3)" onkeydown="pinKey(3,event)">
         </div>
       </div>
-      <button class="btn btn-primary" id="roomContinueBtn" onclick="showRoleSelect()" style="display:none">选择角色 →</button>
-      <div id="roomError" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
+<div id="roomError" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
     </div>
-    <div style="margin-top:8px;display:none" id="roomOccupants"><div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn btn-primary btn-small" style="flex:1" onclick="showRoleSelect()">选择角色 →</button><button class="btn btn-outline btn-small" onclick="leaveRoom()">退出</button></div><h4>在线设备</h4>
+    <div style="margin-top:8px;display:none" id="roomOccupants"><div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn btn-primary btn-small" style="flex:1" onclick="showRoleSelect()">选择角色 →</button><button class="btn btn-outline btn-small" onclick="leaveRoom()">退出</button></div><div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:8px">全部设备将在线显示</div><h4>在线设备</h4>
       <div class="devices" id="roomDevicesList"></div>
     </div></div>
   </div>
 </div>
 <div style="position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:50;pointer-events:none"><span style="color:rgba(255,255,255,0.2);font-size:11px;pointer-events:auto">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.35);text-decoration:none;transition:color .15s;pointer-events:auto" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color=''">@TiantianYZJ</a> · EEG BCI Platform</span></div>
 
-<!-- ─── 面板 2: 角色选择 ─── -->
-<div id="panel-role" class="panel">
-  <div class="container" style="padding-top:60px">
-    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span></div>
-    <div class="subtitle" id="roleSubtitle">选择设备角色 · 房间 <span id="roomCodeDisplay" style="color:#494fdf">----</span></div>
-    <div class="conn-status"><span class="dot" id="roleDot"></span><span id="roleStatus">已连接</span></div>
+<!-- ─── 角色选择弹窗 ─── -->
+<div class="role-popup" id="rolePopup">
+  <div class="rp-card">
+    <div class="rp-title">选择设备角色</div>
+    <div class="rp-sub">房间 <span class="rp-room" id="popupRoomCode">----</span></div>
     <div class="role-grid">
       <div class="role-card" data-role="master" onclick="claim('master')">
         <div class="info">
@@ -312,7 +317,11 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
         <span class="badge" id="badge-console">占用</span>
       </div>
     </div>
-    <div style="margin-top:16px"><button class="btn btn-outline btn-small" onclick="leaveRoom()" style="width:100%">退出房间</button></div><div class="occupants" id="occupantsList">
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn btn-outline btn-small" onclick="closeRolePopup()" style="flex:1">取消</button>
+      <button class="btn btn-outline btn-small" onclick="closeRolePopup();leaveRoom()" style="flex:1">退出房间</button>
+    </div>
+    <div class="occupants" id="occupantsList" style="margin-top:16px">
       <h4>在线设备</h4>
       <div class="occ-empty" id="occEmpty">暂无其他设备</div>
     </div>
@@ -930,7 +939,6 @@ function onRoomCreated(msg) {
   if (urlEl) urlEl.textContent = location.origin + '/?room=' + msg.code;
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomUrlWrap').style.display = '';
-  document.getElementById('roomContinueBtn').style.display = '';
   document.getElementById('roomCodeLabel').textContent = '房间号';
   document.getElementById('roomJoinInput').style.display = 'none';
 }
@@ -942,7 +950,6 @@ function onRoomJoined(msg) {
   showEl('roomOccupants', true);
   document.getElementById('roomCode').textContent = msg.code;
   document.getElementById('roomResult').style.display = '';
-  document.getElementById('roomContinueBtn').style.display = '';
   document.getElementById('roomCodeLabel').textContent = '已加入房间';
   document.getElementById('roomJoinInput').style.display = 'none';
   document.getElementById('roomError').style.display = 'none';
@@ -983,7 +990,6 @@ function showJoinRoom() {
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomPinWrap').style.display = '';
   document.getElementById('roomUrlWrap').style.display = 'none';
-  document.getElementById('roomContinueBtn').style.display = 'none';
   document.getElementById('roomCodeLabel') && (document.getElementById('roomCodeLabel').textContent = '输入房间号');
   pinValues = ['', '', '', ''];
   for (let i = 0; i < 4; i++) {
@@ -993,11 +999,18 @@ function showJoinRoom() {
   setTimeout(() => { const p0 = document.getElementById('pin0'); if (p0) p0.focus(); }, 100);
 }
 function showRoleSelect() {
-  const display = document.getElementById('roomCodeDisplay');
-  if (display && roomCode) display.textContent = roomCode;
-  switchPanel('panel-role');
+  openRolePopup();
+}
+function openRolePopup() {
+  const d = document.getElementById('popupRoomCode');
+  if (d && roomCode) d.textContent = roomCode;
+  document.getElementById('rolePopup')?.classList.add('active');
+}
+function closeRolePopup() {
+  document.getElementById('rolePopup')?.classList.remove('active');
 }
 function goBackToRoom() {
+  closeRolePopup();
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type: 'release_role', session_id: sessionId }));
   } else {
@@ -1084,7 +1097,7 @@ function connectWS() {
       }
       if (msg.type === 'room_created') { onRoomCreated(msg); return; }
       if (msg.type === 'room_joined') { onRoomJoined(msg); return; }
-      if (msg.type === 'role_released') { switchPanel('panel-role'); document.getElementById('roleSubtitle').textContent = '选择设备角色 · 房间 ' + (roomCode || '----'); return; }
+      if (msg.type === 'role_released') { openRolePopup(); return; }
       if (msg.type === 'room_left') { switchPanel('panel-room'); document.getElementById('roomResult').style.display = 'none'; document.getElementById('roomOccupants').style.display = 'none'; return; }
       if (msg.type === 'claim_role') return;
       if (msg.type === 'room_config') { updateRoomLock(msg); return; }
@@ -1142,10 +1155,6 @@ function connectWS() {
     } catch(_) {}
   };
   ws.onclose = () => {
-    const s = document.getElementById('roleStatus');
-    if (s && !lastRole) s.textContent = '已断开，5 秒后重连…';
-    const d = document.getElementById('roleDot');
-    if (d) d.classList.add('off');
     setTimeout(connectWS, 5000);
   };
   ws.onerror = () => ws.close();
