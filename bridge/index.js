@@ -158,6 +158,32 @@ udpServer.on('listening', () => {
   console.log(`[UDP] 监听 ${addr.address}:${addr.port}`);
 });
 
+// ── 1b. 加速度计 UDP 监听（额外端口，OpenBCI GUI Accel/Aux 类型） ──
+const ACCEL_PORT = parseInt(process.env.ACCEL_UDP_PORT || '12346', 10);
+const accelServer = dgram.createSocket('udp4');
+accelServer.on('message', (msg) => {
+  // Format: {"type":"accelerometer","data":[[x0,x1,...],[y0,y1,...],[z0,z1,...]]}
+  try {
+    const text = Buffer.from(msg).toString('utf8').trim();
+    if (text[0] !== '{') return;
+    const obj = JSON.parse(text);
+    const raw = obj.data || obj;
+    if (Array.isArray(raw) && raw.length >= 3 && Array.isArray(raw[0])) {
+      const accel = raw.slice(0, 3).map(axis => {
+        if (!Array.isArray(axis) || axis.length === 0) return 0;
+        return axis[axis.length - 1]; // last sample per axis
+      });
+      const payload = JSON.stringify({ type: 'accel_frame', axes: accel, ts: Date.now() });
+      localWss.clients.forEach(c => { if (c.readyState === 1) c.send(payload); });
+      if (ecsWs && ecsWs.readyState === 1 && ecsConnected) ecsWs.send(payload);
+    }
+  } catch (_) {}
+});
+accelServer.on('error', (err) => { console.error('[ACCEL UDP]', err.message); });
+accelServer.bind(ACCEL_PORT, () => {
+  console.log(`[ACCEL UDP] 监听 0.0.0.0:${ACCEL_PORT}`);
+});
+
 // ── 2. 本地 WebSocket 服务（供本地面板连接） ──
 const localWss = new WebSocket.Server({ port: config.LOCAL_WS_PORT });
 localWss.on('connection', (ws) => {

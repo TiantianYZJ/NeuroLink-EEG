@@ -18,9 +18,9 @@ const BANDS = [
 // 每个 session 独立缓冲区: sessionId → { buffer: [], lastCompute: 0 }
 const sessions = new Map();
 
-const POOL_SIZE = 256;    // ~1.28s @ 200Hz (频带功率用)
+const POOL_SIZE = 256;    // ~2.13s @ 120Hz (频带功率用)
 const SQ_WINDOW = 32;     // 信号稳定性窗口 (N=32, 文档 §4.5)
-const SAMPLE_RATE = 200;
+const SAMPLE_RATE = parseInt(process.env.EEG_SAMPLE_RATE || '120', 10);
 
 function ensureSession(sessionId) {
   if (!sessions.has(sessionId)) {

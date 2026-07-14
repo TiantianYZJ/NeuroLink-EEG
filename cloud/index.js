@@ -465,6 +465,14 @@ function handleMessage(ws, raw, room, sessionId) {
       break;
     }
 
+    case 'accel_frame': {
+      if (ws.role !== 'master' && !ws._bridge) return;
+      room.sockets.forEach(s => {
+        if (s !== ws && s.role === 'monitor' && s.readyState === 1) s.send(raw);
+      });
+      break;
+    }
+
     case 'cmd': {
       const ALLOW_ALL = ['master', 'console', 'monitor'];
       if (!ALLOW_ALL.includes(ws.role)) return;
@@ -894,6 +902,28 @@ udpServer.on('listening', () => {
   const addr = udpServer.address();
   console.log(\`[UDP] 监听 \${addr.address}:\${addr.port}\`);
 });
+
+// ── 1b. 加速度计 UDP 监听 ──
+const accelServer = dgram.createSocket('udp4');
+accelServer.on('message', (msg) => {
+  try {
+    const text = Buffer.from(msg).toString("utf8").trim();
+    if (text[0] !== '{') return;
+    const obj = JSON.parse(text);
+    const raw = obj.data || obj;
+    if (Array.isArray(raw) && raw.length >= 3 && Array.isArray(raw[0])) {
+      const accel = raw.slice(0, 3).map(axis => {
+        if (!Array.isArray(axis) || axis.length === 0) return 0;
+        return axis[axis.length - 1];
+      });
+      const payload = JSON.stringify({ type: 'accel_frame', axes: accel, ts: Date.now() });
+      localWss.clients.forEach(c => { if (c.readyState === 1) c.send(payload); });
+      if (ecsWs && ecsWs.readyState === 1 && ecsConnected) ecsWs.send(payload);
+    }
+  } catch (_) {}
+});
+accelServer.on('error', (err) => { console.error('[ACCEL UDP]', err.message); });
+accelServer.bind(12346, () => { console.log('[ACCEL UDP] listen :12346'); });
 
 // ── 2. 本地 WebSocket 服务（供本地面板连接） ──
 const localWss = new WebSocket.Server({ port: config.LOCAL_WS_PORT });
