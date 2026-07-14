@@ -10,6 +10,7 @@
 <style>
 /* uPlot 暗色主题 */
 canvas[style]{border-radius:12px}.uplot{background:#000;width:100%!important;border-radius:12px;overflow:hidden}
+.uplot .u-wrap{overflow:hidden}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-height:100vh;-webkit-font-smoothing:antialiased}
 
@@ -354,7 +355,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="dash-left">
       <div class="card">
         <div class="card-title">实时脑电波</div>
-        <div id="masterWaveform" style="width:100%;height:240px"></div>
+        <div id="masterWaveform" style="width:100%;min-width:200px;height:240px;overflow:hidden"></div>
         <div class="ch-legend">
           <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
@@ -440,7 +441,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="dash-left">
       <div class="card">
         <div class="card-title">实时脑电波</div>
-        <div id="monitorWaveform" style="width:100%;height:240px"></div>
+        <div id="monitorWaveform" style="width:100%;min-width:200px;height:240px;overflow:hidden"></div>
         <div class="ch-legend">
           <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
@@ -776,22 +777,18 @@ function renderTopoMap(canvas, grid) {
 // ── uPlot 实时 EEG 波形 ──
 const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
 const eegCharts = {};
+var eegFrameCount = 0;
 
 function initEEGChart(id) {
-  const el = document.getElementById(id);
+  var el = document.getElementById(id);
   if (!el || typeof uPlot === 'undefined') return null;
   if (el.clientWidth === 0 || el.clientHeight === 0) {
-    return setTimeout(() => initEEGChart(id), 100), null;
+    return setTimeout(function(){ initEEGChart(id); }, 200), null;
   }
-  // xData[0..N] + chData[0..3] = 5 arrays for 5 series
-  var xData = [];
-  var chData = [[], [], [], []];
-  var bufX = [];
-  var bufY = [[], [], [], []];
-  var idx = 0;
-  const opts = {
-    width: el.clientWidth,
-    height: el.clientHeight,
+  var w = el.clientWidth, h = el.clientHeight;
+  var x = [], d = [[], [], [], []];
+  var opts = {
+    width: w, height: h,
     cursor: { show: false },
     legend: { show: false },
     select: { show: false },
@@ -799,44 +796,40 @@ function initEEGChart(id) {
     axes: [{ show: false }, { show: false }],
     series: [
       {},
-      { label: 'Fp1', stroke: CH_COLORS[0], width: 1.5 },
-      { label: 'Fp2', stroke: CH_COLORS[1], width: 1.5 },
-      { label: 'C3', stroke: CH_COLORS[2], width: 1.5 },
-      { label: 'C4', stroke: CH_COLORS[3], width: 1.5 },
+      { stroke: CH_COLORS[0], width: 1.5 },
+      { stroke: CH_COLORS[1], width: 1.5 },
+      { stroke: CH_COLORS[2], width: 1.5 },
+      { stroke: CH_COLORS[3], width: 1.5 },
     ],
-    scales: {
-      x: { time: false, auto: true },
-      y: { auto: true },
-    },
+    scales: { x: { time: false, auto: true }, y: { auto: true } },
   };
-  const uplot = new uPlot(opts, [xData, chData[0], chData[1], chData[2], chData[3]], el);
-
-  function flush() {
-    if (bufX.length === 0) return;
-    for (var i = 0; i < bufX.length; i++) xData.push(idx++);
-    for (var c = 0; c < 4; c++) {
-      for (var i = 0; i < bufY[c].length; i++) chData[c].push(bufY[c][i]);
+  var u = new uPlot(opts, [x, d[0], d[1], d[2], d[3]], el);
+  var pending = [];
+  var running = true;
+  function render() {
+    if (!running) return;
+    if (pending.length > 0) {
+      for (var p = 0; p < pending.length; p++) {
+        var s = pending[p];
+        x.push(s.idx);
+        for (var c = 0; c < 4; c++) d[c].push(s.ch[c] !== undefined ? s.ch[c] : 0);
+      }
+      pending.length = 0;
+      if (x.length > 600) { var trim = x.length - 500; x.splice(0, trim); for (var c = 0; c < 4; c++) d[c].splice(0, trim); }
+      u.setData([x, d[0], d[1], d[2], d[3]]);
     }
-    // Trim to ~500 points
-    if (xData.length > 600) {
-      var trim = xData.length - 500;
-      xData.splice(0, trim);
-      for (var c = 0; c < 4; c++) chData[c].splice(0, trim);
-    }
-    uplot.setData([xData, chData[0], chData[1], chData[2], chData[3]]);
-    bufX.length = 0;
-    for (var c = 0; c < 4; c++) bufY[c].length = 0;
+    requestAnimationFrame(render);
   }
-  var chart = { uplot, bufX, bufY, flush };
+  requestAnimationFrame(render);
+  var chart = { _idx: 0, push: function(ch) { pending.push({ idx: this._idx++, ch: ch }); }, destroy: function() { running = false; } };
   eegCharts[id] = chart;
-  chart._timer = setInterval(flush, 33);
   return chart;
 }
 
 function appendEEGData(chart, channels, ts) {
   if (!chart) return;
-  chart.bufX.push(ts || Date.now());
-  for (var i = 0; i < 4 && i < channels.length; i++) chart.bufY[i].push(channels[i]);
+  eegFrameCount++;
+  chart.push(channels);
 }
 
 // ── 工具 ──
