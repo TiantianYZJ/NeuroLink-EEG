@@ -92,14 +92,14 @@ function broadcastToRoles(room, msg, roles) {
 
 function getOccupantSummary(room) {
   return {
-    master: !!room.occupants.master,
+    master: !!(room.occupants.master && !room.occupants.master._bridge),
     locked: room.locked !== false,
     hasConsole: room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).length > 0,
     monitor: room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).length,
     subject: !!room.occupants.subject,
     console: room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).length,
     devices: [
-      ...(room.occupants.master ? [{ role: 'master', nickname: room.occupants.master.nickname || '', isBridge: room.occupants.master._bridge || false, info: room.occupants.master.deviceInfo || {} }] : []),
+      ...(room.occupants.master && !room.occupants.master._bridge ? [{ role: 'master', nickname: room.occupants.master.nickname || '', isBridge: false, info: room.occupants.master.deviceInfo || {} }] : []),
       ...room.occupants.monitor.filter(s => s.readyState === 1 || s.readyState === 2).map(s => ({ role: 'monitor', nickname: s.nickname || '', info: s.deviceInfo || {} })),
       ...(room.occupants.subject ? [{ role: 'subject', nickname: room.occupants.subject.nickname || '', info: room.occupants.subject.deviceInfo || {} }] : []),
       ...room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).map(s => ({ role: 'console', nickname: s.nickname || '', info: s.deviceInfo || {} })),
@@ -411,7 +411,7 @@ function handleMessage(ws, raw, room, sessionId) {
         room.udpTargets.set('master', msg.udpTarget);
       }
       // 恢复槽位
-      if (targetRole === 'master') room.occupants.master = ws;
+      if (targetRole === 'master' && !ws._bridge) room.occupants.master = ws;
       else if (targetRole === 'subject') room.occupants.subject = ws;
       else if (targetRole === 'console') { room.occupants.console.push(ws); }
 
@@ -435,7 +435,7 @@ function handleMessage(ws, raw, room, sessionId) {
       }
 
       let canClaim = false;
-      if (targetRole === 'master' && !occ.master) canClaim = true;
+      if (targetRole === 'master' && (!occ.master || occ.master._bridge)) canClaim = true;
       else if (targetRole === 'subject' && !occ.subject) canClaim = true;
       else if (targetRole === 'console') canClaim = true;
       else if (targetRole === 'monitor') canClaim = true;
@@ -447,7 +447,7 @@ function handleMessage(ws, raw, room, sessionId) {
           ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '该设备已注册角色' }));
           break;
         }
-        if (targetRole === 'master') { occ.master = ws; ws.roleLock = 'master'; }
+        if (targetRole === 'master' && !ws._bridge) { occ.master = ws; ws.roleLock = 'master'; }
         else if (targetRole === 'subject') { occ.subject = ws; ws.roleLock = 'subject'; }
         else if (targetRole === 'console') { occ.console.push(ws); ws.roleLock = 'console'; }
         else { occ.monitor.push(ws); ws.roleLock = 'monitor'; }
@@ -607,14 +607,20 @@ function handleMessage(ws, raw, room, sessionId) {
     // ── 房间锁管理 ──
 
     case 'start_experiment': {
+      if (!msg.template_type) {
+        ws.send(JSON.stringify({ type: 'error', message: '实验模板类型不能为空' }));
+        break;
+      }
       room.locked = false;
       room.config = msg.config || {};
       broadcast(room, { type: 'room_config', locked: false, config: room.config });
-      // Initialize timer with chosen template
-      if (!timers.has(sessionId) && msg.template_type) {
-        initTimer(sessionId, msg.template_type);
-        startTick(sessionId, timers.get(sessionId), room);
+      if (timers.has(sessionId)) {
+        const t = timers.get(sessionId);
+        clearInterval(t.tickTimer);
+        timers.delete(sessionId);
       }
+      initTimer(sessionId, msg.template_type);
+      startTick(sessionId, timers.get(sessionId), room);
       ws.send(JSON.stringify({ type: 'experiment_started' }));
       break;
     }
@@ -639,6 +645,7 @@ function handleMessage(ws, raw, room, sessionId) {
       if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) r.sockets.delete(ws); }
       getRoom(sid).sockets.add(ws);
       ws.sessionId = sid;
+      broadcast(getRoom(sid), { type: 'room_info', occupants: getOccupantSummary(getRoom(sid)) });
       ws.send(JSON.stringify({ type: 'room_created', code, session_id: sid, url: '/?room=' + code }));
       break;
     }
@@ -650,6 +657,7 @@ function handleMessage(ws, raw, room, sessionId) {
         if (ws.sessionId && ws.sessionId !== entry.sessionId) { const r = rooms.get(ws.sessionId); if (r) r.sockets.delete(ws); }
         getRoom(entry.sessionId).sockets.add(ws);
         ws.sessionId = entry.sessionId;
+        broadcast(getRoom(entry.sessionId), { type: 'room_info', occupants: getOccupantSummary(getRoom(entry.sessionId)) });
         ws.send(JSON.stringify({ type: 'room_joined', session_id: entry.sessionId, code: msg.code }));
       } else {
         ws.send(JSON.stringify({ type: 'error', message: '房间不存在或已过期' }));
