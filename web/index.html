@@ -1180,6 +1180,11 @@ function connectWS() {
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
+      window._msgCount = (window._msgCount||0) + 1;
+      // 诊断: 每10条消息记录一次类型分布
+      if (!window._msgTypes) window._msgTypes = {};
+      window._msgTypes[msg.type] = (window._msgTypes[msg.type]||0) + 1;
+      if (window._msgCount % 50 === 0) console.log('[WS] msgs:', window._msgCount, JSON.stringify(window._msgTypes));
       if (msg.type === 'room_info') {
       updateRoom(msg.occupants);
       if (currentRole === 'subject' && subjQueue.length > 0) {
@@ -1259,17 +1264,16 @@ function connectWS() {
       if (!prefix) return;
 
       if (msg.type === 'eeg_frame' && msg.channels) {
+        window._eegFrameCount = (window._eegFrameCount || 0) + 1;
+        console.log('[EEG] frame#' + window._eegFrameCount, 'seq=' + msg.seq, 'ch=' + JSON.stringify(msg.channels));
         const ch = eegCharts[prefix + 'Waveform'];
         if (ch) appendEEGData(ch, msg.channels, msg.ts || Date.now());
-        // 原始数据显示（节流到 ~10Hz）
         var rawEl = document.getElementById(prefix + 'RawData');
-        if (rawEl && !rawEl._throttle) {
-          rawEl._throttle = true;
-          setTimeout(function() { rawEl._throttle = false; }, 100);
+        if (rawEl) {
           var chs = msg.channels;
-          rawEl.value = '#seq=' + (msg.seq||'') + ' ts=' + (msg.ts||'') + '\n'
-            + 'Fp1=' + (chs[0]!==undefined?chs[0].toFixed(1):'n/a') + ' Fp2=' + (chs[1]!==undefined?chs[1].toFixed(1):'n/a')
-            + ' C3=' + (chs[2]!==undefined?chs[2].toFixed(1):'n/a') + ' C4=' + (chs[3]!==undefined?chs[3].toFixed(1):'n/a');
+          rawEl.value = '#' + window._eegFrameCount + ' seq=' + (msg.seq||'') + ' ts=' + (msg.ts||'')
+            + '\nFp1=' + (chs[0]!==undefined?+chs[0].toFixed(1):'n/a') + '  Fp2=' + (chs[1]!==undefined?+chs[1].toFixed(1):'n/a')
+            + '  C3=' + (chs[2]!==undefined?+chs[2].toFixed(1):'n/a') + '  C4=' + (chs[3]!==undefined?+chs[3].toFixed(1):'n/a');
         }
       }
       if (msg.type === 'metrics_snapshot') {
