@@ -834,8 +834,9 @@ function updateBandPower(prefix, snapshot) {
   let maxPower = 0.01;
   const powers = bands.map(b => snapshot.band_power ? snapshot.band_power[b] || 0 : 0);
   powers.forEach(p => { if (p > maxPower) maxPower = p; });
+  const bandPrefix = prefix === 'monitor' ? 'mon' : (prefix === 'master' ? '' : prefix);
   bands.forEach((b, i) => {
-    const el = document.getElementById(prefix + '-band-' + b) || document.getElementById('band-' + b);
+    const el = document.getElementById(bandPrefix + '-band-' + b) || document.getElementById('band-' + b);
     if (el) el.textContent = powers[i].toFixed(1);
     const bar = el && el.parentNode ? el.parentNode.querySelector('.band-bar') : null;
     if (bar) bar.style.width = ((powers[i] / maxPower) * 100) + '%';
