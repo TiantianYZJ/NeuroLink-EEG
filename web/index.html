@@ -780,13 +780,15 @@ const eegCharts = {};
 function initEEGChart(id) {
   const el = document.getElementById(id);
   if (!el || typeof uPlot === 'undefined') return null;
-  const timestamps = [];
-  const chData = [[], [], [], []];
-  // Wait for element to have visible dimensions
   if (el.clientWidth === 0 || el.clientHeight === 0) {
-    setTimeout(() => initEEGChart(id), 100);
-    return null;
+    return setTimeout(() => initEEGChart(id), 100), null;
   }
+  // xData[0..N] + chData[0..3] = 5 arrays for 5 series
+  var xData = [];
+  var chData = [[], [], [], []];
+  var bufX = [];
+  var bufY = [[], [], [], []];
+  var idx = 0;
   const opts = {
     width: el.clientWidth,
     height: el.clientHeight,
@@ -803,27 +805,38 @@ function initEEGChart(id) {
       { label: 'C4', stroke: CH_COLORS[3], width: 1.5 },
     ],
     scales: {
-      x: { time: true },
+      x: { time: false, auto: true },
       y: { auto: true },
     },
   };
-  const uplot = new uPlot(opts, [timestamps, ...chData], el);
-  const chart = { uplot, timestamps, chData };
+  const uplot = new uPlot(opts, [xData, chData[0], chData[1], chData[2], chData[3]], el);
+
+  function flush() {
+    if (bufX.length === 0) return;
+    for (var i = 0; i < bufX.length; i++) xData.push(idx++);
+    for (var c = 0; c < 4; c++) {
+      for (var i = 0; i < bufY[c].length; i++) chData[c].push(bufY[c][i]);
+    }
+    // Trim to ~500 points
+    if (xData.length > 600) {
+      var trim = xData.length - 500;
+      xData.splice(0, trim);
+      for (var c = 0; c < 4; c++) chData[c].splice(0, trim);
+    }
+    uplot.setData([xData, chData[0], chData[1], chData[2], chData[3]]);
+    bufX.length = 0;
+    for (var c = 0; c < 4; c++) bufY[c].length = 0;
+  }
+  var chart = { uplot, bufX, bufY, flush };
   eegCharts[id] = chart;
+  chart._timer = setInterval(flush, 33);
   return chart;
 }
 
 function appendEEGData(chart, channels, ts) {
   if (!chart) return;
-  const { uplot, timestamps, chData } = chart;
-  if (timestamps.length >= 500) {
-    const trim = Math.ceil(timestamps.length - 400);
-    timestamps.splice(0, trim);
-    for (let i = 0; i < 4; i++) chData[i].splice(0, trim);
-  }
-  timestamps.push(ts);
-  for (let i = 0; i < 4 && i < channels.length; i++) chData[i].push(channels[i]);
-  uplot.setData([timestamps, ...chData]);
+  chart.bufX.push(ts || Date.now());
+  for (var i = 0; i < 4 && i < channels.length; i++) chart.bufY[i].push(channels[i]);
 }
 
 // ── 工具 ──
