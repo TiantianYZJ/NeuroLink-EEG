@@ -24,9 +24,12 @@ let accelSock = null;
 
 // ── 解析参数 ──
 const args = {};
-process.argv.slice(2).forEach((a, i) => {
-  const n = process.argv[i + 2];
-  if (a.startsWith('--')) args[a.slice(2)] = (n && !n.startsWith('--') ? n : true);
+const argv = process.argv.slice(2);
+argv.forEach((a, i) => {
+  if (a.startsWith('--')) {
+    const n = argv[i + 1];
+    args[a.slice(2)] = (n && !n.startsWith('--') ? n : true);
+  }
 });
 
 const FORMAT = (args.format || 'json').toLowerCase();
