@@ -1478,8 +1478,7 @@ function closeFSS() {
 function updateRoomLock(msg) {
   const overlay = document.getElementById('roomLockOverlay');
   if (!overlay) return;
-  // 有显式 config 时(console已操作)才控制蒙版, 默认锁定不显示
-  if (msg.locked && msg.config !== undefined && msg.config !== null) {
+  if (msg.locked) {
     overlay.classList.add('active');
   } else {
     overlay.classList.remove('active');

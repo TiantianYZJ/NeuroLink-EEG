@@ -52,16 +52,21 @@ const frameBroadcast = (parsed) => {
   if (ecsWs && ecsWs.readyState === 1 && ecsConnected) ecsWs.send(payload);
 };
 
+let lastParsed = null;
+
 udpServer.on('message', (msg) => {
   const parsed = parseOpenBCIPacket(msg);
   if (!parsed) return;
+  lastParsed = parsed;
   packetCount++;
   const now = Date.now();
-  if (now - lastStatsTime >= 1000) {
+  if (now - lastStatsTime >= 200) {
     sampleRate = Math.round(packetCount * 1000 / (now - lastStatsTime));
+    const ch = lastParsed.channels || [];
+    const chStr = ch.slice(0,4).map(v => v.toFixed(0).padStart(6)).join(' ');
+    console.log('[' + sampleRate.toString().padStart(3) + ' pkt/s] ' + chStr + ' | ECS: ' + (ecsConnected ? '●' : '○'));
     packetCount = 0;
     lastStatsTime = now;
-    console.log('[DATA] ' + sampleRate + ' pkt/s | CH1~4: ' + (parsed.channels || []).map(v => v.toFixed(0)).join(' ') + ' | ECS: ' + (ecsConnected ? '●' : '○'));
   }
   frameBroadcast(parsed);
 });
@@ -87,6 +92,7 @@ localWss.on('connection', (ws) => {
       const msg = JSON.parse(raw);
       if (msg.type === 'set_session' && msg.session_id) {
         console.log('[本地WS] 收到房间 sessionId:', msg.session_id);
+        companionMode = true;
         ecsSessionId = msg.session_id;
         saveSessionId(ecsSessionId);
         // 断开 ECS 连接以新 sessionId 重连
@@ -114,6 +120,7 @@ function saveSessionId(id) {
 let ecsSessionId = config.SESSION_ID || loadSessionId() || ('bridge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
 if (!config.SESSION_ID && !loadSessionId()) saveSessionId(ecsSessionId);
 let ecsConnected = false;
+let companionMode = false;
 let pendingRoomCode = process.env.ROOM_CODE || '';  // 从环境变量读取房间号
 let roomJoinAttempted = false;
 
@@ -152,7 +159,7 @@ function connectECS() {
         const lanIP = getLANIP();
         ws.send(JSON.stringify({ type: 'set_udp_target', target: lanIP + ':' + config.GUI_MARKER_PORT }));
       }
-      if (msg.type === 'role_denied' && !ecsConnected) {
+      if (msg.type === 'role_denied' && !ecsConnected && !companionMode) {
         console.warn('[ECS] 角色被拒，5 秒后重试:', msg.reason);
         setTimeout(() => {
           if (ws.readyState === 1)
@@ -165,7 +172,15 @@ function connectECS() {
         udpServer.send(buf, 0, 4, config.GUI_MARKER_PORT, '127.0.0.1');
       }
       if (msg.type === 'room_info' && !ecsConnected) {
-        ws.send(JSON.stringify({ type: 'reconnect', role: 'master', session_id: ecsSessionId }));
+        if (companionMode) {
+          // 伴生模式：浏览器负责 master 角色，桥接仅转发数据
+          ecsConnected = true;
+          console.log('[ECS] 桥接伴生模式已就绪');
+          const lanIP = getLANIP();
+          ws.send(JSON.stringify({ type: 'set_udp_target', target: lanIP + ':' + config.GUI_MARKER_PORT }));
+        } else {
+          ws.send(JSON.stringify({ type: 'reconnect', role: 'master', session_id: ecsSessionId }));
+        }
       }
       // 房间号响应
       if (msg.type === 'room_joined') {

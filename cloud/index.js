@@ -376,6 +376,7 @@ function handleMessage(ws, raw, room, sessionId) {
       ws.sessionId = sessionId;
       ws.deviceInfo = msg.device_info || {};
       ws.nickname = msg.device_info && msg.device_info.nickname ? msg.device_info.nickname : 'Anonymous';
+      ws._bridge = !!(msg.device_info && msg.device_info.isBridge);
       ws.send(JSON.stringify({ type: 'room_info', occupants: getOccupantSummary(room) }));
       break;
     }
@@ -407,7 +408,7 @@ function handleMessage(ws, raw, room, sessionId) {
       else if (targetRole === 'console') { room.occupants.console.push(ws); }
 
       ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
-      if (room.config) ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
+      ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
       broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
 
       const timer = timers.get(sessionId);
@@ -447,7 +448,7 @@ function handleMessage(ws, raw, room, sessionId) {
         ws.deviceInfo = msg.device_info || ws.deviceInfo || {};
         if (msg.udpTarget) { room.udpTargets.set('master', msg.udpTarget); }
         ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
-        if (room.config) ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
+        ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
       } else {
         ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '已被占用' }));
       }
@@ -456,7 +457,7 @@ function handleMessage(ws, raw, room, sessionId) {
     }
 
     case 'eeg_frame': {
-      if (ws.role !== 'master') return;
+      if (ws.role !== 'master' && !ws._bridge) return;
       room.sockets.forEach(s => {
         if (s !== ws && s.role === 'monitor' && s.readyState === 1) s.send(raw);
       });
@@ -465,10 +466,8 @@ function handleMessage(ws, raw, room, sessionId) {
     }
 
     case 'cmd': {
-      const ALLOW_ALL = ['master', 'console'];
-      const ALLOW_AUTO = ['monitor'];
-      if (!ALLOW_ALL.includes(ws.role) && !ALLOW_AUTO.includes(ws.role)) return;
-      if (ws.role === 'monitor' && msg.action !== 'set_auto') return;
+      const ALLOW_ALL = ['master', 'console', 'monitor'];
+      if (!ALLOW_ALL.includes(ws.role)) return;
 
       const timer = timers.get(sessionId);
       if (!timer) return;
@@ -774,6 +773,7 @@ const config = require('./config');
 let packetCount = 0;
 let lastStatsTime = Date.now();
 let sampleRate = 0;
+let lastParsed = null;
 const isGanglion = config.DEVICE_TYPE === 'ganglion';
 const chCount = isGanglion ? 4 : 8;
 
@@ -810,13 +810,16 @@ const frameBroadcast = (parsed) => {
 udpServer.on('message', (msg) => {
   const parsed = parseOpenBCIPacket(msg);
   if (!parsed) return;
+  lastParsed = parsed;
   packetCount++;
   const now = Date.now();
-  if (now - lastStatsTime >= 1000) {
+  if (now - lastStatsTime >= 200) {
     sampleRate = Math.round(packetCount * 1000 / (now - lastStatsTime));
+    const ch = lastParsed.channels || [];
+    const chStr = ch.slice(0,4).map(v => v.toFixed(0).padStart(6)).join(" ");
+    console.log("[" + sampleRate.toString().padStart(3) + " pkt/s] " + chStr + " | ECS: " + (ecsConnected ? "●" : "○"));
     packetCount = 0;
     lastStatsTime = now;
-    console.log("[DATA] " + sampleRate + " pkt/s | CH1~4: " + (parsed.channels || []).map(v => v.toFixed(0)).join(" ") + " | ECS: " + (ecsConnected ? "●" : "○"));
   }
   frameBroadcast(parsed);
 });
@@ -840,6 +843,7 @@ localWss.on('connection', (ws) => {
     try {
       const msg = JSON.parse(raw);
       if (msg.type === 'set_session' && msg.session_id) {
+        companionMode = true;
         ecsSessionId = msg.session_id;
         try{require('fs').writeFileSync(require('path').join(__dirname,'ecs-session.id'),ecsSessionId,'utf8')}catch(e){};
 
@@ -856,6 +860,7 @@ localWss.on('connection', (ws) => {
 let ecsWs = null;
 let ecsSessionId = (function(){try{var p=require('path').join(__dirname,'ecs-session.id'),d=require('fs').readFileSync(p,'utf8').trim();if(d)return d}catch(e){}return config.SESSION_ID||('bridge-'+Date.now()+'-'+Math.random().toString(36).slice(2,6))})();
 let ecsConnected = false;
+let companionMode = false;
 let pendingRoomCode = process.env.ROOM_CODE || '';
 let roomJoinAttempted = false;
 
@@ -877,7 +882,7 @@ function connectECS() {
   const ws = new WebSocket(config.ECS_WS_URL);
   ws.on('open', () => {
     console.log('[ECS] 已连接');
-    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: ecsSessionId }));
+    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: ecsSessionId, device_info: { platform: 'Node.js Bridge', userAgent: 'bridge', nickname: 'Bridge ' + ecsSessionId.slice(-6), isBridge: true } }));
     if (pendingRoomCode && !roomJoinAttempted) {
       roomJoinAttempted = true;
       console.log('[ECS] join room:', pendingRoomCode);
@@ -893,7 +898,7 @@ function connectECS() {
         const lanIP = getLANIP();
         ws.send(JSON.stringify({ type: 'set_udp_target', target: lanIP + ':' + config.GUI_MARKER_PORT }));
       }
-      if (msg.type === 'role_denied' && !ecsConnected) {
+      if (msg.type === 'role_denied' && !ecsConnected && !companionMode) {
         console.warn('[ECS] 角色被拒，5 秒后重试:', msg.reason);
         setTimeout(() => {
           if (ws.readyState === 1)
@@ -906,7 +911,14 @@ function connectECS() {
         udpServer.send(buf, 0, 4, config.GUI_MARKER_PORT, '127.0.0.1');
       }
       if (msg.type === 'room_info' && !ecsConnected) {
-        ws.send(JSON.stringify({ type: 'reconnect', role: 'master', session_id: ecsSessionId }));
+        if (companionMode) {
+          ecsConnected = true;
+          console.log('[ECS] bridge companion ready');
+          const lanIP = getLANIP();
+          ws.send(JSON.stringify({ type: 'set_udp_target', target: lanIP + ':' + config.GUI_MARKER_PORT }));
+        } else {
+          ws.send(JSON.stringify({ type: 'reconnect', role: 'master', session_id: ecsSessionId }));
+        }
       }
       if (msg.type === 'room_joined') {
         console.log('[ECS] room joined:', msg.code);
@@ -1042,9 +1054,6 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'hello' || msg.type === 'reconnect') {
       if (!timers.has(sessionId)) {
-        // Auto-create sessions row to prevent FK failures on data tables
-        db.query('INSERT IGNORE INTO sessions (id, subject_id, template_id, status) VALUES (?, 1, 1, "running")', [sessionId])
-          .catch(() => {});
         // Try restoring timer from timer_state first, else derive template from DB
         db.query('SELECT * FROM timer_state WHERE session_id = ?', [sessionId])
           .then(rows => {
@@ -1099,22 +1108,27 @@ wss.on('connection', (ws, req) => {
       room.sockets.delete(ws);
 
       if (roleLock === 'master' || roleLock === 'subject' || roleLock === 'console') {
-        // 立即释放槽位, 但加 30 秒角色锁阻止新声明
+        // 立即释放槽位; 桥接连接不锁（浏览器接管）
         if (roleLock === 'master') {
           if (room.occupants.master === ws) room.occupants.master = null;
-          // master 断开 → 暂停计时器 + 持久化 + 广播告警
-          const timer = timers.get(sid);
-          if (timer) { timer.running = false; saveTimerState(sid); broadcastSync(sid, timer, room); }
-          broadcast(room, { type: 'alert', level: 'warning', message: '数据源已断开' });
+          if (!ws._bridge) {
+            const timer = timers.get(sid);
+            if (timer) { timer.running = false; saveTimerState(sid); broadcastSync(sid, timer, room); }
+            broadcast(room, { type: 'alert', level: 'warning', message: '数据源已断开' });
+          }
         }
         if (roleLock === 'subject' && room.occupants.subject === ws) room.occupants.subject = null;
         if (roleLock === 'console') { room.occupants.console = room.occupants.console.filter(s => s !== ws); }
 
-        lockRole(sid, roleLock, 30000);
-        setTimeout(() => {
-          const r = rooms.get(sid);
-          if (r) broadcast(r, { type: 'room_info', occupants: getOccupantSummary(r) });
-        }, 30000);
+        if (ws._bridge) {
+          broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
+        } else {
+          lockRole(sid, roleLock, 30000);
+          setTimeout(() => {
+            const r = rooms.get(sid);
+            if (r) broadcast(r, { type: 'room_info', occupants: getOccupantSummary(r) });
+          }, 30000);
+        }
       } else if (roleLock === 'monitor') {
         room.occupants.monitor = room.occupants.monitor.filter(s => s !== ws);
       }
