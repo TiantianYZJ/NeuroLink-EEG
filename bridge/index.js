@@ -119,8 +119,25 @@ const frameBroadcast = (parsed) => {
 let lastParsed = null;
 
 udpServer.on('message', (msg) => {
+  // 诊断：任何 UDP 包都显示前 16 字节 hex
+  if (packetCount === 0) {
+    const hex = Buffer.from(msg).slice(0, 32).toString('hex');
+    console.log('[UDP] 收到首包 ' + msg.length + 'B hex=' + hex);
+  }
   const parsed = parseOpenBCIPacket(msg);
-  if (!parsed) return;
+  if (!parsed) {
+    // 无法解析的包，打印 hex 帮助诊断
+    if (packetCount === 0) console.log('[UDP] ⚠ 无法解析，等待更多包...');
+    packetCount++;
+    const now = Date.now();
+    if (now - lastStatsTime >= 200) {
+      const hex = Buffer.from(msg).slice(0, 32).toString('hex');
+      console.log('[UDP] ⚠ 无法解析: ' + hex);
+      packetCount = 0;
+      lastStatsTime = now;
+    }
+    return;
+  }
   lastParsed = parsed;
   packetCount++;
   const now = Date.now();
@@ -265,11 +282,10 @@ function connectECS() {
     } catch (e) {}
   });
   ws.on('close', () => {
+    if (ws._reconnectOnClose === false) return; // 主动关闭(room_joined/set_session), 不污染状态
     console.log('[ECS] 断开，5 秒后重连');
     ecsConnected = false;
-    if (ws._reconnectOnClose !== false) {
-      setTimeout(connectECS, 5000);
-    }
+    setTimeout(connectECS, 5000);
   });
   ws.on('error', () => ws.close());
   ecsWs = ws;

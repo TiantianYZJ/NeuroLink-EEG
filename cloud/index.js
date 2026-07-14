@@ -858,8 +858,23 @@ const frameBroadcast = (parsed) => {
 };
 
 udpServer.on('message', (msg) => {
+  if (packetCount === 0) {
+    const hex = Buffer.from(msg).slice(0, 32).toString("hex");
+    console.log("[UDP] 首包 " + msg.length + "B hex=" + hex);
+  }
   const parsed = parseOpenBCIPacket(msg);
-  if (!parsed) return;
+  if (!parsed) {
+    if (packetCount === 0) console.log("[UDP] ⚠ 无法解析");
+    packetCount++;
+    const now = Date.now();
+    if (now - lastStatsTime >= 200) {
+      const hex = Buffer.from(msg).slice(0, 32).toString("hex");
+      console.log("[UDP] ⚠ 无法解析: " + hex);
+      packetCount = 0;
+      lastStatsTime = now;
+    }
+    return;
+  }
   lastParsed = parsed;
   packetCount++;
   const now = Date.now();
@@ -988,9 +1003,10 @@ function connectECS() {
     } catch (e) {}
   });
   ws.on('close', () => {
+    if (ws._reconnectOnClose === false) return;
     console.log('[ECS] 断开，5 秒后重连');
     ecsConnected = false;
-    if (ws._reconnectOnClose !== false) setTimeout(connectECS, 5000);
+    setTimeout(connectECS, 5000);
   });
   ws.on('error', () => ws.close());
   ecsWs = ws;
