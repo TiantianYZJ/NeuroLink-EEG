@@ -27,15 +27,27 @@ const baseline = require('./baseline');
 const udpSock = dgram.createSocket('udp4');
 udpSock.on('error', (err) => console.warn('[UDP] socket error:', err.message));
 
-// ── 定期清理已完成的空房间（每 10 分钟） ──
+// ── 定期清理僵尸 socket 和空房间（每 60 秒） ──
 setInterval(() => {
   for (const [sid, room] of rooms) {
+    // 清理僵尸 socket
+    const alive = (s) => s.readyState === 1 || s.readyState === 2;
+    const dead = Array.from(room.sockets).filter(s => !alive(s) && !s._bridge);
+    for (const s of dead) {
+      room.sockets.delete(s);
+      const lock = s.roleLock;
+      if (lock === 'master' && room.occupants.master === s) room.occupants.master = null;
+      if (lock === 'subject' && room.occupants.subject === s) room.occupants.subject = null;
+      if (lock === 'console') room.occupants.console = room.occupants.console.filter(x => x !== s);
+      if (lock === 'monitor') room.occupants.monitor = room.occupants.monitor.filter(x => x !== s);
+    }
+    // 清理已完成的空房间
     if (room.sockets.size === 0) {
       const timer = timers.get(sid);
       if (!timer || timer.completed) cleanupSession(sid);
     }
   }
-}, 600000).unref();
+}, 60000).unref();
 
 // ── 房间 ──
 const rooms = new Map(); // sessionId → room
@@ -112,8 +124,18 @@ function broadcastToRoles(room, msg, roles) {
 
 function getOccupantSummary(room, sessionId) {
   const alive = (s) => s.readyState === 1 || s.readyState === 2;
+  // 清理僵尸 socket：TCP 断开但 on('close') 未触发的残留连接
+  const deadSockets = Array.from(room.sockets).filter(s => !alive(s));
+  for (const s of deadSockets) {
+    room.sockets.delete(s);
+    const lock = s.roleLock;
+    if (lock === 'master' && room.occupants.master === s) room.occupants.master = null;
+    if (lock === 'subject' && room.occupants.subject === s) room.occupants.subject = null;
+    if (lock === 'console') room.occupants.console = room.occupants.console.filter(x => x !== s);
+    if (lock === 'monitor') room.occupants.monitor = room.occupants.monitor.filter(x => x !== s);
+  }
   // Collect all bridge sockets from room
-  const bridgeSockets = Array.from(room.sockets).filter(s => s._bridge);
+  const bridgeSockets = Array.from(room.sockets).filter(s => s._bridge && alive(s));
   return {
     frame_rate: sessionId ? frameRateTracker.getRate(sessionId) : 0,
     master: !!(room.occupants.master && !room.occupants.master._bridge),
@@ -129,6 +151,8 @@ function getOccupantSummary(room, sessionId) {
       ...(room.occupants.subject ? [{ role: 'subject', nickname: room.occupants.subject.nickname || '', info: room.occupants.subject.deviceInfo || {} }] : []),
       ...room.occupants.console.filter(alive).map(s => ({ role: 'console', nickname: s.nickname || '', info: s.deviceInfo || {} })),
       ...bridgeSockets.map(s => ({ role: s.role || 'bridge', nickname: s.nickname || ('Bridge ' + (s.sessionId || '').slice(-6)), isBridge: true, info: s.deviceInfo || {} })),
+      // 未认领角色但已进入房间的设备
+      ...Array.from(room.sockets).filter(s => alive(s) && (s.role === 'pending' || !s.role)).map(s => ({ role: 'pending', nickname: s.nickname || '', info: s.deviceInfo || {} })),
     ],
   };
 }
@@ -152,29 +176,6 @@ function unlockRole(sessionId, role) {
   if (locks) delete locks[role];
 }
 
-// ── 计时器持久化 ──
-function saveTimerState(sessionId) {
-  const timer = timers.get(sessionId);
-  if (!timer) return;
-  const templateType = Object.keys(PHASE_TEMPLATES).find(k => PHASE_TEMPLATES[k] === timer.phases) || 'control';
-  db.query(
-    `INSERT INTO timer_state (session_id, phase_index, time_left, time_in_phase, running, auto_mode, template_type)
-     VALUES (?,?,?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE phase_index=VALUES(phase_index), time_left=VALUES(time_left),
-       time_in_phase=VALUES(time_in_phase), running=VALUES(running),
-       auto_mode=VALUES(auto_mode), template_type=VALUES(template_type)`,
-    [sessionId, timer.phaseIndex, timer.timeLeft, timer.timeInPhase,
-     timer.running ? 1 : 0, timer.autoMode ? 1 : 0, templateType]
-  ).catch(e => {
-    if (e.code === 'ER_NO_REFERENCED_ROW_2') {
-      db.query('INSERT IGNORE INTO sessions (id, subject_id, template_id, status) VALUES (?, 1, 1, "pending")', [sessionId])
-        .then(() => saveTimerState(sessionId))
-        .catch(() => {});
-    } else {
-      console.warn('[DB]', e.message);
-    }
-  });
-}
 
 // ── 阶段模板 ──
 const PHASE_TEMPLATES = {
@@ -251,7 +252,6 @@ function initTimer(sessionId, templateType) {
     tickTimer: null, templateType, taskType: phases[0].taskType,
   };
   timers.set(sessionId, timer);
-  saveTimerState(sessionId);
   return timer;
 }
 
@@ -263,7 +263,6 @@ function advancePhase(sessionId, timer, room) {
   if (timer.phaseIndex >= timer.phases.length - 1) {
     timer.completed = true; timer.running = false;
     clearInterval(timer.tickTimer); timer.tickTimer = null;
-    saveTimerState(sessionId);
     return;
   }
   timer.phaseIndex++;
@@ -271,7 +270,6 @@ function advancePhase(sessionId, timer, room) {
   timer.timeLeft = phase.duration;
   timer.timeInPhase = 0;
   timer.taskType = phase.taskType;
-  saveTimerState(sessionId);
 }
 
 function resetTimer(sessionId, timer, room) {
@@ -281,7 +279,6 @@ function resetTimer(sessionId, timer, room) {
   timer.timeInPhase = 0; timer.running = false; timer.completed = false;
   timer.taskType = timer.phases[0].taskType;
   baseline.reset(sessionId);
-  saveTimerState(sessionId);
   startTick(sessionId, timer, room);
 }
 
@@ -310,27 +307,12 @@ function startTick(sessionId, timer, room) {
       const snapshot = metrics.tick(now, sessionId, timer.phaseIndex, phase.id);
 
       if (snapshot) {
-        db.query(
-          `INSERT INTO metrics_snapshots
-           (session_id, ts, phase_index, phase_id, delta, theta, alpha, beta, gamma,
-            theta_alpha_ratio, spectral_entropy, cognitive_load_index,
-            sq_ch1, sq_ch2, sq_ch3, sq_ch4)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-          [sessionId, snapshot.ts, snapshot.phase_index, snapshot.phase_id,
-           snapshot.band_power.delta, snapshot.band_power.theta,
-           snapshot.band_power.alpha, snapshot.band_power.beta, snapshot.band_power.gamma,
-           snapshot.theta_alpha_ratio, snapshot.spectral_entropy, snapshot.cognitive_load_index,
-           snapshot.signal_quality[0], snapshot.signal_quality[1],
-           snapshot.signal_quality[2], snapshot.signal_quality[3]]
-        ).catch(e => console.warn('[DB]', e.message));
-
         broadcastToRoles(room, { type: 'metrics_snapshot', ...snapshot }, ['master', 'monitor', 'console']);
       }
 
       if (timer.running && !timer.completed) {
       timer.timeLeft--;
       timer.timeInPhase++;
-      saveTimerState(sessionId);
 
       const msgs = await baseline.tick(sessionId, phase.id, timer.timeInPhase, snapshot || {});
       for (const m of msgs) {
@@ -416,6 +398,12 @@ function handleMessage(ws, raw, room, sessionId) {
       // 时间戳锁: 允许同 sessionId 重连, 拒绝被抢占的新声明
       if (!['master', 'subject', 'console'].includes(targetRole)) {
         ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '不支持的重连角色' }));
+        break;
+      }
+      // 检查房间码是否存在（服务器重启后房间已丢失）
+      const hasRoomCode = Array.from(roomCodes.entries()).some(([code, entry]) => entry.sessionId === sessionId);
+      if (!hasRoomCode) {
+        ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '房间已不存在，请重新加入' }));
         break;
       }
       // 立即清除旧锁, 允许重连
@@ -614,6 +602,12 @@ case 'accel_frame': {
       break;
     }
 
+    case 'refresh': {
+      // 重新广播 room_info，不改变任何 socket 状态
+      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sessionId) });
+      break;
+    }
+
     case 'leave_room': {
       if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
       if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) { r.sockets.delete(ws); ws.role = 'pending'; ws.roleLock = null; } }
@@ -748,14 +742,12 @@ case 'accel_frame': {
       Promise.all([
         db.query('SELECT * FROM markers WHERE session_id = ? ORDER BY ts', [sid]),
         db.query('SELECT * FROM fss_results WHERE session_id = ? ORDER BY round', [sid]),
-        db.query('SELECT * FROM metrics_snapshots WHERE session_id = ? ORDER BY ts', [sid]),
-        db.query('SELECT * FROM baselines WHERE session_id = ?', [sid]),
         db.query('SELECT * FROM sessions WHERE id = ?', [sid]),
-      ]).then(([markers, fss, metricsRows, baselines, sessions]) => {
+      ]).then(([markers, fss, sessions]) => {
         ws.send(JSON.stringify({
           type: 'session_detail',
           session: sessions[0] || null,
-          markers, fss_results: fss, metrics_snapshots: metricsRows, baselines,
+          markers, fss_results: fss,
         }));
       }).catch(err => ws.send(JSON.stringify({ type: 'error', message: err.message })));
       break;
@@ -1236,34 +1228,13 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'hello' || msg.type === 'reconnect') {
       if (!timers.has(sessionId)) {
         // Try restoring timer from timer_state first, else derive template from DB
-        db.query('SELECT * FROM timer_state WHERE session_id = ?', [sessionId])
-          .then(rows => {
-            if (rows.length > 0 && !timers.has(sessionId)) {
-              const row = rows[0];
-              const phases = PHASE_TEMPLATES[row.template_type] || PHASE_TEMPLATES.control;
-              timers.set(sessionId, {
-                phases, phaseIndex: row.phase_index, timeLeft: row.time_left,
-                timeInPhase: row.time_in_phase, running: false,
-                autoMode: row.auto_mode === 1, completed: row.phase_index >= phases.length - 1 && row.time_left <= 0,
-                tickTimer: null, templateType: row.template_type,
-                taskType: (phases[row.phase_index] || phases[0]).taskType,
-              });
+      // 不再从 timer_state 恢复（表已废弃），直接 init
+      if (!timers.has(sessionId)) {
+        db.query('SELECT t.switch_type FROM sessions s JOIN experiment_templates t ON s.template_id = t.id WHERE s.id = ?', [sessionId])
+          .then(rows2 => {
+            if (!timers.has(sessionId)) {
+              initTimer(sessionId, (rows2.length > 0 ? rows2[0].switch_type : 'control'));
               startTick(sessionId, timers.get(sessionId), room);
-            } else if (!timers.has(sessionId)) {
-              // Derive template type from DB session record
-              db.query('SELECT t.switch_type FROM sessions s JOIN experiment_templates t ON s.template_id = t.id WHERE s.id = ?', [sessionId])
-                .then(rows2 => {
-                  if (!timers.has(sessionId)) {
-                    initTimer(sessionId, (rows2.length > 0 ? rows2[0].switch_type : 'control'));
-                    startTick(sessionId, timers.get(sessionId), room);
-                  }
-                })
-                .catch(() => {
-                  if (!timers.has(sessionId)) {
-                    initTimer(sessionId, 'control');
-                    startTick(sessionId, timers.get(sessionId), room);
-                  }
-                });
             }
           })
           .catch(() => {
@@ -1272,6 +1243,7 @@ wss.on('connection', (ws, req) => {
               startTick(sessionId, timers.get(sessionId), room);
             }
           });
+      }
       }
       handleMessage(ws, raw, room, sessionId);
     } else {
@@ -1294,7 +1266,7 @@ wss.on('connection', (ws, req) => {
           if (room.occupants.master === ws) room.occupants.master = null;
           if (!ws._bridge) {
             const timer = timers.get(sid);
-            if (timer) { timer.running = false; saveTimerState(sid); broadcastSync(sid, timer, room); }
+            if (timer) { timer.running = false; broadcastSync(sid, timer, room); }
             broadcast(room, { type: 'alert', level: 'warning', message: '数据源已断开' });
           }
         }

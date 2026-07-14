@@ -5,7 +5,6 @@
  * 恢复: recover 阶段每秒判定是否连续 30 秒回到基线±5%
  * 自动标记: baseline_start(11) / baseline_end(12) / recovered(13)
  */
-const db = require('./db');
 
 // sessionId → { samples: [], thetaAlphaSamples: [], alphaSamples: [], betaSamples: [],
 //               phaseId: null, baselineStarted: false, prevPhaseId: null }
@@ -14,12 +13,15 @@ const baselineBuf = {};
 // sessionId → { steadyCount: 0, recovered: false, baseline: null }
 const recoveryState = {};
 
+// sessionId → { ratio_mean, ratio_std, alpha_mean, alpha_std, beta_mean, beta_std } 内存基线
+const baselineResults = {};
+
 module.exports = {
   /**
    * 每秒调用一次
    * 返回需要广播的消息数组（auto marker / recovery_progress / recovery_event）
    */
-  async tick(sessionId, phaseId, timeInPhase, metricsSnapshot) {
+  tick(sessionId, phaseId, timeInPhase, metricsSnapshot) {
     const markers = [];
     const prevPhaseId = baselineBuf[sessionId] ? baselineBuf[sessionId].phaseId : null;
 
@@ -39,12 +41,8 @@ module.exports = {
         const betaMean = betaVals.length > 0 ? betaVals.reduce((a, v) => a + v, 0) / betaVals.length : 0;
         const betaStd = betaVals.length > 0
           ? Math.sqrt(betaVals.reduce((s, v) => s + (v - betaMean) ** 2, 0) / betaVals.length) : 0;
-        try {
-          await db.query(
-            'INSERT INTO baselines (session_id, phase_id, ratio_mean, ratio_std, alpha_mean, alpha_std, beta_mean, beta_std, samples) VALUES (?,?,?,?,?,?,?,?,?)',
-            [sessionId, prevPhaseId, ratioMean, ratioStd, alphaMean, alphaStd, betaMean, betaStd, vals.length]
-          );
-        } catch (e) { console.warn('[DB] baseline insert:', e.message); }
+        // 内存存储基线结果，供 recover 阶段使用
+        baselineResults[prevPhaseId] = { ratio_mean: ratioMean, ratio_std: ratioStd, alpha_mean: alphaMean, alpha_std: alphaStd, beta_mean: betaMean, beta_std: betaStd, samples: vals.length };
         markers.push({
           type: 'marker', code: 12, source: 'auto',
           label: 'baseline_end:' + prevPhaseId, phase: prevPhaseId, ts: Date.now(),
@@ -88,14 +86,9 @@ module.exports = {
       if (rs.recovered) return markers;
 
       if (!rs.baseline) {
-        try {
-          const flowPhaseId = phaseId.replace(/recover(\d+)/, 'flow$1');
-          const rows = await db.query(
-            'SELECT * FROM baselines WHERE session_id = ? AND phase_id LIKE ? ORDER BY id DESC LIMIT 1',
-            [sessionId, flowPhaseId]
-          );
-          rs.baseline = rows.length > 0 ? rows[0] : false;
-        } catch (_) { rs.baseline = false; }
+        // 从内存基线结果查找（对应 flow 阶段）
+        const flowPhaseId = phaseId.replace(/recover(\d+)/, 'flow$1');
+        rs.baseline = baselineResults[flowPhaseId] || false;
       }
 
       if (rs.baseline) {
@@ -161,6 +154,7 @@ module.exports = {
   reset(sessionId) {
     delete baselineBuf[sessionId];
     delete recoveryState[sessionId];
+    Object.keys(baselineResults).forEach(k => { if (k.startsWith('flow')) delete baselineResults[k]; });
   },
 
   cleanup(sessionId) {
