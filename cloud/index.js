@@ -304,20 +304,12 @@ function startTick(sessionId, timer, room) {
     const room = rooms.get(sessionId);
     if (!room) { clearInterval(timer.tickTimer); return; }
 
-    console.log('[timer] tick session='+sessionId.slice(0,12)+' phase='+timer.phaseIndex+' run='+timer.running);
-      if (timer.running && !timer.completed) {
-      timer.timeLeft--;
-      timer.timeInPhase++;
-      saveTimerState(sessionId);
-
+    // 指标计算（不受 timer.running 限制，点"开始"前也能看热力图）
       const now = Date.now();
       const phase = getCurrentPhase(timer);
-
-      // 1. 指标计算
       const snapshot = metrics.tick(now, sessionId, timer.phaseIndex, phase.id);
 
       if (snapshot) {
-        // 2. metrics_snapshot → MySQL
         db.query(
           `INSERT INTO metrics_snapshots
            (session_id, ts, phase_index, phase_id, delta, theta, alpha, beta, gamma,
@@ -332,26 +324,29 @@ function startTick(sessionId, timer, room) {
            snapshot.signal_quality[2], snapshot.signal_quality[3]]
         ).catch(e => console.warn('[DB]', e.message));
 
-        // 3. metrics 广播 (master + monitor)
         broadcastToRoles(room, { type: 'metrics_snapshot', ...snapshot }, ['master', 'monitor', 'console']);
+      }
 
-        // 4. 基线录制 + 恢复判定
-        const msgs = await baseline.tick(sessionId, phase.id, timer.timeInPhase, snapshot);
-        for (const m of msgs) {
-          if (m.type === 'marker') {
-            db.query(
-              'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
-              [sessionId, m.code, m.source, m.label, m.phase, m.ts]
-            ).catch(e => console.warn('[DB]', e.message));
-            broadcast(room, m);
-            sendMarkerUDP(room, m);
-          } else {
-            broadcastToRoles(room, m, ['master', 'monitor']);
-          }
+      if (timer.running && !timer.completed) {
+      timer.timeLeft--;
+      timer.timeInPhase++;
+      saveTimerState(sessionId);
+
+      const msgs = await baseline.tick(sessionId, phase.id, timer.timeInPhase, snapshot || {});
+      for (const m of msgs) {
+        if (m.type === 'marker') {
+          db.query(
+            'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
+            [sessionId, m.code, m.source, m.label, m.phase, m.ts]
+          ).catch(e => console.warn('[DB]', e.message));
+          broadcast(room, m);
+          sendMarkerUDP(room, m);
+        } else {
+          broadcastToRoles(room, m, ['master', 'monitor']);
         }
       }
 
-      // 5. 阶段切换: 先发 phase_end, 再 advance, 再 phase_start, 最后 phase_sync
+      // 5. 阶段切换
       if (timer.timeLeft <= 0) {
         broadcast(room, {
           type: 'marker', code: 2, source: 'auto',
