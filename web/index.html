@@ -14,7 +14,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 .panel{display:none;width:100%;min-height:100vh}
 .panel.active{display:block}
 .container{max-width:520px;margin:0 auto;padding:40px 24px;text-align:center}
-.brand{font-size:24px;font-weight:600;letter-spacing:-0.2px;margin-bottom:4px}
+.brand{font-size:24px;font-weight:500;letter-spacing:0;margin-bottom:4px}
 .subtitle{font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:28px}
 .conn-status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:24px}
 .dot{width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 2s ease-in-out infinite;flex-shrink:0}
@@ -69,7 +69,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 
 /* ── 角色面板占位 ── */
 .panel-header{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.08)}
-.panel-header h2{font-size:18px;font-weight:600}
+.panel-header h2{font-size:20px;font-weight:500}
 .panel-body{padding:24px;max-width:960px;margin:0 auto}
 .back-btn{background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:14px;padding:4px 0;font-family:inherit}
 .back-btn:hover{color:#fff}
@@ -79,7 +79,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 .dashboard{display:flex;gap:16px;padding:16px 24px;max-width:1200px;margin:0 auto}
 .dash-left{width:480px;flex-shrink:0;display:flex;flex-direction:column;gap:16px}
 .dash-right{flex:1;min-width:300px;display:flex;flex-direction:column;gap:16px}
-.card{background:#16181a;border-radius:20px;padding:16px;border:1px solid rgba(255,255,255,0.08)}
+.card{background:#16181a;border-radius:20px;padding:20px;border:1px solid rgba(255,255,255,0.08)}
 .card-title{font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
 canvas{display:block;border-radius:12px;width:100%;height:auto}
 .ch-legend{display:flex;gap:12px;font-size:12px;color:rgba(255,255,255,0.6);padding:6px 0}
@@ -99,7 +99,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 
 /* 计时器 */
 .phase-name{font-size:18px;font-weight:600;margin-bottom:4px}
-.timer-display{font-family:'Inter',system-ui,sans-serif;font-size:64px;font-weight:600;letter-spacing:-2px;line-height:1;margin:8px 0}
+.timer-display{font-family:'Inter',system-ui,sans-serif;font-size:64px;font-weight:500;letter-spacing:-2px;line-height:1;margin:8px 0}
 .timer-bar{height:4px;background:rgba(255,255,255,0.08);border-radius:4px;margin:8px 0;overflow:hidden}
 .timer-bar-fill{height:100%;background:#494fdf;border-radius:4px;transition:width 1s linear}
 .btn-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
@@ -143,7 +143,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 /* ── 受试者面板 ── */
 .subject-wrap{max-width:720px;margin:0 auto;padding:40px 24px;text-align:center}
 .subject-phase{font-family:'Inter',system-ui,sans-serif;font-size:20px;font-weight:500;color:rgba(255,255,255,0.5);letter-spacing:0;margin-bottom:4px}
-.subject-title{font-size:40px;font-weight:600;letter-spacing:-0.4px;line-height:1.2;margin-bottom:4px}
+.subject-title{font-size:40px;font-weight:500;letter-spacing:-0.4px;line-height:1.2;margin-bottom:4px}
 .subject-task{font-size:16px;color:rgba(255,255,255,0.5);margin-bottom:32px}
 .subject-timer{font-size:136px;font-weight:500;letter-spacing:-2.72px;line-height:1;margin:24px 0 32px;color:#fff;font-family:'Inter',system-ui,sans-serif}
 .subject-timer.paused{color:rgba(255,255,255,0.4)}
@@ -225,6 +225,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 .pill-sm.outline:hover{border-color:rgba(255,255,255,0.3)}
 .icon-btn{background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:14px;padding:4px;font-family:inherit;transition:color .15s}
 .icon-btn:hover{color:#fff}
+.page-footer{margin-top:40px;padding:24px;text-align:center;font-size:13px;color:rgba(255,255,255,0.4);border-top:1px solid rgba(255,255,255,0.06)}
+.page-footer a{color:rgba(255,255,255,0.5);text-decoration:none;transition:color .15s}
+.page-footer a:hover{color:rgba(255,255,255,0.8)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:9999px;font-size:14px;font-weight:600;z-index:200;display:none;animation:fadeIn .2s}
 .toast.show{display:block}
 .toast.success{background:#4ade80;color:#000}
@@ -286,7 +289,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     </div></div>
   </div>
 </div>
-<div style="position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:50;pointer-events:none"><span style="color:rgba(255,255,255,0.2);font-size:11px;pointer-events:auto">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.35);text-decoration:none;transition:color .15s;pointer-events:auto" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color=''">@TiantianYZJ</a> · EEG BCI Platform</span></div>
+<div class="page-footer">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener">@TiantianYZJ</a> · EEG BCI Platform</div>
 
 <!-- ─── 角色选择弹窗 ─── -->
 <div class="role-popup" id="rolePopup">
@@ -569,7 +572,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
         </div>
         <div class="console-btn-group">
           <button class="btn btn-primary" onclick="consoleCreateSession()">创建实验场次</button>
-          <button class="btn btn-primary" onclick="consoleStartExperiment()" style="background:#4ade80;color:#000">解锁房间并开始</button>
+          <button class="btn btn-primary" onclick="consoleStartExperiment()">解锁房间并开始</button>
         </div>
       <div id="consoleInviteCard" style="display:none;margin-top:12px"></div>
       </div>
