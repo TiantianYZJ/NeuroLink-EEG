@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NeuroLink · 实验平台</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/smoothie/1.36.1/smoothie.js"></script>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-height:100vh;-webkit-font-smoothing:antialiased}
@@ -348,8 +349,8 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
         <div class="card-title">实时脑电波</div>
         <canvas id="masterWaveform" width="480" height="240"></canvas>
         <div class="ch-legend">
-          <span class="ch-dot" style="background:#a0c3ec"></span>δ <span class="ch-dot" style="background:#c4b5fd"></span>θ
-          <span class="ch-dot" style="background:#ff7a17"></span>α <span class="ch-dot" style="background:#ffc285"></span>β
+          <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
+          <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
         </div>
       </div>
       <div class="card">
@@ -434,8 +435,8 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
         <div class="card-title">实时脑电波</div>
         <canvas id="monitorWaveform" width="480" height="240"></canvas>
         <div class="ch-legend">
-          <span class="ch-dot" style="background:#a0c3ec"></span>δ <span class="ch-dot" style="background:#c4b5fd"></span>θ
-          <span class="ch-dot" style="background:#ff7a17"></span>α <span class="ch-dot" style="background:#ffc285"></span>β
+          <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
+          <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
         </div>
       </div>
       <div class="card">
@@ -744,48 +745,30 @@ function renderTopoMap(canvas, grid) {
   ctx.putImageData(imgData, 0, 0);
 }
 
-// ── 波形画布 ──
-const WAVEFORM_BUFFER = 800;
-const waveformBuffers = {};
+// ── Smoothie Charts（专业实时波形） ──
+const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
+const CH_NAMES = ['Fp1', 'Fp2', 'C3', 'C4'];
+const smoothies = {};
 
-function initWaveform(canvasId) {
-  waveformBuffers[canvasId] = { data: [[],[],[],[]], maxVal: 2000 };
-}
-
-function drawWaveform(canvasId, channels) {
-  const canvas = document.getElementById(canvasId);
+function initSmoothie(id) {
+  const canvas = document.getElementById(id);
   if (!canvas) return;
-  const buf = waveformBuffers[canvasId];
-  if (!buf) return;
-  for (let ch = 0; ch < 4 && ch < channels.length; ch++) {
-    buf.data[ch].push(channels[ch] || 0);
-    if (buf.data[ch].length > WAVEFORM_BUFFER) buf.data[ch] = buf.data[ch].slice(-WAVEFORM_BUFFER);
+  const chart = new SmoothieChart({
+    millisPerPixel: 6,
+    grid: { fillStyle: '#000000', strokeStyle: 'rgba(255,255,255,0.05)', verticalSections: 6 },
+    labels: { fillStyle: 'rgba(255,255,255,0.3)', fontSize: 10 },
+    yRangeFunction: () => ({ min: -1, max: 1 }),
+    maxValueScale: 1.5,
+    minValueScale: 1.5,
+  });
+  const series = [];
+  for (let i = 0; i < 4; i++) {
+    const ts = new TimeSeries();
+    chart.addTimeSeries(ts, { strokeStyle: CH_COLORS[i], lineWidth: 1.5 });
+    series.push(ts);
   }
-  let maxAbs = 1;
-  for (let ch = 0; ch < 4; ch++) {
-    for (let i = 0; i < buf.data[ch].length; i++) { const a = Math.abs(buf.data[ch][i]); if (a > maxAbs) maxAbs = a; }
-  }
-  buf.maxVal = Math.max(maxAbs, 100);
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  const colors = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
-  const chHeight = h / 4;
-  for (let ch = 0; ch < 4; ch++) {
-    const data = buf.data[ch];
-    if (data.length < 2) continue;
-    const yOff = ch * chHeight + chHeight / 2;
-    ctx.strokeStyle = colors[ch];
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    const step = Math.max(1, Math.floor(data.length / w));
-    for (let px = 0; px < w && px * step < data.length; px++) {
-      const val = data[data.length - 1 - px * step];
-      const y = yOff - (val / buf.maxVal) * (chHeight * 0.4);
-      px === 0 ? ctx.moveTo(w - px, y) : ctx.lineTo(w - px, y);
-    }
-    ctx.stroke();
-  }
+  chart.streamTo(canvas, 50);
+  smoothies[id] = { chart, series };
 }
 
 // ── 工具 ──
@@ -1158,7 +1141,11 @@ function connectWS() {
       if (!prefix) return;
 
       if (msg.type === 'eeg_frame' && msg.channels) {
-        drawWaveform(prefix + 'Waveform', msg.channels);
+        const sm = smoothies[prefix + 'Waveform'];
+        if (sm) {
+          const t = msg.ts || Date.now();
+          msg.channels.forEach((v, i) => { if (i < 4 && sm.series[i]) sm.series[i].append(t, v); });
+        }
       }
       if (msg.type === 'metrics_snapshot') {
         window._lastSnapshot = msg;
@@ -1321,8 +1308,8 @@ function onClaimed(role) {
   const pid = panelMap[role];
   if (pid) {
     switchPanel(pid);
-    if (role === 'master') initWaveform('masterWaveform');
-    if (role === 'monitor') initWaveform('monitorWaveform');
+    if (role === 'master') initSmoothie('masterWaveform');
+    if (role === 'monitor') initSmoothie('monitorWaveform');
     if (role === 'console') { loadSubjects(); loadTemplates(); loadSessions(); }
   }
 }
@@ -1690,8 +1677,8 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-initWaveform('masterWaveform');
-initWaveform('monitorWaveform');
+initSmoothie('masterWaveform');
+initSmoothie('monitorWaveform');
 connectWS();
 </script>
 </body>
