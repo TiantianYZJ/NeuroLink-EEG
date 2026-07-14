@@ -49,16 +49,33 @@ function parseBinaryPacket(msg) {
 }
 
 function parseJSONPacket(msg) {
-  // OpenBCI GUI JSON format: {"data":[ch1,ch2,...],"timestamp":...,"sample":...}
+  // OpenBCI GUI JSON — timeSeriesRaw/timeSeriesFilt:
+  //   {"type":"timeSeriesRaw","data":[[ch0_s0,ch0_s1,...],[ch1_s0,...],...]}
+  //   data[channel][sample] — take the LAST sample from each channel
+  // bandPower:
+  //   {"type":"bandPower","data":[[ch0_d,t,a,b,g],[ch1_d,t,a,b,g],...]}
+  // averageBandPower:
+  //   {"type":"averageBandPower","data":[d,t,a,b,g]}
   try {
     const text = Buffer.from(msg).toString('utf8').trim();
     if (text[0] !== '{' && text[0] !== '[') return null;
     const obj = JSON.parse(text);
     const raw = obj.data || obj.channels || obj;
-    if (Array.isArray(raw) && raw.length >= chCount) {
-      const channels = raw.slice(0, chCount).map(v => typeof v === 'number' ? Math.round(v) : 0);
+    if (!Array.isArray(raw) || raw.length < Math.min(chCount, 1)) return null;
+
+    // Case 1: 2D array — data[channel][sample] → take LAST sample per channel
+    if (Array.isArray(raw[0])) {
+      const channels = raw.slice(0, chCount).map(ch => {
+        if (!Array.isArray(ch) || ch.length === 0) return 0;
+        const v = ch[ch.length - 1]; // last sample
+        return typeof v === 'number' ? Math.round(v) : 0;
+      });
       return { sampleNumber: obj.sample || obj.sampleNumber || 0, channels };
     }
+
+    // Case 2: 1D flat array — data[0..N]
+    const channels = raw.slice(0, chCount).map(v => typeof v === 'number' ? Math.round(v) : 0);
+    return { sampleNumber: obj.sample || obj.sampleNumber || 0, channels };
   } catch (_) {}
   return null;
 }

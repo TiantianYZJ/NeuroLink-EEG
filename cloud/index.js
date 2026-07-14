@@ -809,10 +809,17 @@ function parseJSONPacket(msg) {
     if (text[0] !== "{" && text[0] !== "[") return null;
     const obj = JSON.parse(text);
     const raw = obj.data || obj.channels || obj;
-    if (Array.isArray(raw) && raw.length >= chCount) {
-      const channels = raw.slice(0, chCount).map(v => typeof v === "number" ? Math.round(v) : 0);
+    if (!Array.isArray(raw) || raw.length < Math.min(chCount, 1)) return null;
+    if (Array.isArray(raw[0])) {
+      const channels = raw.slice(0, chCount).map(ch => {
+        if (!Array.isArray(ch) || ch.length === 0) return 0;
+        const v = ch[ch.length - 1];
+        return typeof v === "number" ? Math.round(v) : 0;
+      });
       return { sampleNumber: obj.sample || obj.sampleNumber || 0, channels };
     }
+    const channels = raw.slice(0, chCount).map(v => typeof v === "number" ? Math.round(v) : 0);
+    return { sampleNumber: obj.sample || obj.sampleNumber || 0, channels };
   } catch (_) {}
   return null;
 }
