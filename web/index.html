@@ -203,6 +203,13 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 .template-card p{font-size:11px;color:rgba(255,255,255,0.4)}
 .console-empty{text-align:center;padding:40px 0;color:rgba(255,255,255,0.2);font-size:14px}
 .console-btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+/* ── 房间锁蒙版 ── */
+.room-lock-overlay{position:fixed;inset:0;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px}
+.room-lock-overlay.active{display:flex}
+.room-lock-overlay .lock-icon{width:48px;height:48px;opacity:.4;margin-bottom:16px}
+.room-lock-overlay h2{font-size:24px;font-weight:600;margin-bottom:8px}
+.room-lock-overlay p{font-size:14px;color:rgba(255,255,255,0.5);text-align:center;max-width:360px}
 .pill-sm{padding:4px 12px;border-radius:9999px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
 .pill-sm.danger{background:rgba(226,59,74,0.15);color:#e23b4a}
 .pill-sm.danger:hover{background:rgba(226,59,74,0.3)}
@@ -309,6 +316,13 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
       <div class="occ-empty" id="occEmpty">暂无其他设备</div>
     </div>
   </div>
+</div>
+
+<!-- ─── 房间锁蒙版 ─── -->
+<div class="room-lock-overlay" id="roomLockOverlay">
+  <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+  <h2>等待实验配置</h2>
+  <p>控制台正在配置实验，配置完成后将自动解锁</p>
 </div>
 
 <!-- ─── 面板 2: 上传监视端 ─── -->
@@ -542,7 +556,8 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <textarea id="consoleNotes" placeholder="环境、异常情况记录（可选）"></textarea>
         </div>
         <div class="console-btn-group">
-          <button class="btn btn-primary" onclick="consoleCreateSession()">开始实验 →</button>
+          <button class="btn btn-primary" onclick="consoleCreateSession()">创建实验场次</button>
+          <button class="btn btn-primary" onclick="consoleStartExperiment()" style="background:#4ade80;color:#000">解锁房间并开始</button>
         </div>
       </div>
     </div>
@@ -794,6 +809,11 @@ function showEl(id, show) {
   el.style.display = show ? '' : 'none';
 }
 function hideEl(id) { showEl(id, false); }
+function fmtTS(ts) {
+  const d = new Date(ts);
+  const s = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+  try { return s + ' ' + Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(_) { return s + ' UTC'; }
+}
 
 // ── 面板更新 ──
 function updateBandPower(prefix, snapshot) {
@@ -919,21 +939,18 @@ function onRoomCreated(msg) {
   document.getElementById('roomUrlWrap').style.display = '';
   document.getElementById('roomContinueBtn').style.display = '';
   document.getElementById('roomCodeLabel').textContent = '房间号';
-  const nick = getNickname(); try { localStorage.setItem('ns_nick', nick); } catch(e) {}
   document.getElementById('roomJoinInput').style.display = 'none';
 }
 function onRoomJoined(msg) {
   roomCode = msg.code;
   sessionId = msg.session_id;
-  const nick = getNickname();
-  try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); localStorage.setItem('ns_nick', nick); } catch(e) {}
+  try { localStorage.setItem('ns_room_code', msg.code); localStorage.setItem('ns_sid', msg.session_id); localStorage.setItem('ns_nick', getNickname()); } catch(e) {}
   syncSessionToBridge();
   showEl('roomOccupants', true);
   document.getElementById('roomCode').textContent = msg.code;
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomContinueBtn').style.display = '';
   document.getElementById('roomCodeLabel').textContent = '已加入房间';
-  const nick = getNickname(); try { localStorage.setItem('ns_nick', nick); } catch(e) {}
   document.getElementById('roomJoinInput').style.display = 'none';
   document.getElementById('roomError').style.display = 'none';
 }
@@ -1049,6 +1066,7 @@ function connectWS() {
       if (msg.type === 'role_released') { switchPanel('panel-role'); document.getElementById('roleSubtitle').textContent = '选择设备角色 · 房间 ' + (roomCode || '----'); return; }
       if (msg.type === 'room_left') { switchPanel('panel-room'); document.getElementById('roomResult').style.display = 'none'; document.getElementById('roomOccupants').style.display = 'none'; return; }
       if (msg.type === 'claim_role') return;
+      if (msg.type === 'room_config') { updateRoomLock(msg); return; }
 
       const prefix = currentRole === 'master' ? 'master' : (currentRole === 'monitor' ? 'monitor' : null);
 
@@ -1068,6 +1086,7 @@ function connectWS() {
         if (msg.type === 'subject_created') { showToast('受试者已创建', 'success'); loadSubjects(); }
         if (msg.type === 'templates_list') renderTemplates(msg.templates);
         if (msg.type === 'session_created') { showToast('实验场次已创建', 'success'); loadSessions(); document.getElementById('consoleNotes').value = ''; }
+        if (msg.type === 'experiment_started') { showToast('实验已启动, 房间解锁', 'success'); }
         if (msg.type === 'sessions_list') renderSessions(msg.sessions);
         if (msg.type === 'session_detail') renderSessionDetail(msg);
         if (msg.type === 'error') showToast(msg.message, 'error');
@@ -1354,8 +1373,7 @@ function addSubjMarker(label) {
   const el = document.getElementById('subjMarkers');
   if (!el) return;
   el.innerHTML = subjMyMarkers.slice(-10).map(m => {
-    const t = new Date(m.ts);
-    return '<span>' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ' ' + m.label + '</span>';
+    return '<span>' + fmtTS(m.ts) + ' ' + m.label + '</span>';
   }).join('');
 }
 
@@ -1396,6 +1414,17 @@ function submitFSS() {
 
 function closeFSS() {
   document.getElementById('fssOverlay')?.classList.remove('active');
+}
+
+// ── 房间锁 ──
+function updateRoomLock(msg) {
+  const overlay = document.getElementById('roomLockOverlay');
+  if (!overlay) return;
+  if (msg.locked) {
+    overlay.classList.add('active');
+  } else {
+    overlay.classList.remove('active');
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1485,6 +1514,15 @@ function consoleCreateSession() {
     ws.send(JSON.stringify({ type:'create_session', subject_id: subjectId, template_id: templateId, operator_name: operator, notes }));
   }
 }
+function consoleStartExperiment() {
+  const templateSelect = document.getElementById('consoleTemplateSelect');
+  if (!templateSelect || !templateSelect.value) { showToast('请先选择实验模板', 'error'); return; }
+  const tpl = templateSelect.options[templateSelect.selectedIndex];
+  const switchType = tpl.textContent.match(/\((\w+)\)/)?.[1] || 'none';
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'start_experiment', session_id: sessionId, config: { template: tpl.value, switch_type: switchType }, template_type: switchType }));
+  }
+}
 
 function viewSession(sessionId) {
   if (ws && ws.readyState === 1) {
@@ -1528,9 +1566,8 @@ function renderSessionDetail(data) {
   } else {
     html += '<div style="max-height:200px;overflow-y:auto">';
     markers.forEach(m => {
-      const t = new Date(m.ts || m.created_at);
       html += '<div style="display:flex;gap:8px;padding:3px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.03)">';
-      html += '<span style="color:rgba(255,255,255,0.3);white-space:nowrap">' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0') + '</span>';
+      html += '<span style="color:rgba(255,255,255,0.3);white-space:nowrap">' + fmtTS(m.ts || m.created_at) + '</span>';
       html += '<span style="color:#494fdf;font-weight:600">' + (m.code || 0) + '</span>';
       html += '<span style="color:rgba(255,255,255,0.5)">' + (m.source || '') + '</span>';
       html += '<span>' + (m.label || '') + '</span></div>';

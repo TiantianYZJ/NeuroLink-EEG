@@ -404,6 +404,7 @@ function handleMessage(ws, raw, room, sessionId) {
       else if (targetRole === 'console') room.occupants.console = ws;
 
       ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
+      ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
       broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
 
       const timer = timers.get(sessionId);
@@ -469,6 +470,11 @@ function handleMessage(ws, raw, room, sessionId) {
       if (!timer) return;
 
       const now = Date.now();
+      // Lock check for experiment control actions
+      if (room.locked !== false && (msg.action === 'start' || msg.action === 'reset' || msg.action === 'next_phase' || msg.action === 'pause')) {
+        ws.send(JSON.stringify({ type: 'error', message: '房间已锁定，请等待控制台配置' }));
+        break;
+      }
       switch (msg.action) {
         case 'start': {
           timer.running = true;
@@ -570,6 +576,29 @@ function handleMessage(ws, raw, room, sessionId) {
       ws.role = 'pending'; ws.roleLock = null;
       broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
       ws.send(JSON.stringify({ type: 'role_released' }));
+      break;
+    }
+
+    // ── 房间锁管理 ──
+
+    case 'start_experiment': {
+      room.locked = false;
+      room.config = msg.config || {};
+      broadcast(room, { type: 'room_config', locked: false, config: room.config });
+      // Initialize timer with chosen template
+      if (!timers.has(sessionId) && msg.template_type) {
+        initTimer(sessionId, msg.template_type);
+        startTick(sessionId, timers.get(sessionId), room);
+      }
+      ws.send(JSON.stringify({ type: 'experiment_started' }));
+      break;
+    }
+
+    case 'end_experiment': {
+      room.locked = true;
+      const timer = timers.get(sessionId);
+      if (timer) { clearInterval(timer.tickTimer); timer.running = false; timer.completed = true; }
+      broadcast(room, { type: 'room_config', locked: true, config: null });
       break;
     }
 
