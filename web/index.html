@@ -262,7 +262,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
       </div>
     </div>
     <div id="roomResult" style="display:none;text-align:center">
-      <div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">房间号</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px" id="roomCodeLabel">房间号</div>
       <div class="room-code" id="roomCode">----</div>
       <div id="roomUrlWrap" style="display:none">
         <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:8px">分享此链接给其他设备</div>
@@ -943,7 +943,7 @@ function onRoomCreated(msg) {
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomUrlWrap').style.display = '';
   document.getElementById('roomCodeLabel').textContent = '房间号';
-  document.getElementById('roomJoinInput').style.display = 'none';
+  document.getElementById('roomPinWrap').style.display = 'none';
 }
 function onRoomJoined(msg) {
   roomCode = msg.code;
@@ -954,7 +954,7 @@ function onRoomJoined(msg) {
   document.getElementById('roomCode').textContent = msg.code;
   document.getElementById('roomResult').style.display = '';
   document.getElementById('roomCodeLabel').textContent = '已加入房间';
-  document.getElementById('roomJoinInput').style.display = 'none';
+  document.getElementById('roomPinWrap').style.display = 'none';
   document.getElementById('roomError').style.display = 'none';
 }
 function autoJoinRoom(input) {
@@ -1023,11 +1023,12 @@ function closeRolePopup() {
 }
 function goBackToRoom() {
   closeRolePopup();
+  lastRole = null; persistRole(''); roomCode = null;
+  try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); localStorage.removeItem('ns_sid'); localStorage.removeItem('ns_nick'); } catch(e) {}
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type: 'release_role', session_id: sessionId }));
-  } else {
-    switchPanel('panel-room');
   }
+  switchPanel('panel-room');
 }
 function copyRoomUrl() {
   const url = document.getElementById('roomUrl');
@@ -1091,6 +1092,11 @@ function connectWS() {
       const msg = JSON.parse(e.data);
       if (msg.type === 'room_info') {
       updateRoom(msg.occupants);
+      // Flush subject offline queue
+      if (currentRole === 'subject' && subjQueue.length > 0) {
+        const q = subjQueue.splice(0);
+        q.forEach(s => ws.send(JSON.stringify({ type:'self_report', state:s, phase:'', session_id:sessionId })));
+      }
       return;
     }
       if (msg.type === 'error') {
@@ -1104,7 +1110,7 @@ function connectWS() {
         }
         return;
       }
-      if (msg.type === 'role_claimed') onClaimed(msg.role);
+      if (msg.type === 'role_claimed') { onClaimed(msg.role); return; }
       if (msg.type === 'role_denied') {
         showToast('角色不可用: ' + (msg.reason || ''), 'error');
         if (msg.reason && msg.reason.includes('重连保留') && currentPendingRole) {
@@ -1115,6 +1121,7 @@ function connectWS() {
           try { localStorage.removeItem('ns_room_code'); } catch(e) {}
           switchPanel('panel-room');
         }
+        return;
       }
       if (msg.type === 'room_created') { onRoomCreated(msg); return; }
       if (msg.type === 'room_joined') { onRoomJoined(msg); return; }
@@ -1129,10 +1136,7 @@ function connectWS() {
         if (msg.type === 'phase_sync') updateSubjectUI(msg);
         if (msg.type === 'self_report_ack') addSubjMarker(msg.state === 'flow_enter' ? '✓ 进入心流' : msg.state === 'flow_exit' ? '✗ 脱离心流' : '⚠ 分心');
         if (msg.type === 'fss_submit_ack') showToast(msg.success ? '问卷已提交' : '提交失败: ' + msg.error, msg.success ? 'success' : 'error');
-        if (msg.type === 'room_info' && subjQueue.length > 0) {
-          const q = subjQueue.splice(0);
-          q.forEach(s => ws.send(JSON.stringify({ type:'self_report', state:s, phase:'', session_id:sessionId })));
-        }
+
         return;
       }
 
@@ -1194,7 +1198,7 @@ function leaveRoom() {
       ws.send(JSON.stringify({ type: 'leave_room', session_id: sessionId }));
     }
     lastRole = null; persistRole(''); roomCode = null;
-    try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); localStorage.removeItem('ns_sid'); } catch(e) {}
+    try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); localStorage.removeItem('ns_sid'); localStorage.removeItem('ns_nick'); } catch(e) {}
     switchPanel('panel-room');
     document.getElementById('roomResult').style.display = 'none';
     document.getElementById('roomOccupants').style.display = 'none';

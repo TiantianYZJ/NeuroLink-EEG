@@ -32,7 +32,7 @@ setInterval(() => {
   for (const [sid, room] of rooms) {
     if (room.sockets.size === 0) {
       const timer = timers.get(sid);
-      if (timer && timer.completed) cleanupSession(sid);
+      if (!timer || timer.completed) cleanupSession(sid);
     }
   }
 }, 600000).unref();
