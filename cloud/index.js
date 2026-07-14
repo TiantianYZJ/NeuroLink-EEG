@@ -873,19 +873,47 @@ const frameBroadcast = (parsed) => {
   if (ecsWs && ecsWs.readyState === 1 && ecsConnected) ecsWs.send(payload);
 };
 
+// Emit all samples in a 2D batch as individual eeg_frames
+const emitBatch = (parsed) => {
+  if (!Array.isArray(parsed.channels) || !Array.isArray(parsed.channels[0])) {
+    frameBroadcast(parsed);
+    return;
+  }
+  const chBatch = parsed.channels;
+  const n = Math.min(chBatch[0] ? chBatch[0].length : 1, 30);
+  if (n <= 1) { frameBroadcast(parsed); return; }
+  const now = Date.now();
+  for (let s = 0; s < n; s++) {
+    const sample = chBatch.map(ch => (Array.isArray(ch) && s < ch.length) ? ch[s] : 0);
+    const payload = JSON.stringify({ type: 'eeg_frame', seq: parsed.sampleNumber * n + s || 0, channels: sample, ts: now });
+    localWss.clients.forEach(c => { if (c.readyState === 1) c.send(payload); });
+    if (ecsWs && ecsWs.readyState === 1 && ecsConnected) ecsWs.send(payload);
+  }
+};
+
+const getLastSample = (parsed) => {
+  if (!Array.isArray(parsed.channels)) return parsed.channels || [];
+  if (Array.isArray(parsed.channels[0])) {
+    return parsed.channels.map(ch => (Array.isArray(ch) && ch.length) ? ch[ch.length - 1] : 0);
+  }
+  return parsed.channels;
+};
+
+let lastParsed = null;
+
 udpServer.on('message', (msg) => {
   if (packetCount === 0) {
     const hex = Buffer.from(msg).slice(0, 32).toString("hex");
-    console.log("[UDP] 首包 " + msg.length + "B hex=" + hex);
+    console.log("[UDP] \u9996\u5305 " + msg.length + "B hex=" + hex);
   }
   const parsed = parseOpenBCIPacket(msg);
   if (!parsed) {
-    if (packetCount === 0) console.log("[UDP] ⚠ 无法解析");
+    if (packetCount === 0) console.log("[UDP] \u26a0 \u65e0\u6cd5\u89e3\u6790");
     packetCount++;
     const now = Date.now();
     if (now - lastStatsTime >= 200) {
       const hex = Buffer.from(msg).slice(0, 32).toString("hex");
-      console.log("[UDP] ⚠ 无法解析: " + hex);
+      console.log("[UDP] \u26a0 \u65e0\u6cd5\u89e3\u6790: " + hex);
       packetCount = 0;
       lastStatsTime = now;
     }
@@ -896,13 +924,13 @@ udpServer.on('message', (msg) => {
   const now = Date.now();
   if (now - lastStatsTime >= 200) {
     sampleRate = Math.round(packetCount * 1000 / (now - lastStatsTime));
-    const ch = lastParsed.channels || [];
-    const chStr = ch.slice(0,4).map(v => v.toFixed(0).padStart(6)).join(" ");
-    console.log("[" + sampleRate.toString().padStart(3) + " pkt/s] " + chStr + " | ECS: " + (ecsConnected ? "●" : "○"));
+    const ch = getLastSample(lastParsed);
+    const chStr = ch.slice(0,4).map(v => typeof v === "number" ? v.toFixed(0).padStart(6) : "     0").join(" ");
+    console.log("[" + sampleRate.toString().padStart(3) + " pkt/s] " + chStr + " | ECS: " + (ecsConnected ? "\u25cf" : "\u25cb"));
     packetCount = 0;
     lastStatsTime = now;
   }
-  frameBroadcast(parsed);
+  emitBatch(parsed);
 });
 
 udpServer.on('error', (err) => { console.error('[UDP]', err.message); });
