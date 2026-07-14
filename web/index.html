@@ -782,6 +782,12 @@ var frontendFrameCount = 0;
 function initEEGChart(id) {
   var canvas = document.getElementById(id);
   if (!canvas || typeof Chart === 'undefined') { console.warn('[EEG] init fail:', id, 'Chart='+typeof Chart); return null; }
+  // Destroy existing chart on this canvas before re-creating
+  if (eegCharts[id]) {
+    console.log('[EEG] destroy existing chart for', id);
+    eegCharts[id].destroy();
+    delete eegCharts[id];
+  }
   // Retry if parent isn't visible yet
   var pr = canvas.parentNode;
   if (!pr || pr.clientWidth === 0) {

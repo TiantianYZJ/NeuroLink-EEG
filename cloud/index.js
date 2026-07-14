@@ -498,6 +498,9 @@ function handleMessage(ws, raw, room, sessionId) {
         if (hasBridge) return;
       }
       frameRateTracker.count(ws.sessionId || sessionId);
+      if (!ws._efCount) ws._efCount = 0;
+      ws._efCount++;
+      if (ws._efCount % 500 === 0) console.log("[eeg_frame] " + ws._efCount + " from " + (ws._bridge?"bridge":"master") + " session=" + (ws.sessionId||"").slice(0,12));
       room.sockets.forEach(s => {
         if (s !== ws && (s.role === 'master' || s.role === 'monitor') && s.readyState === 1) s.send(raw);
       });
