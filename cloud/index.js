@@ -498,7 +498,7 @@ function handleMessage(ws, raw, room, sessionId) {
       }
       frameRateTracker.count(ws.sessionId || sessionId);
       room.sockets.forEach(s => {
-        if (s !== ws && s.role === 'monitor' && s.readyState === 1) s.send(raw);
+        if (s !== ws && (s.role === 'master' || s.role === 'monitor') && s.readyState === 1) s.send(raw);
       });
       metrics.pushFrame(msg, ws.sessionId || sessionId);
       break;
@@ -507,7 +507,7 @@ function handleMessage(ws, raw, room, sessionId) {
     case 'accel_frame': {
       if (ws.role !== 'master' && !ws._bridge) return;
       room.sockets.forEach(s => {
-        if (s !== ws && s.role === 'monitor' && s.readyState === 1) s.send(raw);
+        if (s !== ws && (s.role === 'master' || s.role === 'monitor') && s.readyState === 1) s.send(raw);
       });
       break;
     }

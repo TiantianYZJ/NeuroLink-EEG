@@ -354,7 +354,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="dash-left">
       <div class="card">
         <div class="card-title">实时脑电波</div>
-        <canvas id="masterWaveform" width="480" height="240"></canvas>
+        <div id="masterWaveform" style="width:100%;height:240px"></div>
         <div class="ch-legend">
           <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
@@ -379,14 +379,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
               <span class="elec elec-c4">C4</span>
             </div>
           </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">系统状态</div>
-        <div class="stat-grid">
-          <div>采样率 <span class="stat-val" id="masterSampleRate">—</span></div>
-          <div>数据包 <span class="stat-val" id="masterPacketCount">0</span></div>
-          <div>窗口 <span class="stat-val" id="masterWindow">4.0 s</span></div>
         </div>
       </div>
     </div>
@@ -420,6 +412,14 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="metric-row"><span>负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="metric-cognitiveLoad">—</span></div>
         </div>
       </div>
+      <div class="card">
+        <div class="card-title">系统状态</div>
+        <div class="stat-grid">
+          <div>采样率 <span class="stat-val" id="masterSampleRate">—</span></div>
+          <div>数据包 <span class="stat-val" id="masterPacketCount">0</span></div>
+          <div>窗口 <span class="stat-val" id="masterWindow">4.0 s</span></div>
+        </div>
+      </div>
       <div class="card recovery-card" id="masterRecovery" style="display:none">
         <div class="card-title">恢复状态</div>
         <div id="masterRecoveryStatus">—</div>
@@ -440,7 +440,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <div class="dash-left">
       <div class="card">
         <div class="card-title">实时脑电波</div>
-        <canvas id="monitorWaveform" width="480" height="240"></canvas>
+        <div id="monitorWaveform" style="width:100%;height:240px"></div>
         <div class="ch-legend">
           <span class="ch-dot" style="background:#a0c3ec"></span>Fp1 <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3 <span class="ch-dot" style="background:#ffc285"></span>C4
@@ -470,13 +470,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     </div>
     <div class="dash-right">
       <div class="card">
-        <div class="card-title">系统状态</div>
-        <div class="stat-grid">
-          <div>采样率 <span class="stat-val" id="monSampleRate">&#8212;</span></div>
-          <div>数据包 <span class="stat-val" id="monPacketCount">0</span></div>
-        </div>
-      </div>
-      <div class="card">
         <div class="card-title">实验控制</div>
         <div class="phase-name" id="monitorPhaseName">准备阶段</div>
         <div class="timer-display" id="monitorTimer">05:00</div>
@@ -503,6 +496,13 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="metric-row"><span>θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="mon-metric-thetaAlpha">—</span></div>
           <div class="metric-row"><span>熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="mon-metric-entropy">—</span></div>
           <div class="metric-row"><span>负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="mon-metric-cognitiveLoad">—</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">系统状态</div>
+        <div class="stat-grid">
+          <div>采样率 <span class="stat-val" id="monSampleRate">&#8212;</span></div>
+          <div>数据包 <span class="stat-val" id="monPacketCount">0</span></div>
         </div>
       </div>
       <div class="card recovery-card" id="monitorRecovery" style="display:none">
@@ -782,9 +782,14 @@ function initEEGChart(id) {
   if (!el || typeof uPlot === 'undefined') return null;
   const timestamps = [];
   const chData = [[], [], [], []];
+  // Wait for element to have visible dimensions
+  if (el.clientWidth === 0 || el.clientHeight === 0) {
+    setTimeout(() => initEEGChart(id), 100);
+    return null;
+  }
   const opts = {
-    width: el.clientWidth || 480,
-    height: el.clientHeight || 240,
+    width: el.clientWidth,
+    height: el.clientHeight,
     cursor: { show: false },
     legend: { show: false },
     select: { show: false },
@@ -1760,8 +1765,6 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-initEEGChart('masterWaveform');
-initEEGChart('monitorWaveform');
 connectWS();
 </script>
 <div class="page-footer">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener">@TiantianYZJ</a> · EEG BCI Platform</div>
