@@ -406,7 +406,7 @@ function handleMessage(ws, raw, room, sessionId) {
       ws.deviceInfo = msg.device_info || {};
       ws.nickname = msg.device_info && msg.device_info.nickname ? msg.device_info.nickname : 'Anonymous';
       ws._bridge = !!(msg.device_info && msg.device_info.isBridge);
-      ws.send(JSON.stringify({ type: 'room_info', occupants: getOccupantSummary(room, sid) }));
+      ws.send(JSON.stringify({ type: 'room_info', occupants: getOccupantSummary(room, sessionId) }));
       break;
     }
 
@@ -438,7 +438,7 @@ function handleMessage(ws, raw, room, sessionId) {
 
       ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
       ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
-      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sid) });
+      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sessionId) });
 
       const timer = timers.get(sessionId);
       if (timer && targetRole === 'master' && !ws._bridge) { timer.running = false; broadcastSync(sessionId, timer, room); }
@@ -481,7 +481,7 @@ function handleMessage(ws, raw, room, sessionId) {
       } else {
         ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '已被占用' }));
       }
-      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
+      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sessionId) });
       break;
     }
 
@@ -625,7 +625,7 @@ function handleMessage(ws, raw, room, sessionId) {
       // Clean role lock for this socket so it can re-claim
       if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
       ws.role = 'pending'; ws.roleLock = null;
-      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
+      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sessionId) });
       ws.send(JSON.stringify({ type: 'role_released' }));
       break;
     }
@@ -1288,7 +1288,7 @@ wss.on('connection', (ws, req) => {
         if (roleLock === 'console') { room.occupants.console = room.occupants.console.filter(s => s !== ws); }
 
         if (ws._bridge) {
-          broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
+          broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sid) });
         } else {
           lockRole(sid, roleLock, 30000);
           setTimeout(() => {
@@ -1299,7 +1299,7 @@ wss.on('connection', (ws, req) => {
       } else if (roleLock === 'monitor') {
         room.occupants.monitor = room.occupants.monitor.filter(s => s !== ws);
       }
-      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
+      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sid) });
     }
   });
 
