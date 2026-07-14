@@ -498,9 +498,7 @@ function handleMessage(ws, raw, room, sessionId) {
         if (hasBridge) return;
       }
       frameRateTracker.count(ws.sessionId || sessionId);
-      if (!ws._efCount) ws._efCount = 0;
-      ws._efCount++;
-      if (ws._efCount % 500 === 0) console.log("[eeg_frame] " + ws._efCount + " from " + (ws._bridge?"bridge":"master") + " session=" + (ws.sessionId||"").slice(0,12));
+      if (!ws._efCount) { ws._efCount = 0; var roles = Array.from(room.sockets).map(function(s){return s.role+(s._bridge?'[B]':'')+(s===ws?'[S]':'')+' rs='+s.readyState}); console.log('[eeg_frame] FIRST | sender='+(ws._bridge?'bridge':'master')+' role='+ws.role+' sid='+(ws.sessionId||'').slice(0,16)+' | n='+room.sockets.size+' | '+roles.join(', ')); } ws._efCount++; if (ws._efCount % 1000 === 0) { var roles = Array.from(room.sockets).map(function(s){return s.role+(s._bridge?'[B]':'')+(s===ws?'[S]':'')+' rs='+s.readyState}); console.log('[eeg_frame] '+ws._efCount+' | '+roles.join(', ')); }
       room.sockets.forEach(s => {
         if (s !== ws && (s.role === 'master' || s.role === 'monitor') && s.readyState === 1) s.send(raw);
       });
