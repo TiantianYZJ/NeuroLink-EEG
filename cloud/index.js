@@ -934,16 +934,58 @@ function connectECS() {
   ecsWs = ws;
 }
 
-// ── 启动 ──
+// ââ å¯å¨ ââ
 udpServer.bind(config.UDP_LISTEN_PORT);
 connectECS();
 
-console.log(\`── OpenBCI UDP → WebSocket Bridge ──\`);
-console.log(\`  Device      : \${isGanglion ? 'Ganglion (4ch 200Hz)' : 'Cyton'}\`);
-console.log(\`  UDP 监听    : \${config.UDP_LISTEN_PORT}\`);
-console.log(\`  本地面板 WS : :\${config.LOCAL_WS_PORT}\`);
-console.log(\`  ECS 上行    : \${config.ECS_WS_URL}\`);
-`,
+function sendLeaveRoom() {
+  pendingRoomCode = '';
+  roomJoinAttempted = false;
+  if (ecsWs && ecsWs.readyState === 1) {
+    console.log('[ECS] \xe7\xa6\xbb\xe5\xbc\x80\xe6\x88\xbf\xe9\x97\xb4...');
+    ecsWs.send(JSON.stringify({ type: 'leave_room', session_id: ecsSessionId }));
+    ecsWs._reconnectOnClose = false;
+    ecsWs.close();
+  }
+  setTimeout(() => {
+    const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout });
+    rl.question('\xe6\x88\xbf\xe9\x97\xb4\xe5\x8f\xb7: ', (code) => {
+      code = code.trim();
+      if (code.length === 4 && /^\\d{4}$/.test(code)) {
+        pendingRoomCode = code;
+        roomJoinAttempted = false;
+        rl.close();
+        connectECS();
+      } else {
+        console.log('\xe6\x97\xa0\xe6\x95\x88\xe6\x88\xbf\xe9\x97\xb4\xe5\x8f\xb7');
+        rl.close();
+        process.exit(0);
+      }
+    });
+  }, 1500);
+}
+
+const stdinex = process.stdin;
+stdinex.setEncoding('utf8');
+stdinex.setRawMode && stdinex.setRawMode(true);
+console.log('  \xe8\xbe\x93\xe5\x85\xa5 l \xe9\x80\x80\xe5\x87\xba\xe5\xbd\x93\xe5\x89\x8d\xe6\x88\xbf\xe9\x97\xb4 \xc2\xb7 Ctrl+C \xe9\x80\x80\xe5\x87\xba\xe6\xa1\xa5\xe6\x8e\xa5');
+stdinex.on("data", (key) => {
+  const k = key.toString().toLowerCase().trim();
+  if (k === 'l' || k === 'leave') {
+    sendLeaveRoom();
+  } else if (k === '\\x03') {
+    sendLeaveRoom();
+    process.exit(0);
+  }
+});
+process.on("SIGINT", () => { sendLeaveRoom(); setTimeout(() => process.exit(0), 500); });
+
+console.log(`── OpenBCI UDP → WebSocket Bridge ──`);
+console.log(`  Device      : ${isGanglion ? 'Ganglion (4ch 200Hz)' : 'Cyton'}`);
+console.log(`  UDP 监听    : ${config.UDP_LISTEN_PORT}`);
+console.log(`  本地面板 WS : :${config.LOCAL_WS_PORT}`);
+console.log(`  ECS 上行    : ${config.ECS_WS_URL}`);
+console.log('  \u8fd0\u884c\u4e2d: \u8f93\u5165 l \u9000\u51fa\u623f\u95f4 \u00b7 Ctrl+C \u9000\u51fa\u6865\u63a5');
     };
     const data = files[file];
     if (!data) { res.writeHead(403); res.end('Forbidden'); return; }

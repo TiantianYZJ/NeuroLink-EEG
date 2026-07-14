@@ -198,6 +198,53 @@ function connectECS() {
 
 // ── 启动 ──
 udpServer.bind(config.UDP_LISTEN_PORT);
+
+// ── 命令行交互 ──
+const stdin = process.stdin;
+stdin.setEncoding('utf8');
+stdin.setRawMode && stdin.setRawMode(true);
+console.log('  输入 l 退出当前房间 · Ctrl+C 退出桥接');
+stdin.on('data', (key) => {
+  const k = key.toString().toLowerCase().trim();
+  if (k === 'l' || k === 'leave') {
+    sendLeaveRoom();
+  } else if (k === '\x03') {
+    sendLeaveRoom();
+    process.exit(0);
+  }
+});
+process.on('SIGINT', () => { sendLeaveRoom(); setTimeout(() => process.exit(0), 500); });
+
+function sendLeaveRoom() {
+  pendingRoomCode = '';
+  roomJoinAttempted = false;
+  if (ecsWs && ecsWs.readyState === 1) {
+    console.log('[ECS] 离开房间...');
+    ecsWs.send(JSON.stringify({ type: 'leave_room', session_id: ecsSessionId }));
+    ecsWs._reconnectOnClose = false;
+    ecsWs.close();
+  }
+  setTimeout(() => {
+    console.log('  输入 4 位房间号重新加入，或 Ctrl+C 退出');
+    stdin.setRawMode && stdin.setRawMode(false);
+    const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout });
+    rl.question('房间号: ', (code) => {
+      code = code.trim();
+      if (code.length === 4 && /^\d{4}$/.test(code)) {
+        pendingRoomCode = code;
+        roomJoinAttempted = false;
+        stdin.setRawMode && stdin.setRawMode(true);
+        rl.close();
+        connectECS();
+      } else {
+        console.log('无效房间号');
+        rl.close();
+        process.exit(0);
+      }
+    });
+  }, 1500);
+}
+
 connectECS();
 
 console.log(`── OpenBCI UDP → WebSocket Bridge ──`);
