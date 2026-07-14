@@ -76,6 +76,26 @@ function getRoom(sessionId) {
   return rooms.get(sessionId);
 }
 
+// Per-room frame rate tracking (always active, no timer needed)
+const frameRateTracker = {
+  _counts: new Map(), // sessionId -> {count, lastTime}
+  count(sessionId) {
+    let t = this._counts.get(sessionId);
+    if (!t) { t = { count: 0, lastTime: Date.now() }; this._counts.set(sessionId, t); }
+    t.count++;
+  },
+  getRate(sessionId) {
+    const t = this._counts.get(sessionId);
+    if (!t) return 0;
+    const elapsed = Date.now() - t.lastTime;
+    if (elapsed < 800) return 0;
+    const rate = Math.round(t.count * 1000 / elapsed);
+    t.count = 0;
+    t.lastTime = Date.now();
+    return Math.min(rate, 500);
+  }
+};
+
 function broadcast(room, msg, exclude = null) {
   const payload = typeof msg === 'string' ? msg : JSON.stringify(msg);
   room.sockets.forEach(ws => {
@@ -90,8 +110,9 @@ function broadcastToRoles(room, msg, roles) {
   });
 }
 
-function getOccupantSummary(room) {
+function getOccupantSummary(room, sessionId) {
   return {
+    frame_rate: sessionId ? frameRateTracker.getRate(sessionId) : 0,
     master: !!(room.occupants.master && !room.occupants.master._bridge),
     locked: room.locked !== false,
     hasConsole: room.occupants.console.filter(s => s.readyState === 1 || s.readyState === 2).length > 0,
@@ -385,7 +406,7 @@ function handleMessage(ws, raw, room, sessionId) {
       ws.deviceInfo = msg.device_info || {};
       ws.nickname = msg.device_info && msg.device_info.nickname ? msg.device_info.nickname : 'Anonymous';
       ws._bridge = !!(msg.device_info && msg.device_info.isBridge);
-      ws.send(JSON.stringify({ type: 'room_info', occupants: getOccupantSummary(room) }));
+      ws.send(JSON.stringify({ type: 'room_info', occupants: getOccupantSummary(room, sid) }));
       break;
     }
 
@@ -417,7 +438,7 @@ function handleMessage(ws, raw, room, sessionId) {
 
       ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
       ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
-      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room) });
+      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sid) });
 
       const timer = timers.get(sessionId);
       if (timer && targetRole === 'master' && !ws._bridge) { timer.running = false; broadcastSync(sessionId, timer, room); }
@@ -466,11 +487,11 @@ function handleMessage(ws, raw, room, sessionId) {
 
     case 'eeg_frame': {
       if (ws.role !== 'master' && !ws._bridge) return;
-      // If a bridge is present, only bridge-produced frames are authoritative
       if (!ws._bridge) {
         const hasBridge = Array.from(room.sockets).some(s => s._bridge);
         if (hasBridge) return;
       }
+      frameRateTracker.count(ws.sessionId || sessionId);
       room.sockets.forEach(s => {
         if (s !== ws && s.role === 'monitor' && s.readyState === 1) s.send(raw);
       });
@@ -650,7 +671,7 @@ function handleMessage(ws, raw, room, sessionId) {
       if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) r.sockets.delete(ws); }
       getRoom(sid).sockets.add(ws);
       ws.sessionId = sid;
-      broadcast(getRoom(sid), { type: 'room_info', occupants: getOccupantSummary(getRoom(sid)) });
+      broadcast(getRoom(sid), { type: 'room_info', occupants: getOccupantSummary(getRoom(sid), sid) });
       ws.send(JSON.stringify({ type: 'room_created', code, session_id: sid, url: '/?room=' + code }));
       break;
     }
@@ -662,7 +683,7 @@ function handleMessage(ws, raw, room, sessionId) {
         if (ws.sessionId && ws.sessionId !== entry.sessionId) { const r = rooms.get(ws.sessionId); if (r) r.sockets.delete(ws); }
         getRoom(entry.sessionId).sockets.add(ws);
         ws.sessionId = entry.sessionId;
-        broadcast(getRoom(entry.sessionId), { type: 'room_info', occupants: getOccupantSummary(getRoom(entry.sessionId)) });
+        broadcast(getRoom(entry.sessionId), { type: 'room_info', occupants: getOccupantSummary(getRoom(entry.sessionId), entry.sessionId) });
         ws.send(JSON.stringify({ type: 'room_joined', session_id: entry.sessionId, code: msg.code }));
       } else {
         ws.send(JSON.stringify({ type: 'error', message: '房间不存在或已过期' }));
@@ -1272,7 +1293,7 @@ wss.on('connection', (ws, req) => {
           lockRole(sid, roleLock, 30000);
           setTimeout(() => {
             const r = rooms.get(sid);
-            if (r) broadcast(r, { type: 'room_info', occupants: getOccupantSummary(r) });
+            if (r) broadcast(r, { type: 'room_info', occupants: getOccupantSummary(r, sid) });
           }, 30000);
         }
       } else if (roleLock === 'monitor') {

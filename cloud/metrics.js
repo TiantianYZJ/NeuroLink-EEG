@@ -24,7 +24,7 @@ const SAMPLE_RATE = parseInt(process.env.EEG_SAMPLE_RATE || '120', 10);
 
 function ensureSession(sessionId) {
   if (!sessions.has(sessionId)) {
-    sessions.set(sessionId, { buffer: [], lastCompute: 0 });
+    sessions.set(sessionId, { buffer: [], lastCompute: 0, frameCount: 0, lastFrameCount: 0, lastFrameTime: 0 });
   }
   return sessions.get(sessionId);
 }
@@ -110,6 +110,7 @@ module.exports = {
   pushFrame(frame, sessionId) {
     const ss = ensureSession(sessionId);
     ss.buffer.push(frame);
+    ss.frameCount++;
     if (ss.buffer.length > POOL_SIZE * 2) ss.buffer = ss.buffer.slice(-POOL_SIZE);
   },
 
@@ -120,11 +121,18 @@ module.exports = {
     const metrics = computeMetrics(sessionId);
     if (!metrics) return null;
 
+    // Real sample rate from actual frame count
+    const elapsed = (now - ss.lastFrameTime) || 1000;
+    const actualRate = Math.round((ss.frameCount - ss.lastFrameCount) * 1000 / elapsed);
+    ss.lastFrameCount = ss.frameCount;
+    ss.lastFrameTime = now;
+
     return {
       ts: now,
       session_id: sessionId,
       phase_index: phaseIndex,
       phase_id: phaseId,
+      sample_rate: Math.min(actualRate, 500),
       ...metrics,
     };
   },

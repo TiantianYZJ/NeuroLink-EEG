@@ -381,7 +381,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
       <div class="card">
         <div class="card-title">系统状态</div>
         <div class="stat-grid">
-          <div>采样率 <span class="stat-val" id="masterSampleRate">200 Hz</span></div>
+          <div>采样率 <span class="stat-val" id="masterSampleRate">—</span></div>
           <div>数据包 <span class="stat-val" id="masterPacketCount">0</span></div>
           <div>窗口 <span class="stat-val" id="masterWindow">4.0 s</span></div>
         </div>
@@ -466,6 +466,13 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
       </div>
     </div>
     <div class="dash-right">
+      <div class="card">
+        <div class="card-title">系统状态</div>
+        <div class="stat-grid">
+          <div>采样率 <span class="stat-val" id="monSampleRate">&#8212;</span></div>
+          <div>数据包 <span class="stat-val" id="monPacketCount">0</span></div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-title">实验控制</div>
         <div class="phase-name" id="monitorPhaseName">准备阶段</div>
@@ -1090,10 +1097,16 @@ function connectWS() {
       const msg = JSON.parse(e.data);
       if (msg.type === 'room_info') {
       updateRoom(msg.occupants);
-      // Flush subject offline queue
+      if (msg.occupants && msg.occupants.frame_rate) {
+        var fr = msg.occupants.frame_rate;
+        ['master','monitor'].forEach(function(r) {
+          var el = document.getElementById(r === 'master' ? 'masterSampleRate' : 'monSampleRate');
+          if (el) el.textContent = fr + ' Hz';
+        });
+      }
       if (currentRole === 'subject' && subjQueue.length > 0) {
-        const q = subjQueue.splice(0);
-        q.forEach(s => ws.send(JSON.stringify({ type:'self_report', state:s, phase:'', session_id:sessionId })));
+        var q = subjQueue.splice(0);
+        q.forEach(function(s) { ws.send(JSON.stringify({ type:'self_report', state:s, phase:'', session_id:sessionId })); });
       }
       return;
     }
@@ -1163,6 +1176,10 @@ function connectWS() {
         window._lastSnapshot = msg;
         updateBandPower(prefix, msg);
         updateTopoMap(prefix, msg);
+        if (msg.sample_rate) {
+          const rateEl = document.getElementById(prefix === 'master' ? 'masterSampleRate' : 'monSampleRate');
+          if (rateEl) rateEl.textContent = msg.sample_rate + ' Hz';
+        }
       }
       if (msg.type === 'phase_sync') {
         updateTimer(prefix, msg);
