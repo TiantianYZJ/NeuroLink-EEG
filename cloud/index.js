@@ -1198,6 +1198,15 @@ console.log('  \u8fd0\u884c\u4e2d: \u8f93\u5165 l \u9000\u51fa\u623f\u95f4 \u00b
 const wss = new WebSocketServer({ server, maxPayload: 1024 * 1024 });
 server.listen(config.WS_PORT);
 
+// 实时采样率广播（2 秒间隔，确保前端定期收到 frame_rate 更新）
+setInterval(() => {
+  rooms.forEach((room, sid) => {
+    if (!room || room.sockets.size === 0) return;
+    const summary = getOccupantSummary(room, sid);
+    broadcast(room, { type: 'room_info', occupants: summary });
+  });
+}, 2000).unref();
+
 // WS 心跳检测（每 30 秒 ping，超时 10 秒终止）
 function heartbeat(ws) {
   if (ws._alive === false) { ws.terminate(); return; }

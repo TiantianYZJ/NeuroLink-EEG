@@ -119,8 +119,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 .band-val{font-size:12px;color:rgba(255,255,255,0.5);margin-left:auto}
 
 /* 指标 */
-.metric-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.metric-row{font-size:14px;color:rgba(255,255,255,0.72);display:flex;align-items:center;gap:4px}
+.metric-list{display:flex;flex-direction:row;gap:8px;margin-top:10px}
+.metric-row{font-size:14px;color:rgba(255,255,255,0.72);display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px 8px;text-align:center}
+.metric-val{font-size:18px;font-weight:500}
 .metric-val{font-size:20px;font-weight:600;color:#fff}
 .hint-icon{font-size:12px;color:#8a8a8f;cursor:help;border:1px solid #8a8a8f;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center}
 .hint-icon:hover{color:#fff;border-color:#fff}
@@ -289,7 +290,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     </div></div>
   </div>
 </div>
-<div class="page-footer">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener">@TiantianYZJ</a> · EEG BCI Platform</div>
 
 <!-- ─── 角色选择弹窗 ─── -->
 <div class="role-popup" id="rolePopup">
@@ -412,9 +412,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="band-row"><span class="band-label">γ</span><span class="band-bar" style="width:15%;background:#7c3aed"></span><span class="band-val" id="band-gamma">0</span></div>
         </div>
         <div class="metric-list" id="masterMetrics">
-          <div class="metric-row">θ/α <span class="metric-val" id="metric-thetaAlpha">—</span><span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></div>
-          <div class="metric-row">熵 <span class="metric-val" id="metric-entropy">—</span><span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></div>
-          <div class="metric-row">负载 <span class="metric-val" id="metric-cognitiveLoad">—</span><span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></div>
+          <div class="metric-row"><span>θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="metric-thetaAlpha">—</span></div>
+          <div class="metric-row"><span>熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="metric-entropy">—</span></div>
+          <div class="metric-row"><span>负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="metric-cognitiveLoad">—</span></div>
         </div>
       </div>
       <div class="card recovery-card" id="masterRecovery" style="display:none">
@@ -497,9 +497,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="band-row"><span class="band-label">γ</span><span class="band-bar" style="width:15%;background:#7c3aed"></span><span class="band-val" id="mon-band-gamma">0</span></div>
         </div>
         <div class="metric-list" id="monitorMetrics">
-          <div class="metric-row">θ/α <span class="metric-val" id="mon-metric-thetaAlpha">—</span><span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></div>
-          <div class="metric-row">熵 <span class="metric-val" id="mon-metric-entropy">—</span><span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></div>
-          <div class="metric-row">负载 <span class="metric-val" id="mon-metric-cognitiveLoad">—</span><span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></div>
+          <div class="metric-row"><span>θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="mon-metric-thetaAlpha">—</span></div>
+          <div class="metric-row"><span>熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="mon-metric-entropy">—</span></div>
+          <div class="metric-row"><span>负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="mon-metric-cognitiveLoad">—</span></div>
         </div>
       </div>
       <div class="card recovery-card" id="monitorRecovery" style="display:none">
@@ -1710,5 +1710,6 @@ initSmoothie('masterWaveform');
 initSmoothie('monitorWaveform');
 connectWS();
 </script>
+<div class="page-footer">Built by <a href="https://github.com/tiantianyzj" target="_blank" rel="noopener">@TiantianYZJ</a> · EEG BCI Platform</div>
 </body>
 </html>
