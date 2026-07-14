@@ -76,50 +76,54 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 .placeholder{text-align:center;padding:80px 0;color:rgba(255,255,255,0.3)}
 
 /* ── 监视面板 ── */
-.dashboard{display:flex;gap:20px;padding:20px 24px;max-width:1280px;margin:0 auto}
+.dashboard{display:flex;gap:16px;padding:16px 24px;max-width:1200px;margin:0 auto}
 .dash-left{width:480px;flex-shrink:0;display:flex;flex-direction:column;gap:16px}
-.dash-right{flex:1;min-width:320px;display:flex;flex-direction:column;gap:16px}
-.card{background:#16181a;border-radius:20px;padding:24px;border:1px solid rgba(255,255,255,0.08);transition:border-color .2s}
-.card-title{font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:12px;font-weight:600}
+.dash-right{flex:1;min-width:300px;display:flex;flex-direction:column;gap:16px}
+.card{background:#16181a;border-radius:20px;padding:20px;border:1px solid rgba(255,255,255,0.08)}
+.card-title{font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
 canvas{display:block;border-radius:12px;width:100%;height:auto}
 .ch-legend{display:flex;gap:12px;font-size:12px;color:rgba(255,255,255,0.6);padding:6px 0}
 .ch-dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;margin-right:2px}
 
 /* 热力图 */
-.topo-container{display:flex;gap:16px;align-items:flex-start}
-.topo-controls{display:flex;flex-direction:column;gap:8px;min-width:80px}
-.topo-band-select{background:#0a0a0a;color:#fff;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 10px;font-size:12px;font-family:inherit;cursor:pointer}
+.topo-container{display:flex;gap:12px;align-items:flex-start}
+.topo-controls{display:flex;flex-direction:column;gap:8px}
+.topo-band-select{background:#0a0a0a;color:#fff;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:6px 10px;font-size:12px;font-family:inherit;cursor:pointer}
 .topo-band-select option{background:#16181a}
 .topo-electrodes{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .elec{font-size:10px;color:rgba(255,255,255,0.5);padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.06);text-align:center}
 
+/* 统计 */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;color:rgba(255,255,255,0.6)}
+.stat-val{color:#fff;float:right}
+
 /* 计时器 */
-.phase-name{font-size:18px;font-weight:500;margin-bottom:4px;letter-spacing:-0.2px}
-.timer-display{font-family:'Inter',system-ui,sans-serif;font-size:56px;font-weight:500;letter-spacing:-2px;line-height:1;margin:4px 0 8px}
+.phase-name{font-size:18px;font-weight:600;margin-bottom:4px}
+.timer-display{font-family:'Inter',system-ui,sans-serif;font-size:64px;font-weight:500;letter-spacing:-2px;line-height:1;margin:8px 0}
 .timer-bar{height:4px;background:rgba(255,255,255,0.08);border-radius:4px;margin:8px 0;overflow:hidden}
 .timer-bar-fill{height:100%;background:#494fdf;border-radius:4px;transition:width 1s linear}
-.btn-row{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
-.auto-toggle{font-size:11px;color:rgba(73,79,223,0.7);cursor:pointer}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.auto-toggle{font-size:12px;color:rgba(73,79,223,0.8);cursor:pointer}
 
 /* 阶段条 */
-.phase-strip{display:flex;gap:8px;margin:12px 0 6px}
-.phase-chip{flex:1;padding:8px 10px;border-radius:10px;font-size:11px;text-align:center;line-height:1.3;color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.04);border:1px solid transparent;transition:all .3s;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}
-.phase-chip.active{background:rgba(73,79,223,0.15);border-color:#494fdf;color:#8b8fff;font-weight:600}
+.phase-strip{display:flex;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)}
+.phase-chip{flex:1;padding:5px 6px;border-radius:8px;font-size:10px;text-align:center;line-height:1.2;color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.04);transition:all .3s;min-width:0;overflow:hidden}
+.phase-chip.active{background:rgba(73,79,223,0.2);color:#494fdf}
 .phase-chip.past{color:rgba(255,255,255,0.15)}
 
 /* 频带条 */
-.band-list{display:flex;flex-direction:column;gap:8px}
-.band-row{display:flex;align-items:center;gap:10px;font-size:13px}
-.band-label{width:18px;font-weight:600;color:rgba(255,255,255,0.55)}
-.band-bar{height:14px;border-radius:7px;transition:width .5s;min-width:4px}
-.band-val{font-size:12px;color:rgba(255,255,255,0.45);margin-left:auto;font-variant-numeric:tabular-nums}
+.band-list{display:flex;flex-direction:column;gap:6px}
+.band-row{display:flex;align-items:center;gap:8px;font-size:13px}
+.band-label{width:16px;font-weight:600;color:rgba(255,255,255,0.6)}
+.band-bar{height:16px;border-radius:8px;transition:width .5s;min-width:4px}
+.band-val{font-size:12px;color:rgba(255,255,255,0.5);margin-left:auto}
 
-/* 指标卡片（水平 flex） */
-.metric-list{display:flex;flex-direction:row;gap:10px;margin-top:12px}
-.metric-row{flex:1;background:rgba(255,255,255,0.04);border-radius:12px;padding:14px 10px;text-align:center;display:flex;flex-direction:column;gap:4px}
-.metric-row .metric-label{font-size:12px;color:rgba(255,255,255,0.5)}
-.metric-val{font-size:22px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums}
-.hint-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;font-size:9px;color:#8a8a8f;border:1px solid #8a8a8f;cursor:help;vertical-align:middle;margin-left:2px}
+/* 指标 */
+.metric-list{display:flex;flex-direction:row;gap:8px;margin-top:10px}
+.metric-row{font-size:14px;color:rgba(255,255,255,0.72);display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px 8px;text-align:center}
+.metric-val{font-size:18px;font-weight:500}
+.metric-val{font-size:20px;font-weight:600;color:#fff}
+.hint-icon{font-size:12px;color:#8a8a8f;cursor:help;border:1px solid #8a8a8f;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center}
 .hint-icon:hover{color:#fff;border-color:#fff}
 
 /* 时间线 */
@@ -173,35 +177,34 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 .fss-submit-row{display:flex;gap:12px;margin-top:24px;justify-content:flex-end}
 
 /* ── 控制台面板 ── */
-/* ── 控制台面板（Revolut 设计语言） ── */
-.console-wrap{max-width:1040px;margin:0 auto;padding:24px}
-.console-section{margin-bottom:28px}
-.console-section-title{font-size:11px;font-weight:600;margin-bottom:14px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.5px}
-.console-card{background:#16181a;border-radius:20px;padding:24px;border:1px solid rgba(255,255,255,0.08);margin-bottom:16px}
+.console-wrap{max-width:960px;margin:0 auto;padding:24px}
+.console-section{margin-bottom:24px}
+.console-section-title{font-size:14px;font-weight:600;margin-bottom:12px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1px}
+.console-card{background:#16181a;border-radius:20px;padding:20px;border:1px solid rgba(255,255,255,0.08);margin-bottom:16px}
 .console-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
-.console-field{flex:1;min-width:170px}
-.console-field label{display:block;font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
-.console-field input,.console-field select,.console-field textarea{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:14px;padding:10px 14px;font-family:inherit;outline:none;transition:border-color .2s}
-.console-field input:focus,.console-field select:focus,.console-field textarea:focus{border-color:#494fdf;box-shadow:0 0 0 2px rgba(73,79,223,0.15)}
+.console-field{flex:1;min-width:160px}
+.console-field label{display:block;font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
+.console-field input,.console-field select,.console-field textarea{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:14px;padding:10px 14px;font-family:inherit;outline:none;transition:border-color .15s}
+.console-field input:focus,.console-field select:focus,.console-field textarea:focus{border-color:#494fdf}
 .console-field textarea{resize:vertical;min-height:60px}
 .console-field select option{background:#16181a;color:#fff}
-.console-table-wrap{overflow-x:auto;border-radius:12px;background:#0a0a0a}
+.console-table-wrap{overflow-x:auto}
 .console-table{width:100%;border-collapse:collapse;font-size:13px}
-.console-table th{text-align:left;padding:12px 14px;color:rgba(255,255,255,0.35);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06)}
-.console-table td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.65)}
-.console-table tbody tr:hover td{background:rgba(255,255,255,0.03)}
-.status-badge{display:inline-block;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600}
+.console-table th{text-align:left;padding:10px 12px;color:rgba(255,255,255,0.4);font-weight:400;font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.console-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.7)}
+.console-table tr:hover td{background:rgba(255,255,255,0.03)}
+.status-badge{padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600}
 .status-badge.pending{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4)}
-.status-badge.running{background:rgba(73,79,223,0.2);color:#8b8fff}
-.status-badge.completed{background:rgba(74,222,128,0.12);color:#4ade80}
+.status-badge.running{background:rgba(73,79,223,0.2);color:#494fdf}
+.status-badge.completed{background:rgba(74,222,128,0.15);color:#4ade80}
 .template-grid{display:flex;gap:12px;flex-wrap:wrap}
-.template-card{padding:16px 20px;border-radius:16px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.08);cursor:pointer;text-align:center;transition:all .15s;min-width:140px;flex:1}
+.template-card{padding:14px 20px;border-radius:20px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.08);cursor:pointer;text-align:center;transition:all .15s;min-width:140px;flex:1}
 .template-card:hover{border-color:rgba(255,255,255,0.2)}
 .template-card.selected{border-color:#494fdf;background:rgba(73,79,223,0.1)}
-.template-card h4{font-size:14px;font-weight:600;margin-bottom:4px}
-.template-card p{font-size:11px;color:rgba(255,255,255,0.35)}
-.console-empty{text-align:center;padding:48px 0;color:rgba(255,255,255,0.18);font-size:14px}
-.console-btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.template-card h4{font-size:14px;font-weight:600;margin-bottom:2px}
+.template-card p{font-size:11px;color:rgba(255,255,255,0.4)}
+.console-empty{text-align:center;padding:40px 0;color:rgba(255,255,255,0.2);font-size:14px}
+.console-btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 
 /* ── 房间锁蒙版 ── */
 .room-lock-overlay{position:fixed;inset:0;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px}
@@ -343,7 +346,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
     <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 上传监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="masterStatus">已连接</span>
-    <span style="font-size:12px;color:rgba(73,79,223,0.6);font-weight:600;margin-left:12px" id="masterFPS"></span>
   </div>
   <div class="dashboard">
     <div class="dash-left">
@@ -367,7 +369,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
               <option value="beta">β 13-32Hz</option>
               <option value="gamma">γ 32-100Hz</option>
             </select>
-            <div class="topo-legend"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
             <div class="topo-electrodes">
               <span class="elec elec-fp1">Fp1</span>
               <span class="elec elec-fp2">Fp2</span>
@@ -384,7 +385,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
         <div class="phase-name" id="masterPhaseName">准备阶段</div>
         <div class="timer-display" id="masterTimer">05:00</div>
         <div class="timer-bar"><div class="timer-bar-fill" id="masterTimerFill" style="width:100%"></div></div>
-        <div class="phase-strip" id="masterPhaseStrip"></div>
         <div class="btn-row">
           <button class="btn btn-primary btn-small" id="masterBtnStart" onclick="sendCmd('start')">开始</button>
           <button class="btn btn-outline btn-small" id="masterBtnPause" onclick="sendCmd('pause')">暂停</button>
@@ -392,6 +392,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <button class="btn btn-outline btn-small" onclick="sendCmd('reset')">重置</button>
         </div>
         <div class="auto-toggle" id="masterAuto">自动模式 ●</div>
+        <div class="phase-strip" id="masterPhaseStrip"></div>
       </div>
       <div class="card">
         <div class="card-title">频带功率</div>
@@ -403,9 +404,17 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="band-row"><span class="band-label">γ</span><span class="band-bar" style="width:15%;background:#7c3aed"></span><span class="band-val" id="band-gamma">0</span></div>
         </div>
         <div class="metric-list" id="masterMetrics">
-          <div class="metric-row"><span class="metric-label">θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="metric-thetaAlpha">—</span></div>
-          <div class="metric-row"><span class="metric-label">熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="metric-entropy">—</span></div>
-          <div class="metric-row"><span class="metric-label">负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="metric-cognitiveLoad">—</span></div>
+          <div class="metric-row"><span>θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="metric-thetaAlpha">—</span></div>
+          <div class="metric-row"><span>熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="metric-entropy">—</span></div>
+          <div class="metric-row"><span>负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="metric-cognitiveLoad">—</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">系统状态</div>
+        <div class="stat-grid">
+          <div>采样率 <span class="stat-val" id="masterSampleRate">—</span></div>
+          <div>数据包 <span class="stat-val" id="masterPacketCount">0</span></div>
+          <div>窗口 <span class="stat-val" id="masterWindow">4.0 s</span></div>
         </div>
       </div>
       <div class="card recovery-card" id="masterRecovery" style="display:none">
@@ -423,7 +432,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
     <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 纯监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="monitorStatus">已连接</span>
-    <span style="font-size:12px;color:rgba(73,79,223,0.6);font-weight:600;margin-left:12px" id="monitorFPS"></span>
   </div>
   <div class="dashboard">
     <div class="dash-left">
@@ -447,7 +455,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
               <option value="beta">β 13-32Hz</option>
               <option value="gamma">γ 32-100Hz</option>
             </select>
-            <div class="topo-legend"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
             <div class="topo-electrodes">
               <span class="elec elec-fp1">Fp1</span>
               <span class="elec elec-fp2">Fp2</span>
@@ -464,7 +471,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
         <div class="phase-name" id="monitorPhaseName">准备阶段</div>
         <div class="timer-display" id="monitorTimer">05:00</div>
         <div class="timer-bar"><div class="timer-bar-fill" id="monitorTimerFill" style="width:100%"></div></div>
-        <div class="phase-strip" id="monitorPhaseStrip"></div>
         <div class="btn-row">
           <button class="btn btn-primary btn-small" id="monitorBtnStart" onclick="sendCmd('start')">开始</button>
           <button class="btn btn-outline btn-small" id="monitorBtnPause" onclick="sendCmd('pause')">暂停</button>
@@ -472,6 +478,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <button class="btn btn-outline btn-small" onclick="sendCmd('reset')">重置</button>
         </div>
         <div class="auto-toggle" id="monitorAuto">自动模式 ●</div>
+        <div class="phase-strip" id="monitorPhaseStrip"></div>
       </div>
       <div class="card">
         <div class="card-title">频带功率</div>
@@ -483,9 +490,16 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
           <div class="band-row"><span class="band-label">γ</span><span class="band-bar" style="width:15%;background:#7c3aed"></span><span class="band-val" id="mon-band-gamma">0</span></div>
         </div>
         <div class="metric-list" id="monitorMetrics">
-          <div class="metric-row"><span class="metric-label">θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="mon-metric-thetaAlpha">—</span></div>
-          <div class="metric-row"><span class="metric-label">熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="mon-metric-entropy">—</span></div>
-          <div class="metric-row"><span class="metric-label">负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="mon-metric-cognitiveLoad">—</span></div>
+          <div class="metric-row"><span>θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="mon-metric-thetaAlpha">—</span></div>
+          <div class="metric-row"><span>熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="mon-metric-entropy">—</span></div>
+          <div class="metric-row"><span>负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="mon-metric-cognitiveLoad">—</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">系统状态</div>
+        <div class="stat-grid">
+          <div>采样率 <span class="stat-val" id="monSampleRate">&#8212;</span></div>
+          <div>数据包 <span class="stat-val" id="monPacketCount">0</span></div>
         </div>
       </div>
       <div class="card recovery-card" id="monitorRecovery" style="display:none">
@@ -760,76 +774,65 @@ function renderTopoMap(canvas, grid) {
 const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
 const eegCharts = {};
 var frontendFrameCount = 0;
-var lastKnownRate = 0;
 
 function initEEGChart(id) {
   var canvas = document.getElementById(id);
-  if (!canvas) { console.warn('[EEG] canvas not found:', id); return null; }
-  if (typeof Chart === 'undefined') {
-    console.warn('[EEG] Chart.js unavailable for', id, '- retry');
-    return setTimeout(function(){ initEEGChart(id); }, 200), null;
-  }
+  if (!canvas || typeof Chart === 'undefined') return null;
+  // Retry if parent isn't visible yet
   var pr = canvas.parentNode;
   if (!pr || pr.clientWidth === 0) {
-    console.log('[EEG] parent hidden for', id, '- retry 200ms');
-    return setTimeout(function(){ initEEGChart(id); }, 200), null;
+    return setTimeout(function(){ initEEGChart(id); }, 100), null;
   }
   canvas.setAttribute('width', Math.floor(pr.clientWidth));
   canvas.setAttribute('height', Math.floor(pr.clientHeight));
   var ctx = canvas.getContext('2d');
-  if (!ctx) { console.warn('[EEG] no 2d context for', id); return null; }
-  console.log('[EEG] creating chart for', id, pr.clientWidth + 'x' + pr.clientHeight);
-  try {
-    var chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [
-          { label: 'Fp1', data: [], borderColor: CH_COLORS[0], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
-          { label: 'Fp2', data: [], borderColor: CH_COLORS[1], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
-          { label: 'C3', data: [], borderColor: CH_COLORS[2], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
-          { label: 'C4', data: [], borderColor: CH_COLORS[3], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
-        ],
+  if (!ctx) return null;
+  var chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Fp1', data: [], borderColor: CH_COLORS[0], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
+        { label: 'Fp2', data: [], borderColor: CH_COLORS[1], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
+        { label: 'C3', data: [], borderColor: CH_COLORS[2], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
+        { label: 'C4', data: [], borderColor: CH_COLORS[3], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: { display: false },
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { display: false },
-          y: { display: false },
-        },
-        elements: { point: { radius: 0 } },
-      },
-    });
-    var pending = [];
-    var running = true;
-    var timer = setInterval(function() {
-      if (!running || pending.length === 0) return;
-      var n = pending.length;
-      for (var p = 0; p < n; p++) {
-        var row = pending[p];
-        chart.data.labels.push(row.idx);
-        for (var c = 0; c < 4; c++) chart.data.datasets[c].data.push(row.ch[c] !== undefined ? row.ch[c] : 0);
-      }
-      pending.length = 0;
-      if (chart.data.labels.length > 600) {
-        var trim = chart.data.labels.length - 500;
-        chart.data.labels.splice(0, trim);
-        for (var c = 0; c < 4; c++) chart.data.datasets[c].data.splice(0, trim);
-      }
-      chart.update('none');
-    }, 33);
-    chart.render();
-    var wrapper = { chart: chart, _idx: 0, push: function(ch) { pending.push({ idx: this._idx++, ch: ch }); frontendFrameCount++; }, destroy: function() { running = false; clearInterval(timer); chart.destroy(); } };
-    eegCharts[id] = wrapper;
-    console.log('[EEG] chart ready:', id);
-    return wrapper;
-  } catch(err) {
-    console.error('[EEG] Chart creation failed:', err);
-    return null;
-  }
+      elements: { point: { radius: 0 } },
+    },
+  });
+  var pending = [];
+  var running = true;
+  var timer = setInterval(function() {
+    if (!running || pending.length === 0) return;
+    var n = pending.length;
+    for (var p = 0; p < n; p++) {
+      var row = pending[p];
+      chart.data.labels.push(row.idx);
+      for (var c = 0; c < 4; c++) chart.data.datasets[c].data.push(row.ch[c] !== undefined ? row.ch[c] : 0);
+    }
+    pending.length = 0;
+    if (chart.data.labels.length > 600) {
+      var trim = chart.data.labels.length - 500;
+      chart.data.labels.splice(0, trim);
+      for (var c = 0; c < 4; c++) chart.data.datasets[c].data.splice(0, trim);
+    }
+    chart.update('none');
+  }, 33);
+  // Force initial render so canvas gets painted immediately
+  chart.render();
+  var wrapper = { chart: chart, _idx: 0, push: function(ch) { pending.push({ idx: this._idx++, ch: ch }); frontendFrameCount++; }, destroy: function() { running = false; clearInterval(timer); chart.destroy(); } };
+  eegCharts[id] = wrapper;
+  return wrapper;
 }
 
 function appendEEGData(chart, channels, ts) {
@@ -837,20 +840,15 @@ function appendEEGData(chart, channels, ts) {
   chart.push(channels);
 }
 
-// 前端采样率计算（1s 滑动窗口，保留上次有效值防闪烁）
-var fsInterval = setInterval(function() {
-  var rate = Math.round(frontendFrameCount * 1000 / 1000);
-  if (rate > 0) lastKnownRate = rate;
-  // 如果连续 3 秒为 0 才显示 0，否则显示最后有效值
-  var displayRate = (rate === 0 && lastKnownRate > 0) ? lastKnownRate : rate;
-  var fpsText = displayRate > 0 ? displayRate + ' Hz' : '—';
-  var fpsDim = rate === 0 && lastKnownRate > 0;
-  var fpsEl1 = document.getElementById('masterFPS');
-  if (fpsEl1) { fpsEl1.textContent = fpsText; fpsEl1.style.opacity = fpsDim ? '0.4' : '1'; }
-  var fpsEl2 = document.getElementById('monitorFPS');
-  if (fpsEl2) { fpsEl2.textContent = fpsText; fpsEl2.style.opacity = fpsDim ? '0.4' : '1'; }
+// 前端独立采样率计算（每 500ms 刷新）
+setInterval(function() {
+  var rate = Math.round(frontendFrameCount * 1000 / 500);
   frontendFrameCount = 0;
-}, 1000);
+  var el1 = document.getElementById('masterSampleRate');
+  if (el1) el1.textContent = rate + ' Hz';
+  var el2 = document.getElementById('monSampleRate');
+  if (el2) el2.textContent = rate + ' Hz';
+}, 500);
 
 // ── 工具 ──
 function getSessionFromURL() {
@@ -937,7 +935,7 @@ function updatePhaseStrip(prefix, phaseSync) {
   const el = document.getElementById(prefix + 'PhaseStrip');
   if (!el) return;
   const allPhases = [
-    { id:'prep', name:'准备阶段' }, { id:'flow1', name:'R1 诱导' }, { id:'switch1', name:'R1 切换' },
+    { id:'prep', name:'准备' }, { id:'flow1', name:'R1 诱导' }, { id:'switch1', name:'R1 切换' },
     { id:'recover1', name:'R1 恢复' }, { id:'rest1', name:'R1 休息' },
     { id:'flow2', name:'R2 诱导' }, { id:'switch2', name:'R2 切换' },
     { id:'recover2', name:'R2 恢复' }, { id:'rest2', name:'R2 休息' },
@@ -1095,15 +1093,7 @@ function refreshRoom() {
     showToast('刷新设备状态', 'success');
   }
 }
-function destroyEEGCharts() {
-  for (var key in eegCharts) {
-    if (eegCharts[key] && eegCharts[key].destroy) eegCharts[key].destroy();
-  }
-  for (var key in eegCharts) delete eegCharts[key];
-}
-
 function goBackToRoom() {
-  destroyEEGCharts();
   closeRolePopup();
   lastRole = null; persistRole(''); roomCode = null;
   try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); localStorage.removeItem('ns_sid'); localStorage.removeItem('ns_nick'); } catch(e) {}
@@ -1258,6 +1248,10 @@ function connectWS() {
         window._lastSnapshot = msg;
         updateBandPower(prefix, msg);
         updateTopoMap(prefix, msg);
+        if (msg.sample_rate) {
+          const rateEl = document.getElementById(prefix === 'master' ? 'masterSampleRate' : 'monSampleRate');
+          if (rateEl) rateEl.textContent = msg.sample_rate + ' Hz';
+        }
       }
       if (msg.type === 'phase_sync') {
         updateTimer(prefix, msg);
