@@ -803,28 +803,44 @@ function parseBinaryPacket(msg) {
   return { sampleNumber, channels };
 }
 
-function parseFloat32Packet(msg) {
+function parseJSONPacket(msg) {
+  try {
+    const text = Buffer.from(msg).toString("utf8").trim();
+    if (text[0] !== "{" && text[0] !== "[") return null;
+    const obj = JSON.parse(text);
+    const raw = obj.data || obj.channels || obj;
+    if (Array.isArray(raw) && raw.length >= chCount) {
+      const channels = raw.slice(0, chCount).map(v => typeof v === "number" ? Math.round(v) : 0);
+      return { sampleNumber: obj.sample || obj.sampleNumber || 0, channels };
+    }
+  } catch (_) {}
+  return null;
+}
+
+function parseFloat32BEPacket(msg) {
   const len = msg.length;
-  if (len < 8) return null;
   const recordBytes = (1 + chCount) * 4;
   if (len < recordBytes) return null;
   const dv = new DataView(msg.buffer, msg.byteOffset, msg.byteLength);
-  const sampleNumber = Math.round(dv.getFloat32(0, true));
+  // Big-endian — OpenBCI GUI uses struct.unpack(">%df", data)
+  const sampleNumber = Math.round(dv.getFloat32(0, false));
   const channels = [];
   for (let i = 0; i < chCount; i++) {
-    const val = dv.getFloat32((1 + i) * 4, true);
-    channels.push(val);
+    channels.push(Math.round(dv.getFloat32((1 + i) * 4, false)));
   }
-  return { sampleNumber, channels: channels.map(v => Math.round(v)) };
+  return { sampleNumber, channels };
 }
 
 function parseOpenBCIPacket(msg) {
+  if (udpFormat === "json") return parseJSONPacket(msg);
+  if (udpFormat === "float32_be") return parseFloat32BEPacket(msg);
   if (udpFormat === "binary") return parseBinaryPacket(msg);
-  if (udpFormat === "float32") return parseFloat32Packet(msg);
-  const bin = parseBinaryPacket(msg);
-  if (bin) { udpFormat = "binary"; console.log("[UDP] detected: binary 0xA0"); return bin; }
-  const f32 = parseFloat32Packet(msg);
-  if (f32) { udpFormat = "float32"; console.log("[UDP] detected: float32"); return f32; }
+  let p = parseJSONPacket(msg);
+  if (p) { udpFormat = "json"; console.log("[UDP] OpenBCI JSON"); return p; }
+  p = parseFloat32BEPacket(msg);
+  if (p) { udpFormat = "float32_be"; console.log("[UDP] float32 big-endian"); return p; }
+  p = parseBinaryPacket(msg);
+  if (p) { udpFormat = "binary"; console.log("[UDP] binary 0xA0"); return p; }
   return null;
 }
 
