@@ -232,7 +232,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <div id="panel-connecting" class="panel active">
   <div class="container" style="padding-top:120px">
     <div class="loader"></div>
-    <div class="brand">⧩ NEUROLINK</div>
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> NEUROLINK</div>
     <div class="subtitle">连接到实验平台...</div>
     <div class="conn-status"><span class="dot"></span><span>正在建立 WebSocket 连接</span></div>
   </div>
@@ -241,7 +241,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <!-- ─── 面板 1: 房间 ─── -->
 <div id="panel-room" class="panel">
   <div class="container" style="padding-top:60px">
-    <div class="brand">⧩ NEUROLINK</div>
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> NEUROLINK</div>
     <div class="subtitle" id="roomSubtitle">创建或加入一个实验房间</div>
     <div class="conn-status"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
     <div style="margin-bottom:16px"><div style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:16px;padding:12px 16px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" onblur="this.style.borderColor=''"></div><div class="role-grid" style="margin-bottom:20px">
@@ -283,7 +283,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <!-- ─── 面板 2: 角色选择 ─── -->
 <div id="panel-role" class="panel">
   <div class="container" style="padding-top:60px">
-    <div class="brand">⧩ NEUROLINK</div>
+    <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> NEUROLINK</div>
     <div class="subtitle" id="roleSubtitle">选择设备角色 · 房间 <span id="roomCodeDisplay" style="color:#494fdf">----</span></div>
     <div class="conn-status"><span class="dot" id="roleDot"></span><span id="roleStatus">已连接</span></div>
     <div class="role-grid">
@@ -329,7 +329,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <div id="panel-master" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
-    <h2>⧩ 上传监视端</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 上传监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="masterStatus">已连接</span>
   </div>
   <div class="dashboard">
@@ -415,7 +415,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <div id="panel-monitor" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
-    <h2>⧩ 纯监视端</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 纯监视端</h2>
     <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4)" id="monitorStatus">已连接</span>
   </div>
   <div class="dashboard">
@@ -493,7 +493,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <div id="panel-subject" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
-    <h2>⧩ 受试者端</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 受试者端</h2>
   </div>
   <div class="subject-wrap">
     <div class="subject-phase" id="subjPhaseLabel">准备阶段</div>
@@ -527,7 +527,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto}
 <div id="panel-console" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()">← 返回</span>
-    <h2>⧩ 实验控制台</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> 实验控制台</h2>
   </div>
   <div class="console-wrap">
     <div class="console-section">
