@@ -890,7 +890,6 @@ function renderTopoMap(canvas, grid) {
 const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
 const eegCharts = {};
 var frontendFrameCount = 0;
-var lastConfigMeta = null;
 var lastAccel = null;
 
 function initEEGChart(id) {
@@ -1927,6 +1926,9 @@ function consoleCreateSession() {
 }
 function consoleCreateAndStart() {
   consoleCreateSession();
+  setTimeout(function() {
+    consoleStartExperiment();
+  }, 500);
 }
 function consoleStartExperiment() {
   const templateSelect = document.getElementById('consoleTemplateSelect');
