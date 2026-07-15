@@ -357,7 +357,9 @@ canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background
     <div class="loader"></div>
     <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> <span style="font-size:12px;color:rgba(255,255,255,0.25);margin:0 4px">by</span> <img src="PEYT-Studio-LOGO.png" style="width:20px;height:20px;border-radius:4px;vertical-align:-4px;margin-right:2px"> <span style="color:rgba(255,255,255,0.5);font-weight:600;font-size:14px">PEYT-Studio</span> <span style="font-size:11px;color:rgba(255,255,255,0.2);margin-left:4px">// @TiantianYZJ</span></div>
     <div class="subtitle">连接到实验平台...</div>
-    <div class="conn-status"><span class="dot"></span><span>正在建立 WebSocket 连接</span></div>
+    <div class="conn-status"><span class="dot"></span><span id="connStatusText">正在建立 WebSocket 连接</span></div>
+    <button id="connRetryBtn" style="display:none;margin-top:20px;padding:10px 32px;background:var(--on-dark);color:var(--canvas-dark);border:none;border-radius:var(--r-md);font-size:14px;font-weight:600;cursor:pointer" onclick="connectWS();this.style.display='none';document.getElementById('connTimeoutMsg').style.display='none'">重试连接</button>
+    <div id="connTimeoutMsg" style="display:none;margin-top:12px;font-size:12px;color:var(--on-dark-faint);max-width:360px;line-height:1.5">无法连接到服务器。请确认服务器已启动，或检查网络连接。</div>
   </div>
 </div>
 
@@ -1500,8 +1502,10 @@ function goBackToRoom() {
   deviceList = [];
   try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); localStorage.removeItem('ns_sid'); localStorage.removeItem('ns_nick'); } catch(e) {}
   if (ws && ws.readyState === 1) {
-    wsSend({ type: 'release_role', session_id: sessionId });
+    wsSend({ type: 'leave_room', session_id: sessionId });
   }
+  // 生成新 sessionId 避免刷新后回到旧房间
+  sessionId = genId();
   switchPanel('panel-room');
 }
 function copyRoomUrl() {
@@ -1528,9 +1532,22 @@ function connectWS() {
   if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
   // 关闭旧连接
   if (ws) { try { ws.onclose = null; ws.onerror = null; ws.close(); } catch(e){} }
+  // 连接超时检测：8 秒未连接成功则显示重试按钮
+  if (window._connTimer) clearTimeout(window._connTimer);
+  window._connTimer = setTimeout(() => {
+    const st = document.getElementById('connStatusText');
+    const btn = document.getElementById('connRetryBtn');
+    const msg = document.getElementById('connTimeoutMsg');
+    if (st && (!ws || ws.readyState !== 1)) {
+      st.textContent = '连接超时';
+      if (btn) btn.style.display = '';
+      if (msg) msg.style.display = '';
+    }
+  }, 8000);
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
     wsReconnectAttempts = 0;
+    if (window._connTimer) { clearTimeout(window._connTimer); window._connTimer = null; }
     const banner = document.getElementById('offlineBanner'); if (banner) banner.classList.remove('show');
     const rs = document.getElementById('roomStatus'); if (rs) rs.textContent = '已连接';
     const rd = document.getElementById('roomDot'); if (rd) rd.classList.remove('off');
@@ -1728,6 +1745,16 @@ function connectWS() {
     const banner = document.getElementById('offlineBanner'); if (banner) banner.classList.add('show');
     const delay = Math.min(60000, 5000 * Math.pow(2, wsReconnectAttempts++));
     console.log('[WS] reconnecting in ' + Math.round(delay/1000) + 's (attempt ' + wsReconnectAttempts + ')');
+    if (wsReconnectAttempts >= 5) {
+      // 重连 5 次失败后停止自动重连，改用手动
+      const st = document.getElementById('connStatusText');
+      const btn = document.getElementById('connRetryBtn');
+      const msg = document.getElementById('connTimeoutMsg');
+      if (st && document.querySelector('.panel.active')?.id === 'panel-connecting') st.textContent = '无法连接';
+      if (btn) btn.style.display = '';
+      if (msg) msg.style.display = '';
+      return;
+    }
     const rs = document.getElementById('roomStatus'); if (rs) rs.textContent = '重连中...';
     const rd = document.getElementById('roomDot'); if (rd) rd.classList.add('off');
     // BUG4-fix: 断连时 consolePacketCount 显示"断开"，避免仍显示"运行中"误导用户

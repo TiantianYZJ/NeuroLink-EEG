@@ -702,6 +702,8 @@ case 'accel_frame': {
       if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
       room.sockets.delete(ws);
       ws.role = 'pending'; ws.roleLock = null;
+      // 房间空了 → 重置锁和配置，下一个进入的人得到全新房间
+      if (room.sockets.size === 0) { room.locked = true; room.config = null; }
       broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sessionId) });
       ws.send(JSON.stringify({ type: 'room_left' }));
       break;
