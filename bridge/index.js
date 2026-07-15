@@ -279,7 +279,7 @@ udpServer.on('listening', () => {
 });
 
 // ── 1b. 加速度计 ──
-const ACCEL_PORT = parseInt(process.env.ACCEL_UDP_PORT || '12346', 10);
+const ACCEL_PORT = parseInt(process.env.ACCEL_UDP_PORT || '12347', 10);
 const accelServer = dgram.createSocket('udp4');
 accelServer.on('message', (msg) => {
   try {
