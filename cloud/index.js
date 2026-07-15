@@ -608,6 +608,15 @@ case 'accel_frame': {
       break;
     }
 
+    case 'update_config_meta': {
+      // 广播配置元数据（模板名、受试者名）给所有客户端
+      if (msg.config) {
+        room.config = { ...(room.config || {}), ...msg.config };
+        broadcast(room, { type: 'update_config_meta', config: msg.config });
+      }
+      break;
+    }
+
     case 'leave_room': {
       if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
       if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) { r.sockets.delete(ws); ws.role = 'pending'; ws.roleLock = null; } }
