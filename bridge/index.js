@@ -349,17 +349,21 @@ accelServer.bind(ACCEL_PORT, () => {
 
 // ── 2. 本地 WebSocket ──
 let localWss;
-try {
-  // W12: 显式绑定 127.0.0.1，避免 0.0.0.0 暴露无鉴权
-  localWss = new WebSocket.Server({ host: '127.0.0.1', port: config.LOCAL_WS_PORT });
-} catch (err) {
+// W12: 显式绑定 127.0.0.1，避免 0.0.0.0 暴露无鉴权
+// EADDRINUSE-fix: WebSocket.Server 的 listen 是异步的，try/catch 无法捕获；必须用 error 事件
+localWss = new WebSocket.Server({ host: '127.0.0.1', port: config.LOCAL_WS_PORT });
+localWss.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    LOG.err('▸ 本地WS', '端口 ' + C.yellow + config.LOCAL_WS_PORT + R + ' 被占用');
-    console.log('  ' + C.dim + '  Windows: taskkill /F /IM node.exe' + R);
+    LOG.err('▸ FATAL', '本地WS端口 ' + C.yellow + config.LOCAL_WS_PORT + R + ' 被占用');
+    console.log('  ' + C.dim + '  请关闭其他正在运行的桥接程序，或执行:' + R);
+    console.log('  ' + C.yellow + '  taskkill /F /IM node.exe' + R);
+    console.log('  ' + C.dim + '  然后重新启动桥接。' + R);
+    process.exit(1);
+  } else {
+    LOG.err('▸ 本地WS', err.message);
     process.exit(1);
   }
-  throw err;
-}
+});
 localWss.on('connection', (ws) => {
   ws.send(JSON.stringify({
     type: 'status',
