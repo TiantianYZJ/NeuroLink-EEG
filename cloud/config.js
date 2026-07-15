@@ -11,8 +11,8 @@ if (!DB_PASS && process.env.NODE_ENV === 'production') {
 module.exports = {
   WS_PORT: parseInt(process.env.WS_PORT || '8080', 10),
 
-  // EEG 采样率（统一在此管理，metrics.js 引用）
-  EEG_SAMPLE_RATE: parseInt(process.env.EEG_SAMPLE_RATE || '120', 10),
+  // EEG 采样率（Ganglion = 200Hz，统一在此管理，metrics.js 引用）
+  EEG_SAMPLE_RATE: parseInt(process.env.EEG_SAMPLE_RATE || '200', 10),
 
   DB: {
     host: process.env.DB_HOST || 'localhost',

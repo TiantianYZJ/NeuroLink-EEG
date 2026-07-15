@@ -914,6 +914,23 @@ let roomCreated = false;
 let pendingUrlRoom = null;
 let autoJoinAfterNickname = false;
 let deviceList = [];
+let bridgeWs = null;
+const BRIDGE_WS_URL = 'ws://127.0.0.1:9088';
+
+function connectBridge() {
+  if (bridgeWs) { try { bridgeWs.close(); } catch(e) {} bridgeWs = null; }
+  try {
+    bridgeWs = new WebSocket(BRIDGE_WS_URL);
+    bridgeWs.onopen = () => {
+      // 连上桥接后，如果已有有效 sessionId 则自动同步
+      if (sessionId) {
+        bridgeWs.send(JSON.stringify({ type: 'set_session', session_id: sessionId }));
+      }
+    };
+    bridgeWs.onclose = () => { bridgeWs = null; };
+    bridgeWs.onerror = () => { bridgeWs = null; };
+  } catch(e) { bridgeWs = null; }
+}
 
 // ── WebSocket 安全发送封装:检查 readyState,避免断线时抛 InvalidStateError ──
 function wsSend(obj) {
@@ -1479,7 +1496,7 @@ function refreshRoom() {
 }
 function goBackToRoom() {
   closeRolePopup();
-  lastRole = null; persistRole(''); roomCode = null;
+  currentRole = null; lastRole = null; persistRole(''); roomCode = null;
   deviceList = [];
   try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); localStorage.removeItem('ns_sid'); localStorage.removeItem('ns_nick'); } catch(e) {}
   if (ws && ws.readyState === 1) {
@@ -1495,7 +1512,14 @@ function copyRoomUrl() {
 
 // 向本地桥接 WS 同步房间 sessionId (使桥接与浏览器在同一房间)
 function syncSessionToBridge() {
-  fetch('http://127.0.0.1:9080/sync?sid=' + encodeURIComponent(sessionId), { mode: 'no-cors' }).catch(() => {});
+  // 确保桥接 WS 连接存在，尝试连接并同步 sessionId
+  if (!bridgeWs || bridgeWs.readyState !== 1) connectBridge();
+  // 即使刚建立连接，onopen 回调中也会自动同步（防竞态双重发送不会有害）
+  if (bridgeWs && bridgeWs.readyState === 1) {
+    bridgeWs.send(JSON.stringify({ type: 'set_session', session_id: sessionId }));
+  } else if (bridgeWs && bridgeWs.readyState === 0) {
+    // CONNECTING — 等待 onopen 后自动同步
+  }
 }
 
 // ── WS ──
@@ -1543,6 +1567,8 @@ function connectWS() {
             document.getElementById('nicknameInput')?.focus();
           }
         }
+        // 连接本地桥接（如果有存储的 sessionId）
+        if (sessionId) connectBridge();
         setTimeout(() => checkBridge(function(alive) { updateBridgeStatus(alive); }), 500);
       }
     }, 100);
@@ -1659,7 +1685,8 @@ function connectWS() {
 
       if (msg.type === 'eeg_frame' && msg.channels) {
         window._eegFrameCount = (window._eegFrameCount || 0) + 1;
-        console.log('[EEG] frame#' + window._eegFrameCount, 'seq=' + msg.seq, 'ch=' + JSON.stringify(msg.channels));
+        // rate-limit console.log at 200Hz to avoid flooding devtools
+        if (window._eegFrameCount % 200 === 0) console.log('[EEG] frame#' + window._eegFrameCount, 'seq=' + msg.seq);
         const ch = eegCharts[prefix + 'Waveform'];
         if (ch) appendEEGData(ch, msg.channels, msg.ts || Date.now());
         }
@@ -1831,11 +1858,11 @@ function downloadScript() {
 }
 
 function generateBat() {
-  return '@echo off\r\nchcp 65001 >nul\r\ntitle NeuroLink Bridge\r\necho ========================================\r\necho   NeuroLink OpenBCI Bridge - One-Click Start\r\necho ========================================\r\necho.\r\nset BRIDGE_DIR=%CD%\\neurolink-bridge\r\n:GETROOM\r\nset ROOM_CODE=\r\nset /p ROOM_CODE=请输入四位房间号: \r\nset ROOM_CODE=%ROOM_CODE: =%\r\nif not "%ROOM_CODE%"=="" echo %ROOM_CODE%|findstr /r "^[0-9][0-9][0-9][0-9]$" >nul && goto ROOM_OK\r\necho 房间号必须是 4 位数字，请重新输入\r\ngoto GETROOM\r\n:ROOM_OK\r\necho [OK] 房间号: %ROOM_CODE%\r\necho.\r\ncd /d "%~dp0"\r\nwhere node >nul 2>nul\r\nif errorlevel 1 (\r\n  echo [ERROR] Node.js not found. Install from: https://nodejs.org/\r\n  pause & exit /b 1\r\n)\r\nfor /f "tokens=*" %%i in (\'node -v\') do echo [OK] Node.js %%i\r\necho.\r\nif not exist "%BRIDGE_DIR%\\index.js" goto DOWNLOAD\r\ncd /d "%BRIDGE_DIR%"\r\necho [OK] Bridge module ready\r\ngoto CHECK_PORT\r\n:DOWNLOAD\r\necho [..] Downloading bridge module...\r\nif not exist "%BRIDGE_DIR%" mkdir "%BRIDGE_DIR%"\r\ncd /d "%BRIDGE_DIR%"\r\necho   [1/3] package.json...\r\ncurl.exe -fsL --retry 3 --connect-timeout 15 "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json\r\nif errorlevel 1 goto DL_FAIL\r\necho   [2/3] index.js...\r\ncurl.exe -fsL --retry 3 --connect-timeout 15 "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\r\nif errorlevel 1 goto DL_FAIL\r\necho   [3/3] config.js...\r\ncurl.exe -fsL --retry 3 --connect-timeout 15 "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\r\nif errorlevel 1 goto DL_FAIL\r\necho [OK] Bridge module downloaded\r\necho [..] Installing dependencies...\r\ncall npm install\r\nif errorlevel 1 ( echo [ERROR] npm install failed & pause & exit /b 1 )\r\necho [OK] Dependencies installed\r\ngoto CHECK_PORT\r\n:DL_FAIL\r\necho [ERROR] Download failed. Trying PowerShell fallback...\r\npowershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $b = \'https://eeg.yzjtiantian.cn/api/download/bridge\'; foreach ($f in @(\'package.json\',\'index.js\',\'config.js\')) { Invoke-WebRequest -Uri \"$b/$f\" -OutFile $f -UseBasicParsing; Write-Host \"  [OK] $f\" } } catch { Write-Host \"[ERROR] $_\"; exit 1 }"\r\nif errorlevel 1 ( echo [ERROR] All download methods failed & pause & exit /b 1 )\r\necho [OK] Bridge module downloaded (PowerShell)\r\necho [..] Installing dependencies...\r\ncall npm install\r\nif errorlevel 1 ( echo [ERROR] npm install failed & pause & exit /b 1 )\r\necho [OK] Dependencies installed\r\n:CHECK_PORT\r\nrem 检查端口 9080 是否被占用，若是则自动清理残留进程\r\nset PORT_PID=\r\nfor /f "tokens=5" %%p in ('netstat -ano ^| findstr ":9080" ^| findstr "LISTENING"') do set PORT_PID=%%p\r\nif not "%PORT_PID%"=="" (\r\n  echo [!] 端口 9080 被进程 PID=%PORT_PID% 占用，正在清理...\r\n  taskkill /F /PID %PORT_PID% >nul 2>nul\r\n  if errorlevel 1 ( echo [ERROR] 无法终止进程 %PORT_PID%，请手动执行: taskkill /F /PID %PORT_PID% & pause & exit /b 1 )\r\n  echo [OK] 残留进程已清理\r\n  timeout /t 1 /nobreak >nul\r\n)\r\n:START\r\necho.\r\necho [..] Starting OpenBCI bridge...\r\necho  UDP: 12345 ^| WS: 9080 ^| ECS: eeg.yzjtiantian.cn\r\necho.\r\necho 运行中: 输入 l 退出房间 ^| Ctrl+C 退出桥接\r\necho ----------------------------------------\r\nnode index.js\r\nif errorlevel 1 ( echo. & echo [ERROR] Bridge exited abnormally & pause )\r\n';
+  return '@echo off\r\nchcp 65001 >nul\r\ntitle NeuroLink Bridge\r\necho ========================================\r\necho   NeuroLink OpenBCI Bridge - One-Click Start\r\necho ========================================\r\necho.\r\nset BRIDGE_DIR=%CD%\\neurolink-bridge\r\n:GETROOM\r\nset ROOM_CODE=\r\nset /p ROOM_CODE=请输入四位房间号: \r\nset ROOM_CODE=%ROOM_CODE: =%\r\nif not "%ROOM_CODE%"=="" echo %ROOM_CODE%|findstr /r "^[0-9][0-9][0-9][0-9]$" >nul && goto ROOM_OK\r\necho 房间号必须是 4 位数字，请重新输入\r\ngoto GETROOM\r\n:ROOM_OK\r\necho [OK] 房间号: %ROOM_CODE%\r\necho.\r\ncd /d "%~dp0"\r\nwhere node >nul 2>nul\r\nif errorlevel 1 (\r\n  echo [ERROR] Node.js not found. Install from: https://nodejs.org/\r\n  pause & exit /b 1\r\n)\r\nfor /f "tokens=*" %%i in (\'node -v\') do echo [OK] Node.js %%i\r\necho.\r\nif not exist "%BRIDGE_DIR%\\index.js" goto DOWNLOAD\r\ncd /d "%BRIDGE_DIR%"\r\necho [OK] Bridge module ready\r\ngoto CHECK_PORT\r\n:DOWNLOAD\r\necho [..] Downloading bridge module...\r\nif not exist "%BRIDGE_DIR%" mkdir "%BRIDGE_DIR%"\r\ncd /d "%BRIDGE_DIR%"\r\necho   [1/3] package.json...\r\ncurl.exe -fsL --retry 3 --connect-timeout 15 "https://eeg.yzjtiantian.cn/api/download/bridge/package.json" -o package.json\r\nif errorlevel 1 goto DL_FAIL\r\necho   [2/3] index.js...\r\ncurl.exe -fsL --retry 3 --connect-timeout 15 "https://eeg.yzjtiantian.cn/api/download/bridge/index.js" -o index.js\r\nif errorlevel 1 goto DL_FAIL\r\necho   [3/3] config.js...\r\ncurl.exe -fsL --retry 3 --connect-timeout 15 "https://eeg.yzjtiantian.cn/api/download/bridge/config.js" -o config.js\r\nif errorlevel 1 goto DL_FAIL\r\necho [OK] Bridge module downloaded\r\necho [..] Installing dependencies...\r\ncall npm install\r\nif errorlevel 1 ( echo [ERROR] npm install failed & pause & exit /b 1 )\r\necho [OK] Dependencies installed\r\ngoto CHECK_PORT\r\n:DL_FAIL\r\necho [ERROR] Download failed. Trying PowerShell fallback...\r\npowershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $b = \'https://eeg.yzjtiantian.cn/api/download/bridge\'; foreach ($f in @(\'package.json\',\'index.js\',\'config.js\')) { Invoke-WebRequest -Uri \"$b/$f\" -OutFile $f -UseBasicParsing; Write-Host \"  [OK] $f\" } } catch { Write-Host \"[ERROR] $_\"; exit 1 }"\r\nif errorlevel 1 ( echo [ERROR] All download methods failed & pause & exit /b 1 )\r\necho [OK] Bridge module downloaded (PowerShell)\r\necho [..] Installing dependencies...\r\ncall npm install\r\nif errorlevel 1 ( echo [ERROR] npm install failed & pause & exit /b 1 )\r\necho [OK] Dependencies installed\r\n:CHECK_PORT\r\nrem 检查端口 9088 是否被占用，若是则自动清理残留进程\r\nset PORT_PID=\r\nfor /f "tokens=5" %%p in ('netstat -ano ^| findstr ":9088" ^| findstr "LISTENING"') do set PORT_PID=%%p\r\nif not "%PORT_PID%"=="" (\r\n  echo [!] 端口 9088 被进程 PID=%PORT_PID% 占用，正在清理...\r\n  taskkill /F /PID %PORT_PID% >nul 2>nul\r\n  if errorlevel 1 ( echo [ERROR] 无法终止进程 %PORT_PID%，请手动执行: taskkill /F /PID %PORT_PID% & pause & exit /b 1 )\r\n  echo [OK] 残留进程已清理\r\n  timeout /t 1 /nobreak >nul\r\n)\r\n:START\r\necho.\r\necho [..] Starting OpenBCI bridge...\r\necho  UDP: 12345 ^| WS: 9088 ^| ECS: eeg.yzjtiantian.cn\r\necho.\r\necho 运行中: 输入 l 退出房间 ^| Ctrl+C 退出桥接\r\necho ----------------------------------------\r\nnode index.js\r\nif errorlevel 1 ( echo. & echo [ERROR] Bridge exited abnormally & pause )\r\n';
 }
 
 function generateSh() {
-  return '#!/bin/bash\nSCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\nBRIDGE_DIR="$SCRIPT_DIR/neurolink-bridge"\necho "========================================="\necho "  NeuroLink OpenBCI Bridge - One-Click Start"\necho "========================================="\necho ""\nROOM_CODE="${1:-}"\nwhile [ -z "$ROOM_CODE" ] || ! echo "$ROOM_CODE" | grep -qE "^[0-9]{4}$"; do\n  [ -n "$ROOM_CODE" ] && echo "房间号必须是 4 位数字" || true\n  read -p "请输入四位房间号: " ROOM_CODE\n  ROOM_CODE="$(echo "$ROOM_CODE" | tr -d " ")"\ndone\necho "[OK] 房间号: $ROOM_CODE"\nexport ROOM_CODE\necho ""\nif ! command -v node &> /dev/null; then\n  echo "[ERROR] Node.js not found. Install from: https://nodejs.org/"\n  exit 1\nfi\necho "[OK] Node.js $(node --version)"\necho ""\nif [ ! -f "$BRIDGE_DIR/index.js" ]; then\n  echo "[..] Downloading bridge module..."\n  mkdir -p "$BRIDGE_DIR"\n  cd "$BRIDGE_DIR"\n  DL_URL="https://eeg.yzjtiantian.cn/api/download/bridge"\n  echo "  [1/3] package.json..."\n  curl -fsL --retry 3 --connect-timeout 10 "$DL_URL/package.json" -o package.json || { echo "[ERROR] Failed to download package.json"; exit 1; }\n  echo "  [2/3] index.js..."\n  curl -fsL --retry 3 --connect-timeout 10 "$DL_URL/index.js" -o index.js || { echo "[ERROR] Failed to download index.js"; exit 1; }\n  echo "  [3/3] config.js..."\n  curl -fsL --retry 3 --connect-timeout 10 "$DL_URL/config.js" -o config.js || { echo "[ERROR] Failed to download config.js"; exit 1; }\n  echo "[OK] Bridge module downloaded"\n  echo "[..] Installing dependencies..."\n  npm install || { echo "[ERROR] npm install failed"; exit 1; }\n  echo "[OK] Dependencies installed"\nelse\n  cd "$BRIDGE_DIR"\n  echo "[OK] Bridge module ready"\nfi\necho ""\necho "[..] Starting OpenBCI bridge..."\necho " UDP: 12345 | WS: 9080 | ECS: eeg.yzjtiantian.cn"\necho ""\necho "Press Ctrl+C to stop"\necho "----------------------------------------"\nnode index.js\n';
+  return '#!/bin/bash\nSCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\nBRIDGE_DIR="$SCRIPT_DIR/neurolink-bridge"\necho "========================================="\necho "  NeuroLink OpenBCI Bridge - One-Click Start"\necho "========================================="\necho ""\nROOM_CODE="${1:-}"\nwhile [ -z "$ROOM_CODE" ] || ! echo "$ROOM_CODE" | grep -qE "^[0-9]{4}$"; do\n  [ -n "$ROOM_CODE" ] && echo "房间号必须是 4 位数字" || true\n  read -p "请输入四位房间号: " ROOM_CODE\n  ROOM_CODE="$(echo "$ROOM_CODE" | tr -d " ")"\ndone\necho "[OK] 房间号: $ROOM_CODE"\nexport ROOM_CODE\necho ""\nif ! command -v node &> /dev/null; then\n  echo "[ERROR] Node.js not found. Install from: https://nodejs.org/"\n  exit 1\nfi\necho "[OK] Node.js $(node --version)"\necho ""\nif [ ! -f "$BRIDGE_DIR/index.js" ]; then\n  echo "[..] Downloading bridge module..."\n  mkdir -p "$BRIDGE_DIR"\n  cd "$BRIDGE_DIR"\n  DL_URL="https://eeg.yzjtiantian.cn/api/download/bridge"\n  echo "  [1/3] package.json..."\n  curl -fsL --retry 3 --connect-timeout 10 "$DL_URL/package.json" -o package.json || { echo "[ERROR] Failed to download package.json"; exit 1; }\n  echo "  [2/3] index.js..."\n  curl -fsL --retry 3 --connect-timeout 10 "$DL_URL/index.js" -o index.js || { echo "[ERROR] Failed to download index.js"; exit 1; }\n  echo "  [3/3] config.js..."\n  curl -fsL --retry 3 --connect-timeout 10 "$DL_URL/config.js" -o config.js || { echo "[ERROR] Failed to download config.js"; exit 1; }\n  echo "[OK] Bridge module downloaded"\n  echo "[..] Installing dependencies..."\n  npm install || { echo "[ERROR] npm install failed"; exit 1; }\n  echo "[OK] Dependencies installed"\nelse\n  cd "$BRIDGE_DIR"\n  echo "[OK] Bridge module ready"\nfi\necho ""\necho "[..] Starting OpenBCI bridge..."\necho " UDP: 12345 | WS: 9088 | ECS: eeg.yzjtiantian.cn"\necho ""\necho "Press Ctrl+C to stop"\necho "----------------------------------------"\nnode index.js\n';
 }
 
 function onClaimed(role) {
@@ -2280,7 +2307,7 @@ function renderSessionDetail(data) {
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
   html += '<div><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">房间</span><br><span style="font-size:22px;font-weight:600;color:#fff;letter-spacing:3px">' + roomCodeStr + '</span></div>';
   html += '<div style="text-align:right"><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">状态</span><br><span class="status-badge ' + (s.status || '') + '" style="font-size:13px;padding:4px 14px">' + st + '</span></div>';
-  html += '<div><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">受试者</span><br><span style="color:#fff;font-size:15px;font-weight:500">' + escHtml(s.operator_name || '—') + '</span></div>';
+  html += '<div><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">受试者</span><br><span style="color:#fff;font-size:15px;font-weight:500">' + escHtml(s.subject_name || s.operator_name || '—') + '</span></div>';
   html += '<div><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">记录 ID</span><br><span style="color:rgba(255,255,255,0.5);font-size:12px;font-family:monospace">' + (s.id || '').slice(0,12) + '</span></div>';
   if (s.notes) html += '<div style="grid-column:1/-1"><span style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px">备注</span><br><span style="color:rgba(255,255,255,0.6);font-size:13px">' + escHtml(s.notes) + '</span></div>';
   html += '</div></div>';

@@ -156,10 +156,10 @@ function parseJSONPacket(msg) {
       const allChannels = raw.slice(0, chCount).map(ch =>
         Array.isArray(ch) ? ch.map(v => typeof v === 'number' ? v : 0) : [0]
       );
-      return { sampleNumber: obj.sample || obj.sampleNumber || 0, channels: allChannels };
+      return { sampleNumber: obj.sample ?? obj.sampleNumber ?? 0, channels: allChannels };
     }
     const channels = raw.slice(0, chCount).map(v => typeof v === 'number' ? v : 0);
-    return { sampleNumber: obj.sample || obj.sampleNumber || 0, channels };
+    return { sampleNumber: obj.sample ?? obj.sampleNumber ?? 0, channels };
   } catch (e) { LOG.warn('▸ UDP', 'JSON 解析失败: ' + e.message); }
   return null;
 }
@@ -191,7 +191,7 @@ function parseOpenBCIPacket(msg) {
 }
 
 const frameBroadcast = (parsed) => {
-  const payload = JSON.stringify({ type: 'eeg_frame', seq: parsed.sampleNumber || 0, channels: parsed.channels, unit: frameUnit, ts: Date.now() });
+  const payload = JSON.stringify({ type: 'eeg_frame', seq: parsed.sampleNumber ?? 0, channels: parsed.channels, unit: frameUnit, ts: Date.now() });
   // H4: 背压控制 — 客户端缓冲超过 1MB 则跳过该慢客户端
   localWss.clients.forEach(c => { if (c.readyState === 1 && c.bufferedAmount <= 1024 * 1024) c.send(payload); });
   if (ecsWs && ecsWs.readyState === 1 && ecsConnected && ecsWs.bufferedAmount <= 1024 * 1024) ecsWs.send(payload);
@@ -204,7 +204,9 @@ const emitBatch = (parsed) => {
     return;
   }
   const chBatch = parsed.channels;
-  const n = Math.min(chBatch[0] ? chBatch[0].length : 1, 30);
+  const rawLen = chBatch[0] ? chBatch[0].length : 1;
+  if (rawLen > 30 && !global._warnedBatchCap) { global._warnedBatchCap = true; LOG.warn('▸ UDP', '每包样本数 ' + rawLen + ' 超过上限 30，已截断'); }
+  const n = Math.min(rawLen, 30);
   if (n <= 1) {
     // W14: n<=1 时嵌套数组需 flatten 为单值数组
     parsed.channels = parsed.channels.map(ch => Array.isArray(ch) ? ch[0] : ch);
@@ -216,7 +218,7 @@ const emitBatch = (parsed) => {
   for (let s = 0; s < n; s++) {
     const sample = chBatch.map(ch => (Array.isArray(ch) && s < ch.length) ? ch[s] : 0);
     // W15: seq 应为 sampleNumber + s（每包内偏移），而非 sampleNumber * n + s
-    const payload = JSON.stringify({ type: 'eeg_frame', seq: parsed.sampleNumber + s || 0, channels: sample, unit: frameUnit, ts: now });
+    const payload = JSON.stringify({ type: 'eeg_frame', seq: (parsed.sampleNumber + s) || 0, channels: sample, unit: frameUnit, ts: now });
     localWss.clients.forEach(c => { if (c.readyState === 1 && c.bufferedAmount <= 1024 * 1024) c.send(payload); });
     if (ecsWs && ecsWs.readyState === 1 && ecsConnected && ecsWs.bufferedAmount <= 1024 * 1024) ecsWs.send(payload);
     frameCount++;
@@ -541,10 +543,10 @@ function connectECS() {
   });
   ws.on('close', () => {
     if (ws._pingTimer) { clearInterval(ws._pingTimer); ws._pingTimer = null; }
+    ecsConnected = false;
     if (ws._reconnectOnClose === false) return;
     // B14: 仅当前 ecsWs 触发重连
     if (ws !== ecsWs) return;
-    ecsConnected = false;
     scheduleReconnect();
   });
   // W11: error 事件改用 terminate 强制断开
@@ -566,8 +568,10 @@ let _leaving = false;
 // B16: stdin 中处理 Ctrl+C（raw mode 下不触发 SIGINT，必须在 data 中处理），用 _leaving flag 防重入
 stdin.on('data', (key) => {
   const k = key.toString().toLowerCase().trim();
-  if (k === 'l' || k === 'leave') {
+  if (!_leaving && (k === 'l' || k === 'leave')) {
+    _leaving = true;
     sendLeaveRoom();
+    setTimeout(() => { _leaving = false; }, 1000);
   } else if (key[0] === 0x03) {
     // Ctrl+C in raw mode — 不触发 SIGINT，需在此处理
     if (!_leaving) {

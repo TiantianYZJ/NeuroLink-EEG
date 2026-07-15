@@ -13,7 +13,6 @@ const config = require('./config');
 const SAMPLE_RATE = config.EEG_SAMPLE_RATE;
 
 // gamma 频带上限需低于 Nyquist 频率 (SAMPLE_RATE/2)，否则产生混叠
-// 120Hz 采样 → Nyquist=60Hz → gamma = 32-59Hz
 const GAMMA_HI = Math.min(100, SAMPLE_RATE / 2 - 1);
 
 const BANDS = [
@@ -27,7 +26,7 @@ const BANDS = [
 // 每个 session 独立缓冲区: sessionId → { buffer: [], lastCompute: 0 }
 const sessions = new Map();
 
-const POOL_SIZE = 256;    // ~2.13s @ 120Hz (频带功率用)
+const POOL_SIZE = Math.round(SAMPLE_RATE * 1.8);  // ~1.8s 窗口 (频带功率用), 随采样率自适应
 const SQ_WINDOW = 32;     // 信号稳定性窗口 (N=32, 文档 §4.5)
 
 function ensureSession(sessionId) {

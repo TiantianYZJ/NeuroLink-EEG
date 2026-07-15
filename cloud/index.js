@@ -118,7 +118,9 @@ function broadcast(room, msg, exclude = null) {
 function broadcastToRoles(room, msg, roles) {
   const payload = typeof msg === 'string' ? msg : JSON.stringify(msg);
   room.sockets.forEach(ws => {
-    try { if (ws.readyState === 1 && roles.includes(ws.role)) ws.send(payload); } catch(e) {}
+    try { if (ws.readyState === 1 && roles.includes(ws.role)) ws.send(payload); } catch(e) {
+      if (e && e.message && e.message !== 'write EPIPE') console.warn('[BROADCAST]', e.message);
+    }
   });
 }
 
@@ -306,7 +308,10 @@ function advancePhase(sessionId, timer, room) {
 function resetTimer(sessionId, timer, room) {
   clearInterval(timer.tickTimer);
   timer.tickTimer = null;
-  // BUG6-fix: 重置 _ticking 标志，避免上一轮 async tick 未完成时新 interval 首次 tick 被错误跳过
+  // BUG2-fix: 确保旧 tick 的 finally 不会覆盖新 _ticking 状态
+  // 使用计数器而非 boolean 让旧 tick 的 finally 自减不影响新 tick
+  if (typeof timer._tickGen === 'undefined') timer._tickGen = 0;
+  timer._tickGen++;
   timer._ticking = false;
   timer.phaseIndex = 0; timer.timeLeft = timer.phases[0].duration;
   timer.timeInPhase = 0; timer.running = false; timer.completed = false;
@@ -334,6 +339,7 @@ function startTick(sessionId, timer, room) {
     // B7: 重叠守卫，避免上一轮 async 未完成时下一轮进入
     if (timer._ticking) return;
     timer._ticking = true;
+    const thisGen = timer._tickGen || 0;
     try {
       const room = rooms.get(sessionId);
       if (!room) { clearInterval(timer.tickTimer); return; }
@@ -352,14 +358,23 @@ function startTick(sessionId, timer, room) {
         timer.timeInPhase++;
 
         // S3: metrics 失败时 snapshot 为 null，不传给 baseline 避免 undefined 污染
-        const msgs = await baseline.tick(sessionId, phase.id, timer.timeInPhase, snapshot || null);
-        for (const m of msgs) {
-          if (m.type === 'marker') {
-            persistMarker(sessionId, m);
-            broadcast(room, m);
-            sendMarkerUDP(room, m);
-          } else {
-            broadcastToRoles(room, m, ['master', 'monitor']);
+        let baselineFailed = false;
+        let msgs = [];
+        try {
+          msgs = await baseline.tick(sessionId, phase.id, timer.timeInPhase, snapshot || null) || [];
+        } catch (e) {
+          baselineFailed = true;
+          console.warn('[BASELINE] tick failed:', e.message);
+        }
+        if (!baselineFailed) {
+          for (const m of msgs) {
+            if (m.type === 'marker') {
+              persistMarker(sessionId, m);
+              broadcast(room, m);
+              sendMarkerUDP(room, m);
+            } else {
+              broadcastToRoles(room, m, ['master', 'monitor']);
+            }
           }
         }
 
@@ -387,7 +402,8 @@ function startTick(sessionId, timer, room) {
 
       broadcastSync(sessionId, timer, room);
     } finally {
-      timer._ticking = false;
+      // BUG2-fix: 仅当 generation 未变时才重置 _ticking，避免 resetTimer 后旧 async tick 覆盖新状态
+      if ((timer._tickGen || 0) === thisGen) timer._ticking = false;
     }
   }, 1000);
 }
@@ -402,7 +418,7 @@ function sendMarkerUDP(room, markerMsg) {
   try {
     const buf = Buffer.alloc(4);
     buf.writeFloatBE(markerMsg.code || 0);
-    udpSock.send(buf, 0, 4, parseInt(port), host);
+    udpSock.send(buf, 0, 4, parseInt(port, 10), host);
   } catch (_) {}
 }
 
@@ -534,8 +550,8 @@ function handleMessage(ws, raw, room, sessionId) {
         case 'eeg_frame': {
       if (ws.role !== 'master' && !ws._bridge) return;
       if (!ws._bridge) {
-        const hasBridge = Array.from(room.sockets).some(s => s._bridge);
-        if (hasBridge) return;
+        const hasAliveBridge = Array.from(room.sockets).some(s => s._bridge && (s.readyState === 1 || s.readyState === 2));
+        if (hasAliveBridge) return;
       }
       frameRateTracker.count(ws.sessionId || sessionId);
       metrics.pushFrame(msg, ws.sessionId || sessionId);
@@ -566,6 +582,7 @@ case 'accel_frame': {
       }
       switch (msg.action) {
         case 'start': {
+          if (timer.running) break; // BUG7-fix: 防止重复 start 产生冗余 phase_start marker
           timer.running = true;
           const sp = getCurrentPhase(timer);
           const m = { type: 'marker', code: 1, source: 'auto', label: 'phase_start:' + sp.id, phase: sp.id, ts: now };
@@ -677,8 +694,15 @@ case 'accel_frame': {
     }
 
     case 'leave_room': {
+      const occ = room.occupants;
+      if (ws.roleLock === 'master' && occ.master === ws) occ.master = null;
+      else if (ws.roleLock === 'subject' && occ.subject === ws) occ.subject = null;
+      else if (ws.roleLock === 'console') occ.console = occ.console.filter(s => s !== ws);
+      else if (ws.roleLock === 'monitor') occ.monitor = occ.monitor.filter(s => s !== ws);
       if (ws.roleLock) unlockRole(sessionId, ws.roleLock);
-      if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) { r.sockets.delete(ws); ws.role = 'pending'; ws.roleLock = null; } }
+      room.sockets.delete(ws);
+      ws.role = 'pending'; ws.roleLock = null;
+      broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sessionId) });
       ws.send(JSON.stringify({ type: 'room_left' }));
       break;
     }
@@ -717,6 +741,8 @@ case 'accel_frame': {
         clearInterval(t.tickTimer);
         timers.delete(sessionId);
       }
+      metrics.cleanup(sessionId);
+      baseline.cleanup(sessionId);
       initTimer(sessionId, msg.template_type);
       startTick(sessionId, timers.get(sessionId), room);
       ws.send(JSON.stringify({ type: 'experiment_started' }));
@@ -970,18 +996,18 @@ setInterval(() => {
 
 // WS 心跳检测（每 30 秒 ping，超时 30 秒(一个 ping 周期)终止）
 function heartbeat(ws) {
-  // W2: 用 close 发送关闭帧，而非 terminate 强断
-  if (ws._alive === false) { ws.close(1011, 'heartbeat timeout'); return; }
-  ws._alive = false;
-  ws.ping();
+  // BUG8-fix: 使用 _pendingPong 单周期检测，避免两个周期间的 pong 竞态
+  if (ws._pendingPong) { ws.close(1011, 'heartbeat timeout'); return; }
+  ws._pendingPong = true;
+  try { ws.ping(); } catch (_) { ws._pendingPong = false; }
 }
 const hbTimer = setInterval(() => wss.clients.forEach(heartbeat), 30000).unref();
 wss.on('connection', (ws, req) => {
-  ws._alive = true;
+  ws._pendingPong = false;
   ws.role = 'pending';
   ws.sessionId = null;
   ws.roleLock = null;
-  ws.on('pong', () => { ws._alive = true; });
+  ws.on('pong', () => { ws._pendingPong = false; });
 
   // W4: 根据 isBinary 分别处理；二进制走 accel_frame 转发，文本走 JSON.parse
   ws.on('message', (raw, isBinary) => {

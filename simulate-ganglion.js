@@ -215,8 +215,8 @@ eegSock.bind(0, () => {
     let nextEegTime = Date.now();
     eegInterval = setInterval(() => {
       const now = Date.now();
-      // BUG2-fix: 增加 catch-up 上限，系统休眠唤醒后大延迟时重置基准时间避免瞬间发送上千包
-      if (now - nextEegTime > 1000) { nextEegTime = now; }
+      // BUG3-fix: 系统休眠唤醒后大延迟时，回退一帧间隔而非重置到 now，确保 catch-up 发送一次完整批次
+      if (now - nextEegTime > 1000) { nextEegTime = now - INTERVAL; }
       let sent = 0;
       while (now >= nextEegTime && sent < 50) {
         const buf = buildEEGPacket();
@@ -232,8 +232,8 @@ eegSock.bind(0, () => {
     let nextAccelTime = Date.now();
     accelInterval = setInterval(() => {
       const now = Date.now();
-      // BUG2-fix: 同 EEG 定时器
-      if (now - nextAccelTime > 1000) { nextAccelTime = now; }
+      // BUG3-fix: 同 EEG 定时器
+      if (now - nextAccelTime > 1000) { nextAccelTime = now - ACCEL_INTERVAL; }
       let sent = 0;
       while (now >= nextAccelTime && sent < 50) {
         const buf = buildAccelPacket();
