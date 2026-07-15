@@ -9,12 +9,12 @@
  *   --format float32   数据格式: json | float32 | binary (默认 float32)
  *   --rate 200         EEG 采样率 (Hz), 默认 200
  *   --port 12345       EEG UDP 端口, 默认 12345
- *   --accel-port 12346 加速度计 UDP 端口, 默认 12346
+ *   --accel-port 12347 加速度计 UDP 端口, 默认 12347
  *   --host 127.0.0.1   UDP 目标地址, 默认 127.0.0.1
  *   --amp 1000         信号幅值 (µVrms), 默认 1000
  *   --noise 300        噪声水平 (µV), 默认 300
  *   --batch 10         每包样本数 (JSON 模式), 默认 10
- *   --chirp            启用频率扫描
+ *   --chirp true|false 启用频率扫描 (默认 false)
  */
 
 const dgram = require('dgram');
@@ -32,8 +32,8 @@ const R = C.reset;
 
 // ── 协议定义 ──
 const PROTO = {
-  EEG_F32: { code: 0xA0, label: 'EEG float32', port: 12345, color: C.cyan },
-  ACCEL_JSON: { code: 0xA1, label: 'Accel JSON', port: 12346, color: C.pink },
+  EEG_F32: { code: 0xA0, label: 'EEG float32', /* port: 12345 */ color: C.cyan },
+  ACCEL_JSON: { code: 0xA1, label: 'Accel JSON', /* port: 12347 */ color: C.pink },
 };
 
 // ── 解析参数 ──
@@ -42,7 +42,14 @@ const argv = process.argv.slice(2);
 argv.forEach((a, i) => {
   if (a.startsWith('--')) {
     const n = argv[i + 1];
-    args[a.slice(2)] = (n && !n.startsWith('--') ? n : true);
+    // 显式处理 'true'/'false' 字符串，避免 'false' 被当作 truthy
+    let val;
+    if (n && !n.startsWith('--')) {
+      val = (n === 'true' ? true : n === 'false' ? false : n);
+    } else {
+      val = true;
+    }
+    args[a.slice(2)] = val;
   }
 });
 
@@ -54,7 +61,7 @@ const HOST = args.host || '127.0.0.1';
 const AMP = parseFloat(args.amp) || 1000;
 const NOISE = parseFloat(args.noise) || 300;
 const BATCH = parseInt(args.batch, 10) || 10;
-const CHIRP = args.chirp !== undefined && args.chirp !== false;
+const CHIRP = args.chirp === true;
 
 const INTERVAL = 1000 / RATE;
 
@@ -107,10 +114,10 @@ function buildFloat32Packet() {
   return buf;
 }
 
-// ── Binary 0xA0 包 ──
+// ── Binary 0xA0 包 (末尾追加 0xC0 结束字节) ──
 function buildBinaryPacket() {
   const vals = genSample();
-  const buf = Buffer.alloc(5 + 4 * 3);
+  const buf = Buffer.alloc(5 + 4 * 3 + 1); // 头 4B + 4ch*3B + 0xC0 结束字节
   buf[0] = 0xA0;
   const seq = sampleIdx++;
   buf[1] = seq & 0xFF; buf[2] = (seq >> 8) & 0xFF; buf[3] = (seq >> 16) & 0xFF;
@@ -121,6 +128,7 @@ function buildBinaryPacket() {
     buf[off] = v & 0xFF; buf[off+1] = (v >> 8) & 0xFF; buf[off+2] = (v >> 16) & 0xFF;
     off += 3;
   }
+  buf[off] = 0xC0; // 结束字节
   return buf;
 }
 
@@ -194,32 +202,63 @@ console.log(`  ${C.gray}${C.dim}  通道: Fp1 α·β | Fp2 α·β·γ | C3 μ/δ
 if (CHIRP) console.log(`  ${C.gray}${C.dim}  扫描: ${CHIRP ? '3→45Hz 频率扫描' : '稳态节律'}${R}`);
 
 // ── 启动 ──
+// 保存 interval 引用，便于 SIGINT 时清理
+let eegInterval = null;
+let accelInterval = null;
+let statsInterval = null;
+
 eegSock.bind(0, () => {
   accelSock.bind(0, () => {
     console.log(`  ${C.gray}UDP 发送端就绪, 按 Ctrl+C 停止${R}\n`);
 
-    // EEG 定时器
-    setInterval(() => {
-      const buf = buildEEGPacket();
-      eegSock.send(buf, EEG_PORT, HOST);
-      eegPacketCount++;
-    }, INTERVAL);
+    // EEG 定时器 — 基于 Date.now() 的补偿式调度，避免 setInterval 截断浮点 INTERVAL 导致采样率偏差
+    let nextEegTime = Date.now();
+    eegInterval = setInterval(() => {
+      const now = Date.now();
+      // BUG2-fix: 增加 catch-up 上限，系统休眠唤醒后大延迟时重置基准时间避免瞬间发送上千包
+      if (now - nextEegTime > 1000) { nextEegTime = now; }
+      let sent = 0;
+      while (now >= nextEegTime && sent < 50) {
+        const buf = buildEEGPacket();
+        eegSock.send(buf, EEG_PORT, HOST);
+        eegPacketCount++;
+        nextEegTime += INTERVAL;
+        sent++;
+      }
+    }, 1);
 
-    // 加速度计定时器 (50Hz)
-    setInterval(() => {
-      const buf = buildAccelPacket();
-      accelSock.send(buf, ACCEL_PORT, HOST);
-      accelPacketCount++;
-    }, 1000 / ACCEL_RATE);
+    // 加速度计定时器 (50Hz) — 同样使用补偿式调度
+    const ACCEL_INTERVAL = 1000 / ACCEL_RATE;
+    let nextAccelTime = Date.now();
+    accelInterval = setInterval(() => {
+      const now = Date.now();
+      // BUG2-fix: 同 EEG 定时器
+      if (now - nextAccelTime > 1000) { nextAccelTime = now; }
+      let sent = 0;
+      while (now >= nextAccelTime && sent < 50) {
+        const buf = buildAccelPacket();
+        accelSock.send(buf, ACCEL_PORT, HOST);
+        accelPacketCount++;
+        nextAccelTime += ACCEL_INTERVAL;
+        sent++;
+      }
+    }, 1);
 
     // 统计
-    setInterval(printStats, 5000);
+    statsInterval = setInterval(printStats, 5000);
   });
 });
 
+let _shuttingDown = false;
 process.on('SIGINT', () => {
+  if (_shuttingDown) return;
+  _shuttingDown = true;
   console.log(`\n  ${C.cyan}${C.bold}✦${R} ${C.gray}模拟器已停止${R}\n`);
-  eegSock.close();
-  accelSock.close();
-  process.exit(0);
+  if (eegInterval) clearInterval(eegInterval);
+  if (accelInterval) clearInterval(accelInterval);
+  if (statsInterval) clearInterval(statsInterval);
+  try { eegSock.close(); } catch (e) {}
+  try { accelSock.close(); } catch (e) {}
+  // 等 close 完成后再退出
+  setTimeout(() => process.exit(0), 500);
 });

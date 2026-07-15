@@ -137,7 +137,7 @@ function getOccupantSummary(room, sessionId) {
   // Collect all bridge sockets from room
   const bridgeSockets = Array.from(room.sockets).filter(s => s._bridge && alive(s));
   return {
-    frame_rate: sessionId ? frameRateTracker.getRate(sessionId) : 0,
+    frame_rate: room._lastFrameRate || 0,
     master: !!(room.occupants.master && !room.occupants.master._bridge),
     locked: room.locked !== false,
     hasConsole: room.occupants.console.filter(alive).length > 0,
@@ -174,6 +174,37 @@ function lockRole(sessionId, role, ms) {
 function unlockRole(sessionId, role) {
   const locks = roleLocks.get(sessionId);
   if (locks) delete locks[role];
+}
+
+// 角色锁时长带随机抖动（27.5s-32.5s），避免多客户端同时抢占（W6）
+function lockRoleWithJitter(sessionId, role) {
+  const ms = 30000 + Math.floor(Math.random() * 5000) - 2500;
+  lockRole(sessionId, role, ms);
+}
+
+// ── Marker 持久化辅助（S6: 统一所有 marker 产生点的 INSERT） ──
+function persistMarker(sessionId, msg) {
+  if (!msg || msg.type !== 'marker') return;
+  db.query(
+    'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
+    [sessionId, msg.code || 0, msg.source || 'auto', msg.label || '', msg.phase || '', msg.ts || Date.now()]
+  ).catch(e => console.warn('[DB] marker persist failed:', e.message));
+}
+
+// ── 从房间移除 socket（清 sockets + occupants 槽位），用于切房场景（B2） ──
+// BUG2-fix: 同时重置 ws.role/roleLock，避免切房后 close 事件用旧角色锁错房间
+function removeSocketFromRoom(ws, room) {
+  if (!room) return;
+  room.sockets.delete(ws);
+  const lock = ws.roleLock;
+  if (lock === 'master' && room.occupants.master === ws) room.occupants.master = null;
+  if (lock === 'subject' && room.occupants.subject === ws) room.occupants.subject = null;
+  if (lock === 'console') room.occupants.console = room.occupants.console.filter(s => s !== ws);
+  if (lock === 'monitor') room.occupants.monitor = room.occupants.monitor.filter(s => s !== ws);
+  // 释放旧房间角色锁，重置 ws 状态为 pending（与 leave_room 行为一致）
+  if (lock) unlockRole(ws.sessionId, lock);
+  ws.role = 'pending';
+  ws.roleLock = null;
 }
 
 
@@ -275,6 +306,8 @@ function advancePhase(sessionId, timer, room) {
 function resetTimer(sessionId, timer, room) {
   clearInterval(timer.tickTimer);
   timer.tickTimer = null;
+  // BUG6-fix: 重置 _ticking 标志，避免上一轮 async tick 未完成时新 interval 首次 tick 被错误跳过
+  timer._ticking = false;
   timer.phaseIndex = 0; timer.timeLeft = timer.phases[0].duration;
   timer.timeInPhase = 0; timer.running = false; timer.completed = false;
   timer.taskType = timer.phases[0].taskType;
@@ -298,10 +331,14 @@ function broadcastSync(sessionId, timer, room) {
 function startTick(sessionId, timer, room) {
   if (timer.tickTimer) clearInterval(timer.tickTimer);
   timer.tickTimer = setInterval(async () => {
-    const room = rooms.get(sessionId);
-    if (!room) { clearInterval(timer.tickTimer); return; }
+    // B7: 重叠守卫，避免上一轮 async 未完成时下一轮进入
+    if (timer._ticking) return;
+    timer._ticking = true;
+    try {
+      const room = rooms.get(sessionId);
+      if (!room) { clearInterval(timer.tickTimer); return; }
 
-    // 指标计算（不受 timer.running 限制，点"开始"前也能看热力图）
+      // 指标计算（不受 timer.running 限制，点"开始"前也能看热力图）
       const now = Date.now();
       const phase = getCurrentPhase(timer);
       const snapshot = metrics.tick(now, sessionId, timer.phaseIndex, phase.id);
@@ -311,42 +348,47 @@ function startTick(sessionId, timer, room) {
       }
 
       if (timer.running && !timer.completed) {
-      timer.timeLeft--;
-      timer.timeInPhase++;
+        timer.timeLeft--;
+        timer.timeInPhase++;
 
-      const msgs = await baseline.tick(sessionId, phase.id, timer.timeInPhase, snapshot || {});
-      for (const m of msgs) {
-        if (m.type === 'marker') {
-          db.query(
-            'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
-            [sessionId, m.code, m.source, m.label, m.phase, m.ts]
-          ).catch(e => console.warn('[DB]', e.message));
-          broadcast(room, m);
-          sendMarkerUDP(room, m);
-        } else {
-          broadcastToRoles(room, m, ['master', 'monitor']);
+        // S3: metrics 失败时 snapshot 为 null，不传给 baseline 避免 undefined 污染
+        const msgs = await baseline.tick(sessionId, phase.id, timer.timeInPhase, snapshot || null);
+        for (const m of msgs) {
+          if (m.type === 'marker') {
+            persistMarker(sessionId, m);
+            broadcast(room, m);
+            sendMarkerUDP(room, m);
+          } else {
+            broadcastToRoles(room, m, ['master', 'monitor']);
+          }
+        }
+
+        // 5. 阶段切换
+        if (timer.timeLeft <= 0) {
+          const endMarker = {
+            type: 'marker', code: 2, source: 'auto',
+            label: 'phase_end:' + phase.id, phase: phase.id, ts: now,
+          };
+          persistMarker(sessionId, endMarker);
+          broadcast(room, endMarker);
+          advancePhase(sessionId, timer, room);
+          if (!timer.completed) {
+            const nextPhase = getCurrentPhase(timer);
+            const startMarker = {
+              type: 'marker', code: 1, source: 'auto',
+              label: 'phase_start:' + nextPhase.id, phase: nextPhase.id, ts: Date.now(),
+            };
+            persistMarker(sessionId, startMarker);
+            broadcast(room, startMarker);
+            if (!timer.autoMode) timer.running = false;
+          }
         }
       }
 
-      // 5. 阶段切换
-      if (timer.timeLeft <= 0) {
-        broadcast(room, {
-          type: 'marker', code: 2, source: 'auto',
-          label: 'phase_end:' + phase.id, phase: phase.id, ts: now,
-        });
-        advancePhase(sessionId, timer, room);
-        if (!timer.completed) {
-          const nextPhase = getCurrentPhase(timer);
-          broadcast(room, {
-            type: 'marker', code: 1, source: 'auto',
-            label: 'phase_start:' + nextPhase.id, phase: nextPhase.id, ts: Date.now(),
-          });
-          if (!timer.autoMode) timer.running = false;
-        }
-      }
+      broadcastSync(sessionId, timer, room);
+    } finally {
+      timer._ticking = false;
     }
-
-    broadcastSync(sessionId, timer, room);
   }, 1000);
 }
 
@@ -371,6 +413,9 @@ function cleanupSession(sessionId) {
   timers.delete(sessionId);
   metrics.cleanup(sessionId);
   baseline.cleanup(sessionId);
+  // W5: 清理重连定时器
+  const room = rooms.get(sessionId);
+  if (room && room._reconnectTimer) { clearTimeout(room._reconnectTimer); room._reconnectTimer = null; }
   rooms.delete(sessionId);
   roleLocks.delete(sessionId);
 }
@@ -382,7 +427,13 @@ function handleMessage(ws, raw, room, sessionId) {
 
   switch (msg.type) {
 
+    // W1: 应用层心跳分支
+    case 'ping': ws.send(JSON.stringify({ type: 'pong' })); return;
+    case 'pong': ws._alive = true; return;
+
     case 'hello': {
+      // BUG3-fix: hello 前清理旧房间（避免残留 sockets/occupants 槽位）
+      if (ws.sessionId && ws.sessionId !== sessionId) removeSocketFromRoom(ws, rooms.get(ws.sessionId));
       room.sockets.add(ws);
       ws.role = 'pending';
       ws.sessionId = sessionId;
@@ -400,6 +451,8 @@ function handleMessage(ws, raw, room, sessionId) {
         ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '不支持的重连角色' }));
         break;
       }
+      // BUG1-fix: 重连场景必须同步 ws._bridge 标志，否则 B1 桥接隔离失效（bridge 重连会被当作普通 master）
+      ws._bridge = !!(msg.device_info && msg.device_info.isBridge) || ws._bridge;
       // 检查房间码是否存在（服务器重启后房间已丢失）
       const hasRoomCode = Array.from(roomCodes.entries()).some(([code, entry]) => entry.sessionId === sessionId);
       if (!hasRoomCode) {
@@ -459,6 +512,7 @@ function handleMessage(ws, raw, room, sessionId) {
           break;
         }
         if (targetRole === 'master' && !ws._bridge) { occ.master = ws; ws.roleLock = 'master'; }
+        else if (targetRole === 'master' && ws._bridge) { ws.roleLock = 'master'; } // B1: bridge 仅锁角色，不占 master 槽位
         else if (targetRole === 'subject') { occ.subject = ws; ws.roleLock = 'subject'; }
         else if (targetRole === 'console') { occ.console.push(ws); ws.roleLock = 'console'; }
         else { occ.monitor.push(ws); ws.roleLock = 'monitor'; }
@@ -512,23 +566,31 @@ case 'accel_frame': {
         case 'start': {
           timer.running = true;
           const sp = getCurrentPhase(timer);
-          broadcast(room, { type: 'marker', code: 1, source: 'auto', label: 'phase_start:' + sp.id, phase: sp.id, ts: now });
+          const m = { type: 'marker', code: 1, source: 'auto', label: 'phase_start:' + sp.id, phase: sp.id, ts: now };
+          persistMarker(sessionId, m);
+          broadcast(room, m);
           break;
         }
         case 'pause':        timer.running = false; break;
         case 'next_phase': {
           const cp = getCurrentPhase(timer);
-          broadcast(room, { type: 'marker', code: 2, source: 'auto', label: 'phase_end:' + cp.id, phase: cp.id, ts: now });
+          const em = { type: 'marker', code: 2, source: 'auto', label: 'phase_end:' + cp.id, phase: cp.id, ts: now };
+          persistMarker(sessionId, em);
+          broadcast(room, em);
           advancePhase(sessionId, timer, room);
           if (!timer.completed) {
             const np = getCurrentPhase(timer);
-            broadcast(room, { type: 'marker', code: 1, source: 'auto', label: 'phase_start:' + np.id, phase: np.id, ts: Date.now() });
+            const sm = { type: 'marker', code: 1, source: 'auto', label: 'phase_start:' + np.id, phase: np.id, ts: Date.now() };
+            persistMarker(sessionId, sm);
+            broadcast(room, sm);
           }
           break;
         }
         case 'reset': {
           const rp = getCurrentPhase(timer);
-          broadcast(room, { type: 'marker', code: 2, source: 'auto', label: 'phase_end:' + rp.id + '(reset)', phase: rp.id, ts: now });
+          const rm = { type: 'marker', code: 2, source: 'auto', label: 'phase_end:' + rp.id + '(reset)', phase: rp.id, ts: now };
+          persistMarker(sessionId, rm);
+          broadcast(room, rm);
           resetTimer(sessionId, timer, room);
           break;
         }
@@ -544,10 +606,7 @@ case 'accel_frame': {
     }
 
     case 'marker': {
-      db.query(
-        'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
-        [sessionId, msg.code || 0, msg.source || 'operator', msg.label || '', msg.phase || '', msg.ts || Date.now()]
-      ).catch(e => console.warn('[DB]', e.message));
+      persistMarker(sessionId, msg);
       broadcast(room, msg);
       sendMarkerUDP(room, msg);
       break;
@@ -566,10 +625,8 @@ case 'accel_frame': {
         type: 'marker', code, source: 'subject', label,
         phase: msg.phase || '', ts: Date.now(),
       };
-      db.query(
-        'INSERT INTO markers (session_id, code, source, label, phase, ts) VALUES (?,?,?,?,?,?)',
-        [sessionId, code, 'subject', label, markerMsg.phase, markerMsg.ts]
-      ).catch(e => console.warn('[DB]', e.message));
+      // BUG7-fix: 统一走 persistMarker（与其他 marker 一致：先持久化再广播，DB 失败不阻断广播）
+      persistMarker(sessionId, markerMsg);
       broadcast(room, markerMsg);
       sendMarkerUDP(room, markerMsg);
       broadcast(room, { type: 'action_notice', action: msg.state, actor: ws.nickname || '受试者', label: label, role: 'subject', ts: Date.now() });
@@ -641,6 +698,11 @@ case 'accel_frame': {
     // ── 房间锁管理 ──
 
     case 'start_experiment': {
+      // B4: 仅控制台/主控可操作
+      if (ws.role !== 'console' && ws.role !== 'master') {
+        ws.send(JSON.stringify({ type: 'role_denied', reason: 'permission denied' }));
+        break;
+      }
       if (!msg.template_type) {
         ws.send(JSON.stringify({ type: 'error', message: '实验模板类型不能为空' }));
         break;
@@ -660,6 +722,11 @@ case 'accel_frame': {
     }
 
     case 'end_experiment': {
+      // B4: 仅控制台/主控可操作
+      if (ws.role !== 'console' && ws.role !== 'master') {
+        ws.send(JSON.stringify({ type: 'role_denied', reason: 'permission denied' }));
+        break;
+      }
       room.locked = true;
       const timer = timers.get(sessionId);
       if (timer) { clearInterval(timer.tickTimer); timer.running = false; timer.completed = true; }
@@ -675,8 +742,8 @@ case 'accel_frame': {
       const sid = 'room-' + code + '-' + Date.now().toString(36);
       roomCodes.set(code, { sessionId: sid, createdAt: Date.now() });
       getRoom(sid);
-      // Remove from old room, add to new room
-      if (ws.sessionId) { const r = rooms.get(ws.sessionId); if (r) r.sockets.delete(ws); }
+      // B2: 切房时统一清理旧房间的 sockets + occupants 槽位
+      if (ws.sessionId) removeSocketFromRoom(ws, rooms.get(ws.sessionId));
       getRoom(sid).sockets.add(ws);
       ws.sessionId = sid;
       broadcast(getRoom(sid), { type: 'room_info', occupants: getOccupantSummary(getRoom(sid), sid) });
@@ -687,8 +754,8 @@ case 'accel_frame': {
     case 'join_room': {
       const entry = roomCodes.get(msg.code);
       if (entry && rooms.has(entry.sessionId)) {
-        // Remove from old room, add to new room
-        if (ws.sessionId && ws.sessionId !== entry.sessionId) { const r = rooms.get(ws.sessionId); if (r) r.sockets.delete(ws); }
+        // B2: 切房时统一清理旧房间的 sockets + occupants 槽位
+        if (ws.sessionId && ws.sessionId !== entry.sessionId) removeSocketFromRoom(ws, rooms.get(ws.sessionId));
         getRoom(entry.sessionId).sockets.add(ws);
         ws.sessionId = entry.sessionId;
         broadcast(getRoom(entry.sessionId), { type: 'room_info', occupants: getOccupantSummary(getRoom(entry.sessionId), entry.sessionId) });
@@ -763,28 +830,67 @@ case 'accel_frame': {
     }
 
     case 'update_session_status': {
+      // B4: 仅控制台/主控可操作
+      if (ws.role !== 'console' && ws.role !== 'master') {
+        ws.send(JSON.stringify({ type: 'role_denied', reason: 'permission denied' }));
+        break;
+      }
       db.query("UPDATE sessions SET status = ? WHERE id = ?", [msg.status, msg.session_id])
         .then(() => {
           ws.send(JSON.stringify({ type: 'session_status_updated', session_id: msg.session_id, status: msg.status }));
-          // completed → 清理内存
-          if (msg.status === 'completed') cleanupSession(msg.session_id);
+          // B9: completed → 先通知房间内在线客户端并主动关闭，延迟 500ms 再清理，避免在线客户端失去 timer
+          if (msg.status === 'completed') {
+            const targetRoom = rooms.get(msg.session_id);
+            if (targetRoom) {
+              broadcast(targetRoom, { type: 'session_completed', reason: 'session completed', session_id: msg.session_id });
+              targetRoom.sockets.forEach(s => { if (s.readyState === 1) s.close(1000, 'session completed'); });
+            }
+            setTimeout(() => cleanupSession(msg.session_id), 500).unref();
+          }
         })
         .catch(err => ws.send(JSON.stringify({ type: 'error', message: err.message })));
       break;
     }
+
+    // W3: 未知消息类型回送 error
+    default:
+      ws.send(JSON.stringify({ type: 'error', message: 'unknown message type: ' + msg.type }));
+      break;
   }
 }
 
 // ── HTTP + WS 服务（共享端口） ──
+// B12: CORS 收紧为白名单，默认 * 兼容
+const ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '*').split(',').map(s => s.trim()).filter(Boolean);
+
+function applyCORS(req, res) {
+  const origin = req.headers.origin;
+  if (origin && (ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  } else if (ALLOWED_ORIGINS.includes('*')) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+}
+
 const server = http.createServer((req, res) => {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  applyCORS(req, res);
+
+  // B12: OPTIONS 预检
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
   // Bridge 文件下载 (从磁盘读取，确保下载内容永远最新)
   if (req.method === 'GET' && req.url.startsWith('/api/download/bridge/')) {
     const file = req.url.replace('/api/download/bridge/', '');
     const bridgeDir = path.join(__dirname, '..', 'bridge');
-    const safe = ['index.js', 'config.js', 'package.json'];
+    // S5: 从白名单移除 config.js，避免泄露含密码的配置
+    const safe = ['index.js', 'package.json'];
     if (!safe.includes(file)) { res.writeHead(403); res.end('Forbidden'); return; }
     const filePath = path.join(bridgeDir, file);
     try {
@@ -818,21 +924,51 @@ const server = http.createServer((req, res) => {
   res.writeHead(404); res.end('Not found');
 });
 
-const wss = new WebSocketServer({ server, maxPayload: 1024 * 1024 });
-server.listen(config.WS_PORT);
+// S7: WS Origin 校验，防止跨站劫持
+const wss = new WebSocketServer({
+  server,
+  maxPayload: 1024 * 1024,
+  verifyClient: (info) => {
+    const origin = info.req.headers.origin;
+    if (!origin) return true; // 非浏览器客户端无 Origin
+    const allowed = (process.env.WS_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (allowed.length === 0) return true; // 未配置则全放行
+    try {
+      const u = new URL(origin);
+      return allowed.includes(u.hostname) || allowed.includes(origin);
+    } catch (_) {
+      return false;
+    }
+  },
+});
+
+// D4: server.listen 增加启动日志与错误处理
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error('[FATAL] 端口 %d 已被占用', config.WS_PORT);
+    process.exit(1);
+  }
+  throw e;
+});
+server.listen(config.WS_PORT, () => {
+  console.log(`[OK] EEG Cloud 服务启动 :${config.WS_PORT} (WS + HTTP API)`);
+});
 
 // 实时采样率广播（2 秒间隔，确保前端定期收到 frame_rate 更新）
 setInterval(() => {
   rooms.forEach((room, sid) => {
     if (!room || room.sockets.size === 0) return;
+    // B10: getRate 仅由 2 秒定时广播调用，结果缓存到 room._lastFrameRate 供其他路径复用
+    room._lastFrameRate = frameRateTracker.getRate(sid);
     const summary = getOccupantSummary(room, sid);
     broadcast(room, { type: 'room_info', occupants: summary });
   });
 }, 2000).unref();
 
-// WS 心跳检测（每 30 秒 ping，超时 10 秒终止）
+// WS 心跳检测（每 30 秒 ping，超时 30 秒(一个 ping 周期)终止）
 function heartbeat(ws) {
-  if (ws._alive === false) { ws.terminate(); return; }
+  // W2: 用 close 发送关闭帧，而非 terminate 强断
+  if (ws._alive === false) { ws.close(1011, 'heartbeat timeout'); return; }
   ws._alive = false;
   ws.ping();
 }
@@ -844,36 +980,58 @@ wss.on('connection', (ws, req) => {
   ws.roleLock = null;
   ws.on('pong', () => { ws._alive = true; });
 
-  ws.on('message', (raw) => {
+  // W4: 根据 isBinary 分别处理；二进制走 accel_frame 转发，文本走 JSON.parse
+  ws.on('message', (raw, isBinary) => {
+    if (isBinary) {
+      // 二进制帧：作为 accel_frame 原样转发给 master/monitor
+      const sid = ws.sessionId;
+      if (!sid) { ws.send(JSON.stringify({ type: 'error', message: 'session_id required' })); return; }
+      const room = rooms.get(sid);
+      if (!room) return;
+      if (ws.role !== 'master' && !ws._bridge) return;
+      room.sockets.forEach(s => {
+        if (s !== ws && (s.role === 'master' || s.role === 'monitor') && s.readyState === 1) s.send(raw);
+      });
+      return;
+    }
+
     let msg;
     try { msg = JSON.parse(raw); } catch (_) { return; }
 
-    const sessionId = msg.session_id || ws.sessionId || 'default';
-    const room = getRoom(sessionId);
+    const sessionId = msg.session_id || ws.sessionId;
+    // B5: 未携带 session_id 的非 hello/create_room/join_room/ping/pong 消息直接拒绝，避免 'default' 串扰
+    // BUG4-fix: ping/pong 加入豁免名单，避免应用层心跳被拦截
+    if (!sessionId && !['hello', 'create_room', 'join_room', 'ping', 'pong'].includes(msg.type)) {
+      ws.send(JSON.stringify({ type: 'error', message: 'session_id required' }));
+      return;
+    }
+    const sid = sessionId || 'default';
+    const room = getRoom(sid);
 
     if (msg.type === 'hello' || msg.type === 'reconnect') {
-      if (!timers.has(sessionId)) {
-        // Try restoring timer from timer_state first, else derive template from DB
-      // 不再从 timer_state 恢复（表已废弃），直接 init
-      if (!timers.has(sessionId)) {
-        db.query('SELECT t.switch_type FROM sessions s JOIN experiment_templates t ON s.template_id = t.id WHERE s.id = ?', [sessionId])
+      // BUG5-fix: 用 sid（已兜底为 'default'）而非可能为 undefined 的 sessionId 作为 timer key
+      // B3: 删除冗余二次检查，将 handleMessage 移到 timer 初始化的 then 回调中执行
+      if (!timers.has(sid)) {
+        db.query('SELECT t.switch_type FROM sessions s JOIN experiment_templates t ON s.template_id = t.id WHERE s.id = ?', [sid])
           .then(rows2 => {
-            if (!timers.has(sessionId)) {
-              initTimer(sessionId, (rows2.length > 0 ? rows2[0].switch_type : 'control'));
-              startTick(sessionId, timers.get(sessionId), room);
+            if (!timers.has(sid)) {
+              initTimer(sid, (rows2.length > 0 ? rows2[0].switch_type : 'control'));
+              startTick(sid, timers.get(sid), room);
             }
+            handleMessage(ws, raw, room, sid);
           })
           .catch(() => {
-            if (!timers.has(sessionId)) {
-              initTimer(sessionId, 'control');
-              startTick(sessionId, timers.get(sessionId), room);
+            if (!timers.has(sid)) {
+              initTimer(sid, 'control');
+              startTick(sid, timers.get(sid), room);
             }
+            handleMessage(ws, raw, room, sid);
           });
+      } else {
+        // timer 已存在，直接处理
+        handleMessage(ws, raw, room, sid);
       }
-      }
-      handleMessage(ws, raw, room, sessionId);
     } else {
-      const sid = msg.session_id || ws.sessionId || 'default';
       handleMessage(ws, raw, getRoom(sid), sid);
     }
   });
@@ -902,11 +1060,15 @@ wss.on('connection', (ws, req) => {
         if (ws._bridge) {
           broadcast(room, { type: 'room_info', occupants: getOccupantSummary(room, sid) });
         } else {
-          lockRole(sid, roleLock, 30000);
-          setTimeout(() => {
+          // W6: 角色锁时长带随机抖动 27.5s-32.5s
+          lockRoleWithJitter(sid, roleLock);
+          // W5: 重连 setTimeout 保存到 room._reconnectTimer，cleanupSession 中 clearTimeout
+          if (room._reconnectTimer) clearTimeout(room._reconnectTimer);
+          room._reconnectTimer = setTimeout(() => {
             const r = rooms.get(sid);
             if (r) broadcast(r, { type: 'room_info', occupants: getOccupantSummary(r, sid) });
           }, 30000);
+          room._reconnectTimer.unref();
         }
       } else if (roleLock === 'monitor') {
         room.occupants.monitor = room.occupants.monitor.filter(s => s !== ws);
@@ -915,7 +1077,8 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  ws.on('error', () => {});
+  // B6: 不再吞掉错误，记录日志便于排查
+  ws.on('error', (err) => {
+    console.warn('[WS] error:', err.message);
+  });
 });
-
-console.log(`[OK] EEG Cloud 服务启动 :${config.WS_PORT} (WS + HTTP API)`);

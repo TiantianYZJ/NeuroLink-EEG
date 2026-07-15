@@ -3,230 +3,353 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="NeuroLink · PEYT-Studio · 实时 EEG 脑机接口实验协作平台,支持多端实时波形、脑区热力图、心流问卷与实验管理">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="NeuroLink · EEG BCI">
+<meta property="og:description" content="实时 EEG 脑机接口实验协作平台">
+<meta property="og:type" content="website">
 <title>NeuroLink · PEYT-Studio · EEG BCI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<script src="chart.min.js"></script>
+<script src="chart.min.js" defer></script>
 <style>
+/* ═══════════════════════════════════════════════════════════════════
+   NeuroLink · PEYT-Studio · EEG BCI
+   设计系统: Revolut Design Language (per DESIGN.md)
+   - 双模画布: true black #000000 + white #ffffff
+   - 品牌色: cobalt violet #494fdf — 稀缺, 仅品牌印记
+   - 主 CTA: 白底黑字胶囊 (非 cobalt)
+   - 字体: Inter (display 紧字距, body 正向 tracking)
+   - 无投影 — 色块 + 表面明度阶进 (#000 → #16181a) 构建层次
+   - 按钮: rounded.full; 卡片: rounded.lg (20px); 输入: rounded.md (12px)
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --primary:#494fdf;--primary-deep:#3a40c4;--on-primary:#fff;
+  --canvas-light:#fff;--canvas-dark:#000;
+  --surface-soft:#f4f4f4;--surface-deep:#0a0a0a;--surface-elevated:#16181a;
+  --hairline-dark:rgba(255,255,255,.12);--divider-soft:rgba(255,255,255,.06);
+  --on-dark:#fff;--on-dark-mute:rgba(255,255,255,.72);--on-dark-soft:rgba(255,255,255,.5);--on-dark-faint:rgba(255,255,255,.35);--on-dark-ghost:rgba(255,255,255,.15);
+  --accent-green:#4ade80;--accent-danger:#e23b4a;
+  --r-sm:8px;--r-md:12px;--r-lg:20px;--r-full:9999px;
+  --s-xs:6px;--s-sm:8px;--s-md:14px;--s-lg:16px;--s-xl:24px;--s-xxl:32px;
+  --font-body:'Inter',system-ui,-apple-system,sans-serif;
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);--ease-out:cubic-bezier(.16,1,.3,1);--ease-std:cubic-bezier(.4,0,.2,1);
+  --dur-fast:.15s;--dur-mid:.3s;--dur-slow:.5s;
+}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-height:100vh;-webkit-font-smoothing:antialiased}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--canvas-dark);color:var(--on-dark);min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:.16px;text-rendering:optimizeLegibility}
 
-/* ── 通用 ── */
-.panel{display:none;width:100%;min-height:100vh}
+/* ── 通用: 面板系统 ── */
+.panel{display:none;width:100%;min-height:100vh;animation:panelIn var(--dur-slow) var(--ease-out) both}
 .panel.active{display:block}
-.container{max-width:520px;margin:0 auto;padding:40px 24px;text-align:center}
-.brand{font-size:24px;font-weight:500;letter-spacing:0;margin-bottom:4px}
-.subtitle{font-size:16px;color:rgba(255,255,255,0.5);margin-bottom:32px}
-.conn-status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:24px}
-.dot{width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 2s ease-in-out infinite;flex-shrink:0}
-.dot.off{background:#666;animation:none}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:14px 28px;border-radius:9999px;font-size:16px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s;line-height:1.5}
-.btn-primary{background:#494fdf;color:#fff}
-.btn-primary:hover{background:#3a40c4}
-.btn-outline{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.25)}
-.btn-outline:hover{border-color:rgba(255,255,255,0.5)}
-.btn-small{padding:8px 16px;font-size:15px}
-.loader{width:32px;height:32px;border:2px solid rgba(255,255,255,0.1);border-top-color:#494fdf;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes panelIn{from{opacity:0}to{opacity:1}}
+.container{max-width:520px;margin:0 auto;padding:56px var(--s-xl) 80px;text-align:center}
+.brand{font-size:24px;font-weight:500;letter-spacing:-.48px;margin-bottom:var(--s-xs);line-height:1.2}
+.subtitle{font-size:16px;color:var(--on-dark-soft);margin-bottom:var(--s-xxl);letter-spacing:.24px;font-weight:400}
+.conn-status{display:flex;align-items:center;justify-content:center;gap:var(--s-sm);font-size:13px;color:var(--on-dark-soft);margin-bottom:var(--s-xl);letter-spacing:.2px}
+.dot{width:8px;height:8px;border-radius:var(--r-full);background:var(--accent-green);animation:pulse 2s ease-in-out infinite;flex-shrink:0;box-shadow:0 0 0 0 rgba(74,222,128,.4)}
+.dot.off{background:#666;animation:none;box-shadow:none}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(74,222,128,.4)}50%{opacity:.5;box-shadow:0 0 0 6px rgba(74,222,128,0)}}
+
+/* ── 按钮: 全胶囊, 白底黑字为主 CTA (DESIGN.md 核心规范) ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:14px 28px;border-radius:var(--r-full);font-family:var(--font-body);font-size:16px;font-weight:600;letter-spacing:.24px;line-height:1.5;cursor:pointer;border:none;transition:background var(--dur-fast) var(--ease-std),color var(--dur-fast) var(--ease-std),border-color var(--dur-fast) var(--ease-std),transform var(--dur-fast) var(--ease-spring);white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--canvas-light);color:var(--canvas-dark)}
+.btn-primary:hover{background:var(--on-dark-mute)}
+.btn-primary:active{background:#c9c9cd}
+.btn-outline{background:transparent;color:var(--on-dark);border:1px solid var(--on-dark)}
+.btn-outline:hover{background:rgba(255,255,255,.06);border-color:var(--on-dark)}
+.btn-small{padding:8px 16px;font-size:14px;letter-spacing:.16px}
+.btn-accent{background:var(--primary);color:var(--on-primary)}
+.btn-accent:hover{background:var(--primary-deep)}
+.loader{width:32px;height:32px;border:2px solid var(--on-dark-ghost);border-top-color:var(--on-dark);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto var(--s-lg)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── 角色选择 ── */
+/* ── 文本输入: rounded.md (12px), 56px 触达高度 ── */
+.text-input{width:100%;background:var(--surface-deep);border:1px solid var(--hairline-dark);border-radius:var(--r-md);color:var(--on-dark);font-size:18px;padding:14px 18px;font-family:inherit;outline:none;transition:border-color var(--dur-fast) var(--ease-std),background var(--dur-fast) var(--ease-std);letter-spacing:.24px;caret-color:var(--on-dark)}
+.text-input:focus{border-color:var(--on-dark);background:#0f0f10}
+.text-input::placeholder{color:var(--on-dark-faint)}
+
+/* ── 角色选择卡片 ── */
 .role-grid{display:flex;flex-direction:column;gap:12px}
-.role-card{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-radius:20px;background:#16181a;border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:all .15s;text-align:left}
-.role-card:hover:not(.taken){border-color:#494fdf;background:#1a1c20}
+.role-card{display:flex;align-items:center;justify-content:space-between;padding:20px var(--s-xl);border-radius:var(--r-lg);background:var(--surface-elevated);border:1px solid var(--hairline-dark);cursor:pointer;transition:all var(--dur-fast) var(--ease-std);text-align:left}
+.role-card:hover:not(.taken){border-color:var(--on-dark);background:#1c1e22;transform:translateY(-1px)}
+.role-card:active:not(.taken){transform:translateY(0)}
 .role-card.taken{opacity:.35;cursor:not-allowed}
-.role-card .info h3{font-size:16px;font-weight:600;margin-bottom:2px}
-.role-card .info p{font-size:13px;color:rgba(255,255,255,0.45)}
-.badge{font-size:12px;padding:4px 12px;border-radius:9999px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);white-space:nowrap}
-.badge.available{background:rgba(73,79,223,0.2);color:#494fdf}
-.badge.taken-badge{color:#f87171}
-.badge-download{font-size:12px;padding:4px 10px;border-radius:9999px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);cursor:pointer;white-space:nowrap;transition:all .15s;text-decoration:none;margin-right:4px;display:inline-flex;align-items:center;gap:4px}
-.badge-download:hover{background:rgba(255,255,255,0.15);color:#fff}
+.role-card .info h3{font-size:16px;font-weight:600;margin-bottom:2px;letter-spacing:.16px}
+.role-card .info p{font-size:13px;color:var(--on-dark-soft);letter-spacing:.2px}
+.badge{font-size:12px;padding:4px 12px;border-radius:var(--r-full);background:rgba(255,255,255,.06);color:var(--on-dark-soft);white-space:nowrap;font-weight:500;letter-spacing:.16px}
+.badge.available{background:rgba(255,255,255,.1);color:var(--on-dark)}
+.badge.taken-badge{color:var(--accent-danger)}
+.badge-download{font-size:12px;padding:4px 10px;border-radius:var(--r-full);background:rgba(255,255,255,.06);color:var(--on-dark-soft);cursor:pointer;white-space:nowrap;transition:all var(--dur-fast) var(--ease-std);text-decoration:none;margin-right:4px;display:inline-flex;align-items:center;gap:4px;font-weight:500}
+.badge-download:hover{background:rgba(255,255,255,.15);color:var(--on-dark)}
 .badge-download svg{width:12px;height:12px;flex-shrink:0}
-.bridge-status{font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;padding:0 4px;transition:all .3s;display:flex;align-items:center;gap:4px}
-.bridge-status::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:background .3s}
-.bridge-status.up{color:#4ade80}
-.bridge-status.up::before{background:#4ade80}
-.bridge-status.down{color:#e23b4a}
-.bridge-status.down::before{background:#e23b4a}
-/* ── 房间 ── */
-.room-card{display:flex;align-items:center;gap:16px;padding:28px 32px;border-radius:20px;background:#16181a;border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:all .15s;text-align:left}
-.room-card:hover{border-color:#494fdf;background:#1a1c20;transform:translateY(-1px)}
-.room-card svg{width:36px;height:36px;opacity:.6;flex-shrink:0}
-.room-card h3{font-size:20px;font-weight:600;margin-bottom:4px}
-.room-card p{font-size:15px;color:rgba(255,255,255,0.45)}
-.room-code{font-size:56px;font-weight:600;letter-spacing:10px;color:#fff;margin:16px 0}
-.room-url{font-size:12px;color:rgba(255,255,255,0.4);word-break:break-all;background:#0a0a0a;padding:10px 14px;border-radius:12px;margin:8px 0 16px}
-.pin-grid{display:flex;gap:12px;justify-content:center;margin:16px 0}
-.pin-input{width:64px;height:72px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.12);border-radius:14px;color:#fff;font-size:32px;font-weight:600;text-align:center;font-family:'Inter',system-ui,sans-serif;outline:none;transition:all .15s;caret-color:#494fdf}
-.pin-input:focus{border-color:#494fdf}
-.pin-input.filled{border-color:rgba(73,79,223,0.4);background:rgba(73,79,223,0.08)}
-.devices{max-height:240px;overflow-y:auto}
-.occupants{margin-top:24px;padding:16px 20px;border-radius:20px;background:#0a0a0a;border:1px solid rgba(255,255,255,0.06)}
-.occupants h4{font-size:12px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-.occ-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;color:rgba(255,255,255,0.6)}
-.occ-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;flex-shrink:0}
-.occ-empty{font-size:12px;color:rgba(255,255,255,0.2)}
+.bridge-status{font-size:11px;color:var(--on-dark-faint);margin-top:var(--s-xs);padding:0 var(--s-xs);transition:all var(--dur-mid) var(--ease-std);display:flex;align-items:center;gap:4px;letter-spacing:.16px}
+.bridge-status::before{content:'';display:inline-block;width:6px;height:6px;border-radius:var(--r-full);flex-shrink:0;transition:background var(--dur-mid) var(--ease-std)}
+.bridge-status.up{color:var(--accent-green)}
+.bridge-status.up::before{background:var(--accent-green)}
+.bridge-status.down{color:var(--accent-danger)}
+.bridge-status.down::before{background:var(--accent-danger)}
 
-/* ── 角色面板占位 ── */
-.panel-header{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.08)}
-.panel-header h2{font-size:20px;font-weight:500}
-.panel-body{padding:24px;max-width:960px;margin:0 auto}
-.back-btn{background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:14px;padding:4px 0;font-family:inherit}
-.back-btn:hover{color:#fff}
-.placeholder{text-align:center;padding:80px 0;color:rgba(255,255,255,0.3)}
+/* ── 房间卡片 ── */
+.room-card{display:flex;align-items:center;gap:var(--s-lg);padding:28px var(--s-xxl);border-radius:var(--r-lg);background:var(--surface-elevated);border:1px solid var(--hairline-dark);cursor:pointer;transition:all var(--dur-fast) var(--ease-std);text-align:left}
+.room-card:hover{border-color:var(--on-dark);background:#1c1e22;transform:translateY(-1px)}
+.room-card:active{transform:translateY(0)}
+.room-card svg{width:36px;height:36px;opacity:.6;flex-shrink:0;transition:opacity var(--dur-fast)}
+.room-card:hover svg{opacity:.85}
+.room-card h3{font-size:20px;font-weight:600;margin-bottom:4px;letter-spacing:-.2px}
+.room-card p{font-size:15px;color:var(--on-dark-soft);letter-spacing:.16px}
+.room-code{font-size:56px;font-weight:600;letter-spacing:10px;color:var(--on-dark);margin:var(--s-lg) 0;line-height:1;font-variant-numeric:tabular-nums}
+.room-url{font-size:12px;color:var(--on-dark-soft);word-break:break-all;background:var(--surface-deep);padding:10px 14px;border-radius:var(--r-md);margin:8px 0 var(--s-lg);letter-spacing:.2px}
+.pin-grid{display:flex;gap:12px;justify-content:center;margin:var(--s-lg) 0}
+.pin-input{width:64px;height:72px;background:var(--surface-deep);border:2px solid var(--hairline-dark);border-radius:var(--r-md);color:var(--on-dark);font-size:32px;font-weight:600;text-align:center;font-family:var(--font-body);outline:none;transition:all var(--dur-fast) var(--ease-std);caret-color:var(--on-dark)}
+.pin-input:focus{border-color:var(--on-dark);background:#0f0f10}
+.pin-input.filled{border-color:var(--on-dark);background:#0f0f10}
+.devices{max-height:240px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--on-dark-ghost) transparent}
+.devices::-webkit-scrollbar{width:6px}
+.devices::-webkit-scrollbar-thumb{background:var(--on-dark-ghost);border-radius:3px}
+.occupants{margin-top:var(--s-xl);padding:var(--s-lg) var(--s-xl);border-radius:var(--r-lg);background:var(--surface-deep);border:1px solid var(--divider-soft)}
+.occupants h4{font-size:12px;color:var(--on-dark-faint);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;font-weight:500}
+.occ-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;color:var(--on-dark-mute);letter-spacing:.16px}
+.occ-dot{width:6px;height:6px;border-radius:var(--r-full);background:var(--accent-green);flex-shrink:0}
+.occ-empty{font-size:12px;color:var(--on-dark-ghost);letter-spacing:.16px}
 
-/* ── 监视面板（Revolut设计语言） ── */
+/* ── 面板头部 (sticky + backdrop blur) ── */
+.panel-header{display:flex;align-items:center;gap:12px;padding:var(--s-lg) var(--s-xl);border-bottom:1px solid var(--hairline-dark);position:sticky;top:0;background:rgba(0,0,0,.72);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);z-index:20}
+.panel-header h2{font-size:20px;font-weight:500;letter-spacing:-.2px;line-height:1.4}
+.panel-body{padding:var(--s-xl);max-width:960px;margin:0 auto}
+.back-btn{background:none;border:none;color:var(--on-dark-soft);cursor:pointer;font-size:14px;padding:4px 0;font-family:inherit;transition:color var(--dur-fast);letter-spacing:.16px;display:inline-flex;align-items:center;gap:4px}
+.back-btn:hover{color:var(--on-dark)}
+.placeholder{text-align:center;padding:80px 0;color:var(--on-dark-faint)}
+
+/* ── 仪表盘网格 ── */
 .dash-full{grid-column:1/-1}
-.dashboard{display:grid;grid-template-columns:1.5fr 1fr;gap:10px;padding:10px 16px;max-width:1280px;margin:0 auto;position:relative}
+.dashboard{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;padding:14px var(--s-lg);max-width:1280px;margin:0 auto;position:relative}
 
-.card{background:#16181a;border-radius:16px;padding:14px;border:1px solid rgba(255,255,255,0.08)}
-.card-title{font-size:13px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px}
-canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e10}
-.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
-.status-dot.on{background:#4ade80}
+.card{background:var(--surface-elevated);border-radius:var(--r-lg);padding:var(--s-md);border:1px solid var(--hairline-dark);transition:border-color var(--dur-fast) var(--ease-std)}
+.card-title{font-size:13px;color:var(--on-dark-faint);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;font-weight:500}
+canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background:var(--surface-deep)}
+.status-dot{width:8px;height:8px;border-radius:var(--r-full);display:inline-block;flex-shrink:0}
+.status-dot.on{background:var(--accent-green)}
 .status-dot.off{background:#666}
-.hz-pill{background:#0e0e10;border:1px solid rgba(73,79,223,0.4);color:#8b8fff;padding:3px 12px;border-radius:9999px;font-size:13px;font-weight:600;white-space:nowrap}
-.stat-sep{color:rgba(255,255,255,0.15);font-size:12px;padding:0 2px}
-.sample-rate-select{background:#0e0e10;border:1px solid rgba(73,79,223,0.3);color:#8b8fff;padding:3px 10px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;outline:none}
-.sample-rate-select option{background:#16181a}
-.ch-legend{display:flex;gap:12px;font-size:12px;color:rgba(255,255,255,0.5);padding:4px 0}
-.ch-dot{display:inline-block;width:7px;height:7px;border-radius:50%;vertical-align:middle;margin-right:3px}
-.ch-toggle{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:rgba(255,255,255,0.5);transition:color .15s;user-select:none;cursor:pointer}
-.ch-toggle:hover{color:rgba(255,255,255,0.8)}
-.ch-toggle.off{opacity:0.3;text-decoration:line-through}
+.hz-pill{background:var(--surface-deep);border:1px solid rgba(73,79,223,.4);color:#8b8fff;padding:3px 12px;border-radius:var(--r-full);font-size:13px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:.16px}
+.stat-sep{color:var(--on-dark-ghost);font-size:12px;padding:0 2px}
+.sample-rate-select{background:var(--surface-deep);border:1px solid var(--hairline-dark);color:var(--on-dark-mute);padding:4px 10px;border-radius:var(--r-sm);font-size:12px;font-family:inherit;cursor:pointer;outline:none;transition:border-color var(--dur-fast);letter-spacing:.16px}
+.sample-rate-select:hover{border-color:var(--on-dark-soft)}
+.sample-rate-select option{background:var(--surface-elevated);color:var(--on-dark)}
+.ch-legend{display:flex;gap:12px;font-size:12px;color:var(--on-dark-soft);padding:4px 0;flex-wrap:wrap}
+.ch-dot{display:inline-block;width:7px;height:7px;border-radius:var(--r-full);vertical-align:middle;margin-right:3px}
+.ch-toggle{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--on-dark-soft);transition:color var(--dur-fast);user-select:none;cursor:pointer;letter-spacing:.16px}
+.ch-toggle:hover{color:var(--on-dark-mute)}
+.ch-toggle.off{opacity:.3;text-decoration:line-through}
 
-/* 热力图 */
-.topo-band-select{background:#0a0a0a;color:#fff;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:4px 10px;font-size:11px;font-family:inherit;cursor:pointer}
-.topo-band-select option{background:#16181a}
-.topo-legend{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.35)}
+/* ── 脑区热力图 ── */
+.topo-band-select{background:var(--surface-deep);color:var(--on-dark);border:1px solid var(--hairline-dark);border-radius:var(--r-sm);padding:4px 10px;font-size:11px;font-family:inherit;cursor:pointer;transition:border-color var(--dur-fast);letter-spacing:.16px}
+.topo-band-select:hover{border-color:var(--on-dark-soft)}
+.topo-band-select option{background:var(--surface-elevated)}
+.topo-legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--on-dark-faint);letter-spacing:.16px}
 .topo-legend-bar{width:80px;height:6px;border-radius:3px;background:linear-gradient(90deg,#0050a0,#00a0ff,#00ff80,#ffd000,#ff4000)}
-.topo-electrodes{display:flex;gap:12px;font-size:11px;color:rgba(255,255,255,0.35)}
-.recovery-inline{display:flex;align-items:center;justify-content:center;gap:4px;padding-top:8px;margin-top:6px;border-top:1px solid rgba(255,255,255,0.04);font-size:12px;color:rgba(255,255,255,0.4)}
+.topo-electrodes{display:flex;gap:12px;font-size:11px;color:var(--on-dark-faint);letter-spacing:.16px}
+.recovery-inline{display:flex;align-items:center;justify-content:center;gap:4px;padding-top:8px;margin-top:6px;border-top:1px solid var(--divider-soft);font-size:12px;color:var(--on-dark-soft);letter-spacing:.16px}
 
-/* 计时器 */
-.phase-name{font-size:18px;font-weight:500;margin-bottom:2px}
-.timer-display{font-family:'Inter',system-ui,sans-serif;font-size:56px;font-weight:600;letter-spacing:-2px;line-height:1.05;margin:2px 0}
-.timer-sub{font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:6px}
-.timer-bar{height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin:4px 0;overflow:hidden}
-.timer-bar-fill{height:100%;background:#494fdf;border-radius:3px;transition:width 1s linear}
+/* ── 计时器 (display 字号, 紧字距) ── */
+.phase-name{font-size:18px;font-weight:500;margin-bottom:2px;letter-spacing:-.18px}
+.timer-display{font-family:var(--font-body);font-size:56px;font-weight:600;letter-spacing:-2px;line-height:1;margin:2px 0;font-variant-numeric:tabular-nums}
+.timer-sub{font-size:12px;color:var(--on-dark-faint);margin-bottom:6px;letter-spacing:.16px;font-variant-numeric:tabular-nums}
+.timer-bar{height:3px;background:var(--on-dark-ghost);border-radius:3px;margin:4px 0;overflow:hidden}
+.timer-bar-fill{height:100%;background:var(--on-dark);border-radius:3px;transition:width 1s linear}
 .btn-row{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px}
-.auto-toggle{font-size:12px;color:rgba(73,79,223,0.6);cursor:pointer}
+.auto-toggle{font-size:12px;color:var(--on-dark-faint);cursor:pointer;letter-spacing:.16px}
 
-/* 阶段条 */
+/* ── 阶段条 (active = 白底黑字反转, 非 cobalt) ── */
 .phase-strip{display:flex;gap:4px;margin:4px 0 0;flex-wrap:wrap}
-.phase-chip{padding:4px 10px;border-radius:6px;font-size:11px}
+.phase-chip{padding:4px 10px;border-radius:var(--r-full);font-size:11px;letter-spacing:.16px;background:rgba(255,255,255,.06);color:var(--on-dark-soft);transition:all var(--dur-fast)}
+.phase-chip.active{background:var(--on-dark);color:var(--canvas-dark);font-weight:600}
+.phase-chip.past{opacity:.4}
 .recovery-card{font-size:13px}
-.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;color:rgba(255,255,255,0.55)}
-.stat-val{color:#fff;float:right;font-weight:500}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px var(--s-lg);font-size:13px;color:var(--on-dark-mute)}
+.stat-val{color:var(--on-dark);float:right;font-weight:500;font-variant-numeric:tabular-nums}
 
-@media(max-width:900px){.dashboard{grid-template-columns:1fr}}
+/* ── 监视面板网格 ── */
+.monitor-dashboard{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;padding:14px var(--s-lg);max-width:1280px;margin:0 auto;position:relative}
+.monitor-bottom{grid-column:1/-1}
+.monitor-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.heatmap-box{width:120px;height:120px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;border-radius:var(--r-md);overflow:hidden;background:var(--surface-deep)}
+.heatmap-cell{transition:background var(--dur-mid) var(--ease-std)}
+@media(max-width:900px){.monitor-dashboard{grid-template-columns:1fr}.monitor-row{grid-template-columns:1fr}}
 
 /* ── 控制台面板 ── */
-.console-wrap{max-width:960px;margin:0 auto;padding:24px}
-.console-section{margin-bottom:24px}
-.console-section-title{font-size:14px;font-weight:600;margin-bottom:12px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1px}
-.console-card{background:#16181a;border-radius:20px;padding:20px;border:1px solid rgba(255,255,255,0.08);margin-bottom:16px}
-.console-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
+.console-wrap{max-width:960px;margin:0 auto;padding:var(--s-xl)}
+.console-section{margin-bottom:var(--s-xl)}
+.console-section-title{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--on-dark-mute);text-transform:uppercase;letter-spacing:1px}
+.console-card{background:var(--surface-elevated);border-radius:var(--r-lg);padding:var(--s-xxl);border:1px solid var(--hairline-dark);margin-bottom:var(--s-lg)}
+.console-row{display:flex;gap:var(--s-lg);flex-wrap:wrap;align-items:flex-end}
 .console-field{flex:1;min-width:160px}
-.console-field label{display:block;font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
-.console-field input,.console-field select,.console-field textarea{width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:14px;padding:10px 14px;font-family:inherit;outline:none;transition:border-color .15s}
-.console-field input:focus,.console-field select:focus,.console-field textarea:focus{border-color:#494fdf}
+.console-field label{display:block;font-size:12px;color:var(--on-dark-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;font-weight:500}
+.console-field input,.console-field select,.console-field textarea{width:100%;background:var(--surface-deep);border:1px solid var(--hairline-dark);border-radius:var(--r-md);color:var(--on-dark);font-size:14px;padding:10px 14px;font-family:inherit;outline:none;transition:border-color var(--dur-fast);letter-spacing:.16px}
+.console-field input:focus,.console-field select:focus,.console-field textarea:focus{border-color:var(--on-dark)}
 .console-field textarea{resize:vertical;min-height:60px}
-.console-field select option{background:#16181a;color:#fff}
-.console-table-wrap{overflow-x:auto}
+.console-field select option{background:var(--surface-elevated);color:var(--on-dark)}
+.console-table-wrap{overflow-x:auto;scrollbar-width:thin}
 .console-table{width:100%;border-collapse:collapse;font-size:13px}
-.console-table th{text-align:left;padding:10px 12px;color:rgba(255,255,255,0.4);font-weight:400;font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06)}
-.console-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.7)}
-.console-table tr:hover td{background:rgba(255,255,255,0.03)}
-.status-badge{padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600}
-.status-badge.pending{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4)}
-.status-badge.running{background:rgba(73,79,223,0.2);color:#494fdf}
-.status-badge.completed{background:rgba(74,222,128,0.15);color:#4ade80}
-.studio-badge{display:inline-flex;align-items:center;gap:6px;margin-left:8px;font-size:11px;color:rgba(255,255,255,0.5);font-weight:600;vertical-align:middle;letter-spacing:0}
-.studio-badge .logo-mini{width:18px;height:18px;border-radius:4px;vertical-align:middle}
+.console-table th{text-align:left;padding:10px 12px;color:var(--on-dark-soft);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--hairline-dark)}
+.console-table td{padding:10px 12px;border-bottom:1px solid var(--divider-soft);color:var(--on-dark-mute);letter-spacing:.16px}
+.console-table tr:hover td{background:rgba(255,255,255,.03)}
+.status-badge{padding:2px 10px;border-radius:var(--r-full);font-size:11px;font-weight:600;letter-spacing:.16px;white-space:nowrap}
+.status-badge.pending{background:rgba(255,255,255,.06);color:var(--on-dark-soft)}
+.status-badge.running{background:rgba(255,255,255,.12);color:var(--on-dark)}
+.status-badge.completed{background:rgba(74,222,128,.15);color:var(--accent-green)}
+.studio-badge{display:inline-flex;align-items:center;gap:6px;margin-left:8px;font-size:11px;color:var(--on-dark-soft);font-weight:600;vertical-align:middle;letter-spacing:0}
+.studio-badge .logo-mini{width:18px;height:18px;border-radius:var(--r-sm);vertical-align:middle}
 .studio-badge em{font-style:normal;font-weight:400;font-size:11px;letter-spacing:2px}
 .meta-pill{display:inline-flex;align-items:center;gap:6px;margin-left:6px;vertical-align:middle}
-.meta-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(73,79,223,0.12);border:1px solid rgba(73,79,223,0.25);padding:2px 10px;border-radius:8px;color:#8b8fff;font-size:10px;font-weight:500;letter-spacing:0;white-space:nowrap;vertical-align:middle}
-.meta-chip .gray{color:rgba(255,255,255,0.3);font-weight:400}
-.template-grid{display:flex;gap:12px;flex-wrap:wrap}
-.template-card{padding:14px 20px;border-radius:20px;background:#0a0a0a;border:2px solid rgba(255,255,255,0.08);cursor:pointer;text-align:center;transition:all .15s;min-width:140px;flex:1}
-.template-card:hover{border-color:rgba(255,255,255,0.2)}
-.template-card.selected{border-color:#494fdf;background:rgba(73,79,223,0.1)}
-.template-card h4{font-size:14px;font-weight:600;margin-bottom:2px}
-.template-card p{font-size:11px;color:rgba(255,255,255,0.4)}
-.console-empty{text-align:center;padding:40px 0;color:rgba(255,255,255,0.2);font-size:14px}
+.meta-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.06);border:1px solid var(--hairline-dark);padding:2px 10px;border-radius:var(--r-sm);color:var(--on-dark-mute);font-size:10px;font-weight:500;letter-spacing:.16px;white-space:nowrap;vertical-align:middle}
+.meta-chip .gray{color:var(--on-dark-faint);font-weight:400}
+.console-empty{text-align:center;padding:40px 0;color:var(--on-dark-ghost);font-size:14px}
 .console-btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 
 /* ── 房间锁蒙版 ── */
-.room-lock-overlay{position:fixed;inset:0;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px}
+.room-lock-overlay{position:fixed;inset:0;background:var(--canvas-dark);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:var(--s-xl);animation:overlayIn var(--dur-mid) var(--ease-out) both}
 .room-lock-overlay.active{display:flex}
-.room-lock-overlay-panel{position:absolute;inset:0;background:rgba(0,0,0,0.82);border-radius:16px;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:50;gap:12px}
+.room-lock-overlay-panel{position:absolute;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:var(--r-md);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:50;gap:12px;animation:overlayIn var(--dur-mid) var(--ease-out) both}
 .room-lock-overlay-panel.active{display:flex}
-.lock-spinner{width:22px;height:22px;border:2px solid rgba(255,255,255,0.08);border-top-color:#494fdf;border-radius:50%;animation:spin .8s linear infinite;margin-top:4px}
-.room-lock-overlay .lock-icon{width:48px;height:48px;opacity:.4;margin-bottom:16px}
-.room-lock-overlay h2{font-size:24px;font-weight:600;margin-bottom:8px}
-.room-lock-overlay p{font-size:14px;color:rgba(255,255,255,0.5);text-align:center;max-width:360px}
-/* ── 角色选择弹窗 ── */
-.role-popup{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:100;padding:24px}
-.role-popup.active{display:flex}
-.role-popup .rp-card{background:#16181a;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto}
-.role-popup .rp-title{font-size:18px;font-weight:600;margin-bottom:4px}
-.role-popup .rp-sub{font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px}
-.role-popup .rp-room{color:#494fdf;font-weight:600}
-.pill-sm{padding:4px 12px;border-radius:9999px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
-.pill-sm.danger{background:rgba(226,59,74,0.15);color:#e23b4a}
-.pill-sm.danger:hover{background:rgba(226,59,74,0.3)}
-.pill-sm.outline{background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12)}
-.pill-sm.outline:hover{border-color:rgba(255,255,255,0.3)}
-.icon-btn{background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:14px;padding:4px;font-family:inherit;transition:color .15s}
-.icon-btn:hover{color:#fff}
-.fss-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:100;padding:24px}
-.fss-overlay.active{display:flex}
-.fss-card{background:#16181a;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto}
-.fss-sub{font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px}
-.fss-submit-row{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
-.fss-question{margin-bottom:16px}
-.fss-question .q-text{font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:8px}
-.kbd{display:inline-block;background:#0e0e10;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.7);font-family:inherit;letter-spacing:0.5px}
-.fss-likert{display:flex;gap:6px;justify-content:space-between}
-.fss-labels{display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,0.35);margin-top:4px}
-.band-list{display:flex;flex-direction:column;gap:4px}
-.band-row{display:flex;align-items:center;gap:6px;font-size:13px}
-.band-label{width:14px;font-weight:600;color:rgba(255,255,255,0.5);flex-shrink:0;font-size:12px}
-.band-bar{height:8px;border-radius:4px;min-width:4px;transition:width .3s ease}
-.band-val{font-size:13px;color:rgba(255,255,255,0.6);margin-left:auto;font-variant-numeric:tabular-nums}
-.metric-list{display:flex;flex-direction:column;gap:2px}
-.metric-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:13px;color:rgba(255,255,255,0.5);border-bottom:1px solid rgba(255,255,255,0.03)}
-.metric-label{display:flex;align-items:center;gap:4px}
-.metric-val{font-weight:600;color:#fff;font-size:15px;font-variant-numeric:tabular-nums}
-.hint-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:9px;cursor:help;font-style:normal}
-.subject-wrap{max-width:520px;margin:0 auto;padding:60px 24px;text-align:center;position:relative}
-.subject-phase{font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px}
-.subject-title{font-size:28px;font-weight:600;margin-bottom:4px}
-.subject-task{font-size:16px;color:rgba(255,255,255,0.6);margin-bottom:24px}
-.subject-timer{font-size:64px;font-weight:600;letter-spacing:-3px;line-height:1;margin:16px 0;color:#fff}
-.subject-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:16px 0}
-.subject-btn{padding:14px 32px;border-radius:9999px;font-size:16px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
-.subject-btn-enter{background:rgba(73,79,223,0.2);color:#494fdf;border:1px solid rgba(73,79,223,0.4)}
-.subject-btn-enter:hover{background:rgba(73,79,223,0.35)}
-.subject-btn-exit{background:rgba(226,59,74,0.15);color:#e23b4a;border:1px solid rgba(226,59,74,0.3)}
-.subject-btn-exit:hover{background:rgba(226,59,74,0.3)}
-.subject-cooldown{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin:8px 0;overflow:hidden}
-.subject-hint{font-size:13px;color:rgba(255,255,255,0.35);margin:12px 0}
-.subject-markers{font-size:11px;color:rgba(255,255,255,0.3)}
-.page-footer{margin-top:40px;padding:24px;text-align:center;font-size:13px;color:rgba(255,255,255,0.4);border-top:1px solid rgba(255,255,255,0.06)}
-.page-footer a{color:rgba(255,255,255,0.5);text-decoration:none;transition:color .15s}
-.page-footer a:hover{color:rgba(255,255,255,0.8)}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:9999px;font-size:14px;font-weight:600;z-index:200;display:none;animation:fadeIn .2s}
-.toast.show{display:block}
-.toast.success{background:#4ade80;color:#000}
-.toast.error{background:#e23b4a;color:#fff}
-@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes overlayIn{from{opacity:0}to{opacity:1}}
+.lock-spinner{width:22px;height:22px;border:2px solid var(--on-dark-ghost);border-top-color:var(--on-dark);border-radius:50%;animation:spin .8s linear infinite;margin-top:4px}
+.room-lock-overlay .lock-icon{width:48px;height:48px;opacity:.4;margin-bottom:var(--s-lg)}
+.room-lock-overlay h2{font-size:24px;font-weight:600;margin-bottom:8px;letter-spacing:-.24px}
+.room-lock-overlay p{font-size:14px;color:var(--on-dark-soft);text-align:center;max-width:360px;letter-spacing:.16px}
 
-@media(max-width:900px){.dashboard{grid-template-columns:1fr}.console-row{flex-direction:column}}
+/* ── 弹窗 (spring 入场动画 + backdrop blur) ── */
+.role-popup{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:100;padding:var(--s-xl)}
+.role-popup.active{display:flex;animation:overlayIn var(--dur-mid) var(--ease-out) both}
+.role-popup .rp-card{background:var(--surface-elevated);border:1px solid var(--hairline-dark);border-radius:var(--r-lg);padding:var(--s-xxl);max-width:520px;width:100%;max-height:90vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--on-dark-ghost) transparent;animation:popupIn var(--dur-mid) var(--ease-spring) both}
+.role-popup .rp-card::-webkit-scrollbar{width:6px}
+.role-popup .rp-card::-webkit-scrollbar-thumb{background:var(--on-dark-ghost);border-radius:3px}
+@keyframes popupIn{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.role-popup .rp-title{font-size:18px;font-weight:600;margin-bottom:4px;letter-spacing:-.18px}
+.role-popup .rp-sub{font-size:13px;color:var(--on-dark-soft);margin-bottom:var(--s-xl);letter-spacing:.16px}
+.role-popup .rp-room{color:var(--on-dark);font-weight:600;font-variant-numeric:tabular-nums}
+.pill-sm{padding:4px 12px;border-radius:var(--r-full);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all var(--dur-fast) var(--ease-std);letter-spacing:.16px}
+.pill-sm.danger{background:rgba(226,59,74,.15);color:var(--accent-danger)}
+.pill-sm.danger:hover{background:rgba(226,59,74,.3)}
+.pill-sm.outline{background:transparent;color:var(--on-dark-mute);border:1px solid var(--hairline-dark)}
+.pill-sm.outline:hover{border-color:var(--on-dark-soft);color:var(--on-dark)}
+.icon-btn{background:none;border:none;color:var(--on-dark-soft);cursor:pointer;font-size:14px;padding:4px;font-family:inherit;transition:color var(--dur-fast);display:inline-flex;align-items:center;justify-content:center}
+.icon-btn:hover{color:var(--on-dark)}
+/* ── FSS 问卷 ── */
+.fss-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:100;padding:var(--s-xl)}
+.fss-overlay.active{display:flex;animation:overlayIn var(--dur-mid) var(--ease-out) both}
+.fss-card{background:var(--surface-elevated);border:1px solid var(--hairline-dark);border-radius:var(--r-lg);padding:var(--s-xxl);max-width:520px;width:100%;max-height:90vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--on-dark-ghost) transparent;animation:popupIn var(--dur-mid) var(--ease-spring) both}
+.fss-card::-webkit-scrollbar{width:6px}
+.fss-card::-webkit-scrollbar-thumb{background:var(--on-dark-ghost);border-radius:3px}
+.fss-card h2{font-size:22px;font-weight:600;letter-spacing:-.22px;margin-bottom:4px}
+.fss-sub{font-size:13px;color:var(--on-dark-soft);margin-bottom:var(--s-xl);letter-spacing:.16px}
+.fss-submit-row{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.fss-question{margin-bottom:var(--s-lg);padding-bottom:var(--s-lg);border-bottom:1px solid var(--divider-soft)}
+.fss-question:last-child{border-bottom:none}
+.fss-question .q-text{font-size:14px;color:var(--on-dark-mute);margin-bottom:8px;letter-spacing:.16px;line-height:1.5}
+.kbd{display:inline-block;background:var(--surface-deep);border:1px solid var(--hairline-dark);border-radius:var(--r-sm);padding:1px 7px;font-size:11px;font-weight:600;color:var(--on-dark-mute);font-family:inherit;letter-spacing:.5px}
+/* ── FSS Likert (selected = 白底黑字反转, 非 cobalt) ── */
+.fss-likert{display:flex;gap:6px;justify-content:space-between}
+.fss-likert button{padding:8px 12px;background:rgba(255,255,255,.04);border:1px solid var(--hairline-dark);color:var(--on-dark-mute);border-radius:var(--r-sm);cursor:pointer;font-size:13px;font-family:inherit;transition:all var(--dur-fast) var(--ease-std);font-weight:500;letter-spacing:.16px;flex:1;min-width:32px}
+.fss-likert button:hover{background:rgba(255,255,255,.1);border-color:var(--on-dark-soft);color:var(--on-dark)}
+.fss-likert button.selected{background:var(--on-dark);border-color:var(--on-dark);color:var(--canvas-dark);font-weight:600}
+.fss-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--on-dark-faint);margin-top:6px;letter-spacing:.16px}
+/* ── 频带功率条 ── */
+.band-list{display:flex;flex-direction:column;gap:6px}
+.band-row{display:flex;align-items:center;gap:6px;font-size:13px;letter-spacing:.16px}
+.band-label{width:14px;font-weight:600;color:var(--on-dark-soft);flex-shrink:0;font-size:13px;text-align:center}
+.band-bar{height:8px;border-radius:var(--r-full);min-width:4px;transition:width var(--dur-mid) var(--ease-std);flex:1}
+.band-val{font-size:13px;color:var(--on-dark-mute);margin-left:auto;font-variant-numeric:tabular-nums;font-weight:500}
+
+/* ── 指标列表 ── */
+.metric-list{display:flex;flex-direction:column;gap:2px}
+.metric-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;color:var(--on-dark-soft);border-bottom:1px solid var(--divider-soft);letter-spacing:.16px}
+.metric-row:last-child{border-bottom:none}
+.metric-label{display:flex;align-items:center;gap:4px}
+.metric-val{font-weight:600;color:var(--on-dark);font-size:15px;font-variant-numeric:tabular-nums}
+.hint-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:var(--r-full);background:rgba(255,255,255,.1);color:var(--on-dark-soft);font-size:9px;cursor:help;font-style:normal;font-weight:700}
+/* ── 受试者端 ── */
+.subject-wrap{max-width:520px;margin:0 auto;padding:60px var(--s-xl);text-align:center;position:relative}
+.subject-phase{font-size:11px;color:var(--on-dark-faint);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;font-weight:500}
+.subject-title{font-size:28px;font-weight:600;margin-bottom:4px;letter-spacing:-.28px}
+.subject-task{font-size:16px;color:var(--on-dark-soft);margin-bottom:var(--s-xxl);letter-spacing:.16px;line-height:1.5}
+.subject-timer{font-size:64px;font-weight:600;letter-spacing:-3px;line-height:1;margin:var(--s-lg) 0;color:var(--on-dark);font-variant-numeric:tabular-nums}
+.subject-timer.paused{opacity:.5;filter:grayscale(.5)}
+.subject-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:var(--s-lg) 0}
+.subject-btn{padding:14px 32px;border-radius:var(--r-full);font-size:16px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all var(--dur-fast) var(--ease-std);letter-spacing:.16px;min-height:48px}
+.subject-btn:active{transform:scale(.97)}
+.subject-btn-enter{background:var(--on-dark);color:var(--canvas-dark)}
+.subject-btn-enter:hover{background:var(--on-dark-mute)}
+.subject-btn-exit{background:rgba(226,59,74,.15);color:var(--accent-danger);border:1px solid rgba(226,59,74,.3)}
+.subject-btn-exit:hover{background:rgba(226,59,74,.3)}
+.subject-cooldown{height:4px;background:var(--on-dark-ghost);border-radius:2px;margin:8px 0;overflow:hidden}
+.subject-hint{font-size:13px;color:var(--on-dark-faint);margin:12px 0;letter-spacing:.16px}
+.subject-markers{font-size:11px;color:var(--on-dark-ghost);letter-spacing:.16px}
+/* ── 页脚 ── */
+.page-footer{margin-top:40px;padding:var(--s-xl);text-align:center;font-size:13px;color:var(--on-dark-soft);border-top:1px solid var(--divider-soft);letter-spacing:.16px}
+.page-footer a{color:var(--on-dark-mute);text-decoration:none;transition:color var(--dur-fast)}
+.page-footer a:hover{color:var(--on-dark)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:var(--s-xl);left:50%;transform:translateX(-50%);padding:12px var(--s-xl);border-radius:var(--r-full);font-size:14px;font-weight:600;z-index:200;display:none;animation:toastIn var(--dur-mid) var(--ease-spring) both;letter-spacing:.16px;max-width:90vw}
+.toast.show{display:block}
+.toast.success{background:var(--accent-green);color:var(--canvas-dark)}
+.toast.error{background:var(--accent-danger);color:var(--on-dark)}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* ── 响应式 ── */
+@media(max-width:900px){
+  .dashboard{grid-template-columns:1fr}
+  .console-row{flex-direction:column}
+  .panel-header{flex-wrap:wrap}
+}
+@media(max-width:560px){
+  .container{padding:40px var(--s-lg) 60px}
+  .room-code{font-size:44px;letter-spacing:6px}
+  .pin-input{width:52px;height:60px;font-size:26px}
+  .timer-display,.subject-timer{font-size:48px}
+  .subject-timer{letter-spacing:-2px}
+}
+@media(max-width:360px){
+  .container{padding:32px var(--s-md) 48px}
+  .room-code{font-size:36px;letter-spacing:4px}
+  .dashboard,.monitor-dashboard{padding:10px var(--s-sm)}
+  .panel-header{padding:var(--s-md) var(--s-md)}
+  .console-card{padding:var(--s-lg)}
+}
+
+/* ── 可访问性: 键盘焦点 + 减弱动画 + skip-link + sr-only ── */
+:focus-visible{outline:2px solid var(--on-dark);outline-offset:2px;border-radius:var(--r-sm)}
+.btn:focus-visible,.pill-sm:focus-visible,.subject-btn:focus-visible{outline:2px solid var(--on-dark);outline-offset:3px}
+.icon-btn:focus-visible,.back-btn:focus-visible,.ch-toggle:focus-visible,.role-card:focus-visible,.room-card:focus-visible{outline:2px solid var(--on-dark);outline-offset:2px}
+.sample-rate-select:focus-visible,.topo-band-select:focus-visible{outline:2px solid var(--on-dark);outline-offset:1px}
+.skip-link{position:absolute;top:-100px;left:8px;z-index:9999;background:var(--canvas-light);color:var(--canvas-dark);padding:10px 18px;border-radius:var(--r-md);font-size:14px;font-weight:600;letter-spacing:.16px;transition:top var(--dur-fast) var(--ease-out)}
+.skip-link:focus{top:8px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .dot,.loader,.lock-spinner{animation:none!important}
+}
+
+/* ── 离线 banner ── */
+.offline-banner{position:fixed;top:0;left:0;right:0;background:var(--accent-danger);color:var(--on-dark);padding:10px var(--s-xl);font-size:13px;font-weight:600;letter-spacing:.16px;text-align:center;z-index:500;display:none;animation:overlayIn var(--dur-mid) var(--ease-out) both}
+.offline-banner.show{display:block}
+.offline-banner button{background:rgba(0,0,0,.25);color:var(--on-dark);border:none;padding:4px 12px;border-radius:var(--r-full);font-size:12px;font-weight:600;cursor:pointer;margin-left:8px;font-family:inherit;letter-spacing:.16px}
+
+/* ── ErrorBoundary 降级 UI ── */
+.error-boundary{position:fixed;inset:0;background:var(--canvas-dark);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:var(--s-xl);text-align:center}
+.error-boundary.show{display:flex}
+.error-boundary h2{font-size:24px;font-weight:600;margin-bottom:8px;letter-spacing:-.24px}
+.error-boundary p{font-size:14px;color:var(--on-dark-soft);margin-bottom:var(--s-xl);letter-spacing:.16px;max-width:400px}
 </style>
 </head>
 <body>
+<a href="#panel-room" class="skip-link">跳到主内容</a>
+<div class="offline-banner" id="offlineBanner" role="status" aria-live="polite">网络已断开,正在重连...<button onclick="connectWS()">立即重试</button></div>
+<div class="error-boundary" id="errorBoundary" role="alert" aria-live="assertive"><h2>应用发生异常</h2><p>页面遇到未预期错误。请刷新后重试,如问题持续请联系实验管理员。</p><button class="btn btn-primary" onclick="location.reload()">刷新页面</button></div>
 
 <!-- ─── 面板 0: 连接中 ─── -->
 <div id="panel-connecting" class="panel active">
@@ -240,17 +363,17 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 
 <!-- ─── 面板 1: 房间 ─── -->
 <div id="panel-room" class="panel">
-  <div class="container" style="padding-top:60px">
+  <div class="container" style="padding-top:60px" role="main">
     <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg> <span style="font-weight:300;opacity:0.5">Neuro</span><span style="font-weight:600">Link</span> <span style="font-size:11px;color:rgba(255,255,255,0.3)">by</span> <img src="PEYT-Studio-LOGO.png" style="width:16px;height:16px;border-radius:4px;vertical-align:-3px"> <span style="color:rgba(255,255,255,0.6);font-weight:600;font-size:13px">PEYT-Studio</span></div>
     <div class="subtitle" id="roomSubtitle">创建或加入一个实验房间</div>
-    <div class="conn-status"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
-    <div style="margin-bottom:16px"><div style="font-size:13px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">你的名字</div><input type="text" id="nicknameInput" placeholder="输入昵称" maxlength="20" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:18px;padding:14px 18px;font-family:inherit;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#494fdf'" oninput="tryAutoJoinRoom(this)" onblur="this.style.borderColor='';try{localStorage.setItem('ns_nick',this.value.trim())}catch(e){}"></div><div class="role-grid" style="margin-bottom:20px">
-      <div class="room-card" onclick="createRoom()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    <div class="conn-status" aria-live="polite"><span class="dot" id="roomDot"></span><span id="roomStatus">已连接</span></div>
+    <div style="margin-bottom:16px"><div style="font-size:13px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">你的名字</div><input type="text" id="nicknameInput" class="text-input" placeholder="输入昵称" maxlength="20" oninput="tryAutoJoinRoom(this)" onblur="try{localStorage.setItem('ns_nick',this.value.trim())}catch(e){}"></div><div class="role-grid" style="margin-bottom:20px">
+      <div class="room-card" role="button" tabindex="0" aria-label="创建房间,获得四位房间号" onclick="createRoom()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();createRoom()}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <div class="info"><h3>创建房间</h3><p>获得四位房间号，分享给其他设备</p></div>
       </div>
-      <div class="room-card" onclick="showJoinRoom()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>
+      <div class="room-card" role="button" tabindex="0" aria-label="加入房间,输入四位房间号" onclick="showJoinRoom()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showJoinRoom()}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>
         <div class="info"><h3>加入房间</h3><p>输入四位房间号，加入已有实验</p></div>
       </div>
     </div>
@@ -265,40 +388,39 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
       <div id="roomPinWrap" style="display:none;margin-bottom:16px">
         <button class="btn btn-primary" onclick="openPinPopup()" style="width:100%">输入房间号</button>
       </div>
-<div id="roomError" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
+<div id="roomError" role="alert" aria-live="assertive" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
     </div>
     <div style="margin-top:8px;display:none" id="roomOccupants"><div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn btn-primary btn-small" style="flex:1" onclick="showRoleSelect()">选择角色 →</button><button class="btn btn-outline btn-small" onclick="leaveRoom()">退出</button></div><div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:8px">全部设备将在线显示</div><h4>在线设备</h4>
       <div class="devices" id="roomDevicesList"></div>
     </div></div>
   </div>
-</div>
 
 <!-- ─── 角色选择弹窗 ─── -->
-<div class="role-popup" id="rolePopup">
+<div class="role-popup" id="rolePopup" role="dialog" aria-modal="true" aria-labelledby="rolePopupTitle">
   <div class="rp-card">
-    <div class="rp-title">选择设备角色</div>
+    <div class="rp-title" id="rolePopupTitle">选择设备角色</div>
     <div class="rp-sub">房间 <span class="rp-room" id="popupRoomCode">----</span></div>
     <div class="role-grid">
-      <div class="role-card" data-role="master" onclick="claim('master')">
+      <div class="role-card" data-role="master" role="button" tabindex="0" aria-label="选择上传监视端角色" onclick="claim('master')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();claim('master')}">
         <div class="info">
           <h3>上传监视端</h3>
           <p>接 OpenBCI · 上传 EEG · 全功能监视</p>
-          <div class="bridge-status" id="bridgeStatus">检测桥接中...</div>
+          <div class="bridge-status" id="bridgeStatus" aria-live="polite">检测桥接中...</div>
         </div>
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-          <a class="badge-download" onclick="event.stopPropagation();downloadScript()" title="下载一键启动脚本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 脚本</a>
+          <a class="badge-download" role="button" tabindex="0" aria-label="下载一键启动脚本" onclick="event.stopPropagation();downloadScript()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();downloadScript()}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 脚本</a>
           <span class="badge" id="badge-master">占用</span>
         </div>
       </div>
-      <div class="role-card" data-role="monitor" onclick="claim('monitor')">
+      <div class="role-card" data-role="monitor" role="button" tabindex="0" aria-label="选择纯监视端角色" onclick="claim('monitor')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();claim('monitor')}">
         <div class="info"><h3>纯监视端</h3><p>实时波形 · 控制指令 · 不上传</p></div>
         <span class="badge" id="badge-monitor">不限</span>
       </div>
-      <div class="role-card" data-role="subject" onclick="claim('subject')">
+      <div class="role-card" data-role="subject" role="button" tabindex="0" aria-label="选择受试者端角色" onclick="claim('subject')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();claim('subject')}">
         <div class="info"><h3>受试者端</h3><p>任务信息 · 自评标记 · FSS 问卷</p></div>
         <span class="badge" id="badge-subject">占用</span>
       </div>
-      <div class="role-card" data-role="console" onclick="claim('console')">
+      <div class="role-card" data-role="console" role="button" tabindex="0" aria-label="选择控制台角色" onclick="claim('console')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();claim('console')}">
         <div class="info"><h3>控制台</h3><p>实验配置 · 受试者管理 · 场次历史</p></div>
         <span class="badge" id="badge-console">占用</span>
       </div>
@@ -323,9 +445,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 </div>
 
 <!-- ─── 设备列表弹窗 ─── -->
-<div class="role-popup" id="devicePopup">
+<div class="role-popup" id="devicePopup" role="dialog" aria-modal="true" aria-labelledby="devicePopupTitle">
   <div class="rp-card" style="max-width:480px">
-    <div class="rp-title">在线设备</div>
+    <div class="rp-title" id="devicePopupTitle">在线设备</div>
     <div class="rp-sub">房间 <span class="rp-room" id="devicePopupRoom">----</span></div>
     <div id="deviceList" style="margin-bottom:16px;min-height:60px">
       <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3)">暂无在线设备</div>
@@ -338,9 +460,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 </div>
 
 <!-- ─── PIN 输入弹窗 ─── -->
-<div class="role-popup" id="pinPopup">
+<div class="role-popup" id="pinPopup" role="dialog" aria-modal="true" aria-labelledby="pinPopupTitle">
   <div class="rp-card" style="max-width:400px;text-align:center">
-    <div class="rp-title">加入房间</div>
+    <div class="rp-title" id="pinPopupTitle">加入房间</div>
     <div class="rp-sub">输入实验员提供的四位房间号</div>
     <div class="pin-grid" id="pinGrid">
       <input class="pin-input" id="pin0" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(0)" onkeydown="pinKey(0,event)">
@@ -348,7 +470,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
       <input class="pin-input" id="pin2" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(2)" onkeydown="pinKey(2,event)">
       <input class="pin-input" id="pin3" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(3)" onkeydown="pinKey(3,event)">
     </div>
-    <div id="roomError" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
+    <div id="pinRoomError" style="color:#e23b4a;font-size:13px;margin-top:8px;display:none"></div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btn-outline btn-small" onclick="closePinPopup()" style="flex:1">取消</button>
     </div>
@@ -359,7 +481,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 <div id="panel-master" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><line x1="15" y1="9" x2="3" y2="9"/><polyline points="7 5 3 9 7 13"/></svg>返回</span>
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge"><img class="logo-mini" src="PEYT-Studio-LOGO.png" alt="PEYT"><em>PEYT</em></span> 上传监视端 <span class="meta-pill" id="masterMetaPill"></span></h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge"><img class="logo-mini" src="PEYT-Studio-LOGO.png" alt="PEYT" loading="lazy" decoding="async"><em>PEYT</em></span> 上传监视端 <span class="meta-pill" id="masterMetaPill"></span></h2>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.45);flex-wrap:wrap">
       <span class="kbd">Space</span><span style="font-size:10px;color:rgba(255,255,255,0.25)">暂停/继续</span>
       <span class="kbd">Enter</span><span style="font-size:10px;color:rgba(255,255,255,0.25)">下一阶段</span>
@@ -369,8 +491,8 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
       <span id="masterDuration" style="color:#888">--:--</span><span class="stat-sep">|</span>
       <span class="status-dot on" id="masterStatusDot"></span><span id="masterStatus" style="font-size:11px;color:rgba(255,255,255,0.5)">已连接</span>
       <span class="hz-pill" id="masterFPS">0 Hz</span>
-      <button class="icon-btn" title="在线设备" onclick="showDevicePopup()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="14" height="10" rx="1.5"/><line x1="6" y1="15" x2="12" y2="15"/><line x1="9" y1="13" x2="9" y2="15"/></svg></button>
-      <button class="icon-btn" title="刷新" onclick="refreshPanel()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 9 4 7 6 9"/><path d="M4 7c0-4 3-5 7-4.5"/><polyline points="16 9 14 11 12 9"/><path d="M14 11c0 4-3 5-7 4.5"/></svg></button>
+      <button class="icon-btn" title="在线设备" aria-label="查看在线设备" onclick="showDevicePopup()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="1.5"/><line x1="6" y1="15" x2="12" y2="15"/><line x1="9" y1="13" x2="9" y2="15"/></svg></button>
+      <button class="icon-btn" title="刷新" aria-label="刷新面板数据" onclick="refreshPanel()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 9 4 7 6 9"/><path d="M4 7c0-4 3-5 7-4.5"/><polyline points="16 9 14 11 12 9"/><path d="M14 11c0 4-3 5-7 4.5"/></svg></button>
     </span>
   </div>
   <div class="dashboard">
@@ -411,26 +533,14 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         <div class="card" style="flex:1;padding:14px;text-align:center">
           <div class="card-title">实时指标</div>
           <div class="metric-list" id="masterMetrics">
-            <div class="metric-row"><span class="metric-label">θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="metric-thetaAlpha">—</span></div>
-            <div class="metric-row"><span class="metric-label">熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="metric-entropy">—</span></div>
-            <div class="metric-row"><span class="metric-label">负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="metric-cognitiveLoad">—</span></div>
+            <div class="metric-row"><span class="metric-label">θ/α <span class="hint-icon" role="img" tabindex="0" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="metric-thetaAlpha">—</span></div>
+            <div class="metric-row"><span class="metric-label">熵 <span class="hint-icon" role="img" tabindex="0" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="metric-entropy">—</span></div>
+            <div class="metric-row"><span class="metric-label">负载 <span class="hint-icon" role="img" tabindex="0" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="metric-cognitiveLoad">—</span></div>
           </div>
         </div>
       </div>
     </div>
-<span class="ch-dot" style="background:#ffc285"></span>C4</span>
-          <span class="stat-sep">|</span>
-          <span style="font-size:10px;color:rgba(255,255,255,0.3)">窗口</span>
-          <select id="masterTimeWindow" class="sample-rate-select" onchange="updateTimeWindow('master')">
-            <option value="2000">2s</option>
-            <option value="5000" selected>5s</option>
-            <option value="10000">10s</option>
-            <option value="30000">30s</option>
-          </select>
-        </div>
-      </div>
-  </div>
-  <!-- master --><!-- 右列: 热力图 -->
+    <!-- 右列: 热力图 -->
     <div style="display:flex;flex-direction:column;gap:14px">
       <div class="card" style="padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px">
@@ -441,10 +551,10 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
             <option value="theta">θ 4-8Hz</option>
             <option value="beta">β 13-32Hz</option>
             <option value="gamma">γ 32-100Hz</option>
-          <option value="accel">加速度计</option>
+            <option value="accel">加速度计</option>
           </select>
         </div>
-        <canvas id="masterTopo" width="120" height="120"></canvas>
+        <canvas id="masterTopo" width="120" height="120" role="img" aria-label="脑区热力图"></canvas>
         <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
         <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
         <div class="recovery-inline" id="masterRecovery">
@@ -452,14 +562,12 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
           <span id="masterRecoveryStatus">—</span>
         </div>
       </div>
-  
     </div>
   </div>
 
   <!-- 全宽: 波形图 -->
   <div class="dashboard" style="padding-top:0">
     <div class="card dash-full">
-<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span class="card-title" style="margin-bottom:0">实时脑电波</span>
         <span style="display:flex;gap:6px;align-items:center">
@@ -477,22 +585,32 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
             <option value="2000" selected>±2000</option>
             <option value="5000">±5000</option>
           </select>
+          <span class="stat-sep">|</span>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">窗口</span>
+          <select id="masterTimeWindow" class="sample-rate-select" onchange="updateTimeWindow('master')">
+            <option value="2000">2s</option>
+            <option value="5000" selected>5s</option>
+            <option value="10000">10s</option>
+            <option value="30000">30s</option>
+          </select>
         </span>
       </div>
-      <div style="position:relative;width:100%;height:200px"><canvas id="masterWaveform" style="width:100%;height:150px"></canvas></div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="masterWaveform" style="width:100%;height:150px" role="img" aria-label="实时 EEG 波形图"></canvas></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
         <div class="ch-legend" id="masterChLegend">
-          <span class="ch-toggle on" data-ch="0" onclick="toggleChannel('master',0)"><span class="ch-dot" style="background:#a0c3ec"></span>Fp1</span>
-          <span class="ch-toggle on" data-ch="1" onclick="toggleChannel('master',1)"><span class="ch-dot" style="background:#c4b5fd"></span>Fp2</span>
-          <span class="ch-toggle on" data-ch="2" onclick="toggleChannel('master',2)"><span class="ch-dot" style="background:#ff7a17"></span>C3</span>
-          <span class="ch-toggle on" data-ch="3" onclick="toggleChannel('master',3)"><span class="ch-dot" style="background:#ffc285"></span>
+          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="0" onclick="toggleChannel('master',0)"><span class="ch-dot" style="background:#a0c3ec"></span>Fp1</span>
+          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="1" onclick="toggleChannel('master',1)"><span class="ch-dot" style="background:#c4b5fd"></span>Fp2</span>
+          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="2" onclick="toggleChannel('master',2)"><span class="ch-dot" style="background:#ff7a17"></span>C3</span>
+          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="3" onclick="toggleChannel('master',3)"><span class="ch-dot" style="background:#ffc285"></span>C4</span>
+        </div>
+      </div>
     </div>
   </div>
 </div><!-- ─── 面板 3: 纯监视端 ─── -->
 <div id="panel-monitor" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><line x1="15" y1="9" x2="3" y2="9"/><polyline points="7 5 3 9 7 13"/></svg> 返回</span>
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge"><img class="logo-mini" src="PEYT-Studio-LOGO.png" alt="PEYT"><em>PEYT</em></span> 纯监视端 <span class="meta-pill" id="monitorMetaPill"></span></h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge"><img class="logo-mini" src="PEYT-Studio-LOGO.png" alt="PEYT" loading="lazy" decoding="async"><em>PEYT</em></span> 纯监视端 <span class="meta-pill" id="monitorMetaPill"></span></h2>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.45);flex-wrap:wrap">
       <span class="kbd">Space</span><span style="font-size:10px;color:rgba(255,255,255,0.25)">暂停/继续</span>
       <span class="kbd">Enter</span><span style="font-size:10px;color:rgba(255,255,255,0.25)">下一阶段</span>
@@ -502,14 +620,22 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
       <span id="monDuration" style="color:#888">--:--</span><span class="stat-sep">|</span>
       <span class="status-dot on" id="monitorStatusDot"></span><span id="monitorStatus" style="font-size:11px;color:rgba(255,255,255,0.5)">已连接</span>
       <span class="hz-pill" id="monitorFPS">0 Hz</span>
-      <button class="icon-btn" title="在线设备" onclick="showDevicePopup()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="14" height="10" rx="1.5"/><line x1="6" y1="15" x2="12" y2="15"/><line x1="9" y1="13" x2="9" y2="15"/></svg></button>
-      <button class="icon-btn" title="刷新" onclick="refreshPanel()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 9 4 7 6 9"/><path d="M4 7c0-4 3-5 7-4.5"/><polyline points="16 9 14 11 12 9"/><path d="M14 11c0 4-3 5-7 4.5"/></svg></button>
+      <button class="icon-btn" title="在线设备" aria-label="查看在线设备" onclick="showDevicePopup()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="1.5"/><line x1="6" y1="15" x2="12" y2="15"/><line x1="9" y1="13" x2="9" y2="15"/></svg></button>
+      <button class="icon-btn" title="刷新" aria-label="刷新面板数据" onclick="refreshPanel()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 9 4 7 6 9"/><path d="M4 7c0-4 3-5 7-4.5"/><polyline points="16 9 14 11 12 9"/><path d="M14 11c0 4-3 5-7 4.5"/></svg></button>
     </span>
   </div>
-  <div class="dashboard">
-    <div style="display:flex;flex-direction:column;gap:14px">
+  <div class="monitor-dashboard">
+    <div class="room-lock-overlay-panel" id="monitorLockOverlay">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.3"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      <div style="font-size:15px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:3.5px;font-weight:600">实验未就绪</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.4)">请等待控制台配置实验</div>
+      <div class="lock-spinner"></div>
+    </div>
+    <!-- 左列 -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <!-- 左列上: 实验控制 -->
       <div class="card">
-        <div class="card-title">实验控制</div>
+        <div class="card-title">▸ 实验控制</div>
         <div class="phase-name" id="monitorPhaseName">准备阶段</div>
         <div class="timer-display" id="monitorTimer">05:00</div>
         <div class="timer-sub" id="monitorTimerSub">剩余 05:00 / 总计 05:00</div>
@@ -523,9 +649,10 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         </div>
         <div class="auto-toggle" id="monitorAuto">● 自动模式</div>
       </div>
-      <div style="display:flex;gap:12px">
-        <div class="card" style="flex:1;padding:14px">
-          <div class="card-title">频带功率</div>
+      <!-- 左列下: 频带 + 实时指标 -->
+      <div class="monitor-row">
+        <div class="card">
+          <div class="card-title">频带</div>
           <div class="band-list" id="monitorBandList">
             <div class="band-row"><span class="band-label">δ</span><span class="band-bar" style="width:20%;background:#a0c3ec"></span><span class="band-val" id="mon-band-delta">0</span></div>
             <div class="band-row"><span class="band-label">θ</span><span class="band-bar" style="width:30%;background:#c4b5fd"></span><span class="band-val" id="mon-band-theta">0</span></div>
@@ -534,93 +661,90 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
             <div class="band-row"><span class="band-label">γ</span><span class="band-bar" style="width:15%;background:#7c3aed"></span><span class="band-val" id="mon-band-gamma">0</span></div>
           </div>
         </div>
-        <div class="card" style="flex:1;padding:14px;text-align:center">
+        <div class="card">
           <div class="card-title">实时指标</div>
           <div class="metric-list" id="monitorMetrics">
-            <div class="metric-row"><span class="metric-label">θ/α <span class="hint-icon" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="mon-metric-thetaAlpha">—</span></div>
-            <div class="metric-row"><span class="metric-label">熵 <span class="hint-icon" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="mon-metric-entropy">—</span></div>
-            <div class="metric-row"><span class="metric-label">负载 <span class="hint-icon" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="mon-metric-cognitiveLoad">—</span></div>
+            <div class="metric-row"><span class="metric-label">θ/α <span class="hint-icon" role="img" tabindex="0" title="θ/α = Pθ / Pα&#10;比值稳定 → 心流稳态">?</span></span><span class="metric-val" id="mon-metric-thetaAlpha">—</span></div>
+            <div class="metric-row"><span class="metric-label">熵 <span class="hint-icon" role="img" tabindex="0" title="H = -Σ(pi·log₂(pi))&#10;各频带归一化功率的谱熵">?</span></span><span class="metric-val" id="mon-metric-entropy">—</span></div>
+            <div class="metric-row"><span class="metric-label">负载 <span class="hint-icon" role="img" tabindex="0" title="CLI = Pγ / Pα&#10;↑ 认知负载增大">?</span></span><span class="metric-val" id="mon-metric-cognitiveLoad">—</span></div>
           </div>
         </div>
       </div>
     </div>
-<span class="ch-dot" style="background:#ffc285"></span>C4</span>
-          <span class="stat-sep">|</span>
-          <span style="font-size:10px;color:rgba(255,255,255,0.3)">窗口</span>
-          <select id="monitorTimeWindow" class="sample-rate-select" onchange="updateTimeWindow('monitor')">
-            <option value="2000">2s</option>
-            <option value="5000" selected>5s</option>
-            <option value="10000">10s</option>
-            <option value="30000">30s</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  </div>
-    </div>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:14px">
-    <div class="card" style="padding:14px">
+    <!-- 右列: 脑区热力图 -->
+    <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px">
-        <span class="card-title" style="margin-bottom:0">脑区热力图</span>
+        <span class="card-title" style="margin-bottom:0">▸ 脑区热力图</span>
         <select id="monitorBandSelect" class="topo-band-select">
-            <option value="alpha" selected>α 8-13Hz</option>
-            <option value="delta">δ 0.5-4Hz</option>
-            <option value="theta">θ 4-8Hz</option>
-            <option value="beta">β 13-32Hz</option>
-            <option value="gamma">γ 32-100Hz</option>
-          </select>
-        </div>
-        <canvas id="monitorTopo" width="120" height="120"></canvas>
-        <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
-        <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
-        <div class="recovery-inline" id="monitorRecovery">
-          <span class="status-dot" id="monitorRecoveryDot" style="background:#666;width:6px;height:6px"></span>
-          <span id="monitorRecoveryStatus">—</span>
-        </div>
+          <option value="alpha" selected>α 8-13Hz</option>
+          <option value="delta">δ 0.5-4Hz</option>
+          <option value="theta">θ 4-8Hz</option>
+          <option value="beta">β 13-32Hz</option>
+          <option value="gamma">γ 32-100Hz</option>
+        </select>
       </div>
-  
-
-  <!-- 全宽: 波形图 -->
-  <div class="dashboard" style="padding-top:0">
-    <div class="card dash-full">
-<div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span class="card-title" style="margin-bottom:0">实时脑电波</span>
-        <span style="display:flex;gap:6px;align-items:center">
-          <span style="font-size:10px;color:rgba(255,255,255,0.3)">采样</span>
-          <select id="monitorSampleRate" class="sample-rate-select">
-            <option value="1">200Hz</option>
-            <option value="2" selected>100Hz</option>
-            <option value="4">50Hz</option>
-            <option value="8">25Hz</option>
-          </select>
-          <span style="font-size:10px;color:rgba(255,255,255,0.3)">量程</span>
-          <select id="monitorYRange" class="sample-rate-select">
-            <option value="500">±500</option>
-            <option value="1000">±1000</option>
-            <option value="2000" selected>±2000</option>
-            <option value="5000">±5000</option>
-          </select>
-        </span>
+      <div class="heatmap-box" id="monitorHeatmapBox">
+        <div class="heatmap-cell" data-ch="0"></div>
+        <div class="heatmap-cell" data-ch="1"></div>
+        <div class="heatmap-cell" data-ch="2"></div>
+        <div class="heatmap-cell" data-ch="3"></div>
       </div>
-      <div style="position:relative;width:100%;height:200px"><canvas id="monitorWaveform" style="width:100%;height:150px"></canvas></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+      <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
+      <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
+      <div class="recovery-inline" id="monitorRecovery">
+        <span class="status-dot" id="monitorRecoveryDot" style="background:#666;width:6px;height:6px"></span>
+        <span id="monitorRecoveryStatus">—</span>
+      </div>
+    </div>
+    <!-- 底部全宽: 实时脑电波 -->
+    <div class="monitor-bottom">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span class="card-title" style="margin-bottom:0">▸ 实时脑电波</span>
+          <span style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:10px;color:rgba(255,255,255,0.3)">采样</span>
+            <select id="monitorSampleRate" class="sample-rate-select">
+              <option value="1">200Hz</option>
+              <option value="2" selected>100Hz</option>
+              <option value="4">50Hz</option>
+              <option value="8">25Hz</option>
+            </select>
+            <span style="font-size:10px;color:rgba(255,255,255,0.3)">量程</span>
+            <select id="monitorYRange" class="sample-rate-select">
+              <option value="500">±500</option>
+              <option value="1000">±1000</option>
+              <option value="2000" selected>±2000</option>
+              <option value="5000">±5000</option>
+            </select>
+            <span class="stat-sep">|</span>
+            <span style="font-size:10px;color:rgba(255,255,255,0.3)">窗口</span>
+            <select id="monitorTimeWindow" class="sample-rate-select" onchange="updateTimeWindow('monitor')">
+              <option value="2000">2s</option>
+              <option value="5000" selected>5s</option>
+              <option value="10000">10s</option>
+              <option value="30000">30s</option>
+            </select>
+          </span>
+        </div>
+        <div style="position:relative;width:100%;height:200px"><canvas id="monitorWaveform" style="width:100%;height:150px" role="img" aria-label="实时 EEG 波形图"></canvas></div>
         <div class="ch-legend" id="monitorChLegend">
-          <span class="ch-toggle on" data-ch="0" onclick="toggleChannel('monitor',0)"><span class="ch-dot" style="background:#a0c3ec"></span>Fp1</span>
-          <span class="ch-toggle on" data-ch="1" onclick="toggleChannel('monitor',1)"><span class="ch-dot" style="background:#c4b5fd"></span>Fp2</span>
-          <span class="ch-toggle on" data-ch="2" onclick="toggleChannel('monitor',2)"><span class="ch-dot" style="background:#ff7a17"></span>C3</span>
-          <span class="ch-toggle on" data-ch="3" onclick="toggleChannel('monitor',3)"><span class="ch-dot" style="background:#ffc285"></span>
+          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="0" onclick="toggleChannel('monitor',0)"><span class="ch-dot" style="background:#a0c3ec"></span>Fp1</span>
+          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="1" onclick="toggleChannel('monitor',1)"><span class="ch-dot" style="background:#c4b5fd"></span>Fp2</span>
+          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="2" onclick="toggleChannel('monitor',2)"><span class="ch-dot" style="background:#ff7a17"></span>C3</span>
+          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="3" onclick="toggleChannel('monitor',3)"><span class="ch-dot" style="background:#ffc285"></span>C4</span>
+        </div>
+      </div>
     </div>
   </div>
+</div>
 <!-- ─── 面板 4: 受试者端 ─── -->
 <div id="panel-subject" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><line x1="15" y1="9" x2="3" y2="9"/><polyline points="7 5 3 9 7 13"/></svg> 返回</span>
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge"><img class="logo-mini" src="PEYT-Studio-LOGO.png" alt="PEYT"><em>PEYT</em></span> 受试者端</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge"><img class="logo-mini" src="PEYT-Studio-LOGO.png" alt="PEYT" loading="lazy" decoding="async"><em>PEYT</em></span> 受试者端</h2>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
-      <button class="icon-btn" title="在线设备" onclick="showDevicePopup()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="14" height="10" rx="1.5"/><line x1="6" y1="15" x2="12" y2="15"/><line x1="9" y1="13" x2="9" y2="15"/></svg></button>
-      <button class="icon-btn" title="刷新" onclick="refreshPanel()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 9 4 7 6 9"/><path d="M4 7c0-4 3-5 7-4.5"/><polyline points="16 9 14 11 12 9"/><path d="M14 11c0 4-3 5-7 4.5"/></svg></button>
+      <button class="icon-btn" title="在线设备" aria-label="查看在线设备" onclick="showDevicePopup()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="1.5"/><line x1="6" y1="15" x2="12" y2="15"/><line x1="9" y1="13" x2="9" y2="15"/></svg></button>
+      <button class="icon-btn" title="刷新" aria-label="刷新面板数据" onclick="refreshPanel()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 9 4 7 6 9"/><path d="M4 7c0-4 3-5 7-4.5"/><polyline points="16 9 14 11 12 9"/><path d="M14 11c0 4-3 5-7 4.5"/></svg></button>
     </span>
   </div>
   <div class="subject-wrap"><div class="room-lock-overlay-panel" id="subjectLockOverlay">
@@ -643,9 +767,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
   </div>
 
   <!-- ── FSS 问卷弹窗 ── -->
-  <div class="fss-overlay" id="fssOverlay">
+  <div class="fss-overlay" id="fssOverlay" role="dialog" aria-modal="true" aria-labelledby="fssOverlayTitle">
     <div class="fss-card">
-      <h2>心流状态问卷 (FSS)</h2>
+      <h2 id="fssOverlayTitle">心流状态问卷 (FSS)</h2>
       <div class="fss-sub">请根据刚才的任务体验，选择最符合的选项</div>
       <div id="fssQuestions"></div>
       <div class="fss-submit-row">
@@ -660,10 +784,10 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 <div id="panel-console" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><line x1="15" y1="9" x2="3" y2="9"/><polyline points="7 5 3 9 7 13"/></svg> 返回</span>
-    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge"><img class="logo-mini" src="PEYT-Studio-LOGO.png" alt="PEYT"><em>PEYT</em></span> 实验控制台</h2>
+    <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><line x1="8" y1="7" x2="16" y2="5"/><line x1="7" y1="8" x2="17" y2="17"/><line x1="6" y1="10" x2="6" y2="16"/></svg><span class="studio-badge"><img class="logo-mini" src="PEYT-Studio-LOGO.png" alt="PEYT" loading="lazy" decoding="async"><em>PEYT</em></span> 实验控制台</h2>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
-      <button class="icon-btn" title="在线设备" onclick="showDevicePopup()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="14" height="10" rx="1.5"/><line x1="6" y1="15" x2="12" y2="15"/><line x1="9" y1="13" x2="9" y2="15"/></svg></button>
-      <button class="icon-btn" title="刷新" onclick="refreshPanel()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 9 4 7 6 9"/><path d="M4 7c0-4 3-5 7-4.5"/><polyline points="16 9 14 11 12 9"/><path d="M14 11c0 4-3 5-7 4.5"/></svg></button>
+      <button class="icon-btn" title="在线设备" aria-label="查看在线设备" onclick="showDevicePopup()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="1.5"/><line x1="6" y1="15" x2="12" y2="15"/><line x1="9" y1="13" x2="9" y2="15"/></svg></button>
+      <button class="icon-btn" title="刷新" aria-label="刷新面板数据" onclick="refreshPanel()" style="font-size:13px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 9 4 7 6 9"/><path d="M4 7c0-4 3-5 7-4.5"/><polyline points="16 9 14 11 12 9"/><path d="M14 11c0 4-3 5-7 4.5"/></svg></button>
     </span>
   </div>
   <div class="console-wrap">
@@ -677,7 +801,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         </div>
         <div style="text-align:center;padding:8px 0 0">
           <div class="timer-display" id="consoleTimer" style="font-size:36px">—</div>
-          <div class="timer-bar" style="margin-top:4px"><div class="timer-bar-fill" id="consoleTimerFill" style="width:0%;height:6px"></div></div>
+          <div class="timer-bar" style="margin-top:4px"><div class="timer-bar-fill" id="consoleTimerFill" style="width:0%"></div></div>
         </div>
       </div>
     </div>
@@ -730,10 +854,10 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 </div>
 
 <!-- ── 场次详情弹窗 ── -->
-<div class="fss-overlay" id="sessionDetailOverlay">
+<div class="fss-overlay" id="sessionDetailOverlay" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
   <div class="fss-card" style="max-width:640px">
     <h2 id="detailTitle">场次详情</h2>
-    <div id="detailBody" style="font-size:13px;color:rgba(255,255,255,0.7)">加载中...</div>
+    <div id="detailBody" style="font-size:13px;color:rgba(255,255,255,0.7)" aria-live="polite">加载中...</div>
     <div class="fss-submit-row" style="margin-top:20px">
       <button class="btn btn-outline btn-small" onclick="closeSessionDetail()">关闭</button>
     </div>
@@ -741,9 +865,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 </div>
 
 <!-- ── 新建受试者弹窗 ── -->
-<div class="fss-overlay" id="newSubjectOverlay">
+<div class="fss-overlay" id="newSubjectOverlay" role="dialog" aria-modal="true" aria-labelledby="newSubjTitle">
   <div class="fss-card" style="max-width:400px">
-    <h2>新建受试者</h2>
+    <h2 id="newSubjTitle">新建受试者</h2>
     <div class="console-field" style="margin-top:16px">
       <label>姓名</label>
       <input type="text" id="newSubjName" placeholder="输入姓名">
@@ -770,15 +894,17 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 </div>
 
 <!-- ── Toast ── -->
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 const WS_URL = (() => {
   const p = new URLSearchParams(location.search);
-  if (p.get('ws')) return p.get('ws');
+  if (p.get('ws') && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return p.get('ws');
   return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
 })();
 let ws = null;
+let wsReconnectAttempts = 0;
+let wsReconnectTimer = null;
 let sessionId = '';
 let currentRole = null;
 let currentPendingRole = null;
@@ -788,6 +914,23 @@ let roomCreated = false;
 let pendingUrlRoom = null;
 let autoJoinAfterNickname = false;
 let deviceList = [];
+
+// ── WebSocket 安全发送封装:检查 readyState,避免断线时抛 InvalidStateError ──
+function wsSend(obj) {
+  if (ws && ws.readyState === 1) {
+    try { ws.send(JSON.stringify(obj)); }
+    catch (e) { console.warn('[WS] send failed:', obj.type, e.message); }
+  } else {
+    console.warn('[WS] drop message (not open):', obj.type);
+  }
+}
+
+// ── HTML 转义:正则实现,避免高频 createElement 造成的 GC 压力 ──
+const _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, function(c) { return _ESC_MAP[c]; });
+}
 
 // ── 设备列表弹窗 ──
 function showDevicePopup() {
@@ -807,7 +950,7 @@ function showDevicePopup() {
         const nick = d.nickname || '';
         const label = roleNames[d.role] || d.role || '未认领';
         const bridgeTag = d.isBridge ? ' 🔌' : '';
-        return '<div class="occ-item"><span class="occ-dot"></span><b>' + nick + '</b> ' + label + bridgeTag + ' · ' + os + ' · ' + browser + '</div>';
+        return '<div class="occ-item"><span class="occ-dot"></span><b>' + escHtml(nick) + '</b> ' + escHtml(label) + bridgeTag + ' · ' + os + ' · ' + browser + '</div>';
       }).join('');
   overlay.classList.add('active');
 }
@@ -819,7 +962,7 @@ function closeDevicePopup() {
 // 面板刷新
 function refreshPanel() {
     if (ws && ws.readyState === 1 && sessionId) {
-      ws.send(JSON.stringify({ type: 'refresh', session_id: sessionId }));
+      wsSend({ type: 'refresh', session_id: sessionId });
       showToast('已刷新', 'success');
     }
   }
@@ -988,6 +1131,7 @@ function initEEGChart(id) {
     });
   var pending = [];
   var running = true;
+  var wrapper;
   var timer = setInterval(function() {
     if (!running || pending.length === 0) return;
     var n = pending.length;
@@ -1019,11 +1163,13 @@ function initEEGChart(id) {
   console.log('[EEG] chart ready:', id);
   var _rateEl = document.getElementById(id.replace('Waveform','SampleRate'));
   var _skip = 0;
-  var wrapper = { chart: chart, _idx: 0, push: function(ch) {
+  wrapper = { chart: chart, _idx: 0, push: function(ch) {
     _skip++;
     var N = _rateEl ? parseInt(_rateEl.value, 10) || 1 : 1;
     if (_skip % N !== 0) return;
     pending.push({ idx: this._idx++, ch: ch });
+    // 防止主线程阻塞导致 pending 无限增长 OOM
+    if (pending.length > 2000) pending.splice(0, pending.length - 2000);
     frontendFrameCount++;
   }, destroy: function() { running = false; clearInterval(timer); wrapper._ro && wrapper._ro.disconnect(); chart.destroy(); } };
   eegCharts[id] = wrapper;
@@ -1045,15 +1191,23 @@ function appendEEGData(chart, channels, ts) {
   chart.push(channels);
 }
 
-// 前端独立采样率计算（每 500ms 刷新）
-setInterval(function() {
+// 前端独立采样率计算（每 500ms 刷新,页面隐藏时暂停以节省 CPU）
+var _fpsTimer = null;
+function _fpsTick() {
   var rate = Math.round(frontendFrameCount * 1000 / 500);
   frontendFrameCount = 0;
   var hz1 = document.getElementById('masterFPS');
   if (hz1) hz1.textContent = (rate > 0 ? rate + ' Hz' : '—');
   var hz2 = document.getElementById('monitorFPS');
   if (hz2) hz2.textContent = (rate > 0 ? rate + ' Hz' : '—');
-}, 500);
+}
+function _fpsStart() { if (!_fpsTimer) _fpsTimer = setInterval(_fpsTick, 500); }
+function _fpsStop() { if (_fpsTimer) { clearInterval(_fpsTimer); _fpsTimer = null; } }
+_fpsStart();
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) _fpsStop();
+  else _fpsStart();
+});
 
 // ── 工具 ──
 function getSessionFromURL() {
@@ -1079,7 +1233,7 @@ function switchPanel(id) {
   if (el) el.classList.add('active');
 }
 function sendCmd(action) {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify({type:'cmd', action, session_id: sessionId}));
+  if (ws && ws.readyState === 1) wsSend({type:'cmd', action, session_id: sessionId});
 }
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 function showEl(id, show) {
@@ -1165,15 +1319,31 @@ function updatePhaseStrip(prefix, phaseSync) {
 
 // ── 热力图更新 ──
 function updateTopoMap(prefix, snapshot) {
-const canvasId = prefix + 'Topo';
+  // BUG2-fix: 删除未使用的 canvasId 局部变量
   const bandSelect = document.getElementById(prefix + 'BandSelect');
   if (!bandSelect) return;
   const band = bandSelect.value;
   if (!snapshot.band_power_per_ch || snapshot.band_power_per_ch.length < 4) return;
   const values = snapshot.band_power_per_ch.map(ch => (ch && ch[band] !== undefined) ? ch[band] : 0);
+  if (prefix === 'monitor') updateMonitorHeatmapCells(values);
+  // BUG3-fix: monitor 模式下不渲染 RBF 插值热力图（仅用色块），避免无谓 CPU 消耗
+  if (prefix === 'monitor') return;
   const grid = rbfInterpolate(values);
   const canvas = document.getElementById(prefix + 'Topo');
   if (canvas) renderTopoMap(canvas, grid);
+}
+
+// 监视端 4 通道热力色块更新
+function updateMonitorHeatmapCells(values) {
+  const cells = document.querySelectorAll('#monitorHeatmapBox .heatmap-cell');
+  if (!cells.length) return;
+  let max = 0.01;
+  values.forEach(v => { if (v > max) max = v; });
+  cells.forEach((cell, i) => {
+    const t = (values[i] || 0) / max;
+    const c = jetColor(t);
+    cell.style.background = 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+  });
 }
 
 // ── 恢复状态 ──
@@ -1198,8 +1368,8 @@ function createRoom() {
   const nick = getNickname();
   if (!nick) { showToast('请先输入昵称', 'error'); document.getElementById('nicknameInput')?.focus(); return; }
   if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type: 'create_room', session_id: sessionId }));
-    ws.send(JSON.stringify({ type: 'update_device_info', nickname: nick, session_id: sessionId }));
+    wsSend({ type: 'create_room', session_id: sessionId });
+    wsSend({ type: 'update_device_info', nickname: nick, session_id: sessionId });
     showToast('正在创建房间...', 'info');
   }
 }
@@ -1234,17 +1404,6 @@ function onRoomJoined(msg) {
   document.getElementById('roomError').style.display = 'none';
   setTimeout(openRolePopup, 300);
 }
-function autoJoinRoom(input) {
-  const code = input.value.replace(/\D/g, '').slice(0, 4);
-  input.value = code;
-  if (code.length === 4) {
-    if (ws && ws.readyState === 1) {
-      ws.send(JSON.stringify({ type: 'join_room', code: code, session_id: sessionId }));
-    }
-  }
-  document.getElementById('roomError').style.display = 'none';
-  setTimeout(openRolePopup, 300);
-}
 var pinValues = ['', '', '', ''];
 function pinInput(idx) {
   const el = document.getElementById('pin' + idx);
@@ -1254,12 +1413,12 @@ function pinInput(idx) {
   el.classList.toggle('filled', !!v);
   if (v && idx < 3) document.getElementById('pin' + (idx + 1)).focus();
   const code = pinValues.join('');
-  document.getElementById('roomError').style.display = 'none';
+  document.getElementById('pinRoomError').style.display = 'none';
   if (code.length === 4 && ws && ws.readyState === 1) {
     if (!getNickname()) { showToast('请先输入昵称', 'error'); pinValues=['','','','']; for(let i=0;i<4;i++){const e=document.getElementById('pin'+i);if(e){e.value='';e.classList.remove('filled')}} document.getElementById('nicknameInput')?.focus(); return; }
     document.getElementById('roomCode').textContent = code;
     closePinPopup();
-    ws.send(JSON.stringify({ type: 'join_room', code: code, session_id: sessionId }));
+    wsSend({ type: 'join_room', code: code, session_id: sessionId });
   }
 }
 function pinKey(idx, e) {
@@ -1303,8 +1462,8 @@ function openRolePopup() {
 function tryAutoJoinRoom(input) {
   if (autoJoinAfterNickname && input && input.value.trim() && pendingUrlRoom && ws && ws.readyState === 1) {
     document.getElementById('roomCode').textContent = pendingUrlRoom;
-    ws.send(JSON.stringify({ type: 'join_room', code: pendingUrlRoom, session_id: sessionId }));
-    ws.send(JSON.stringify({ type: 'update_device_info', nickname: input.value.trim(), session_id: sessionId }));
+    wsSend({ type: 'join_room', code: pendingUrlRoom, session_id: sessionId });
+    wsSend({ type: 'update_device_info', nickname: input.value.trim(), session_id: sessionId });
     const code = pendingUrlRoom;
     pendingUrlRoom = null; autoJoinAfterNickname = false;
   }
@@ -1314,7 +1473,7 @@ function closeRolePopup() {
 }
 function refreshRoom() {
   if (ws && ws.readyState === 1 && sessionId) {
-    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120), nickname: getNickname() } }));
+    wsSend({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120), nickname: getNickname() } });
     showToast('刷新设备状态', 'success');
   }
 }
@@ -1324,7 +1483,7 @@ function goBackToRoom() {
   deviceList = [];
   try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); localStorage.removeItem('ns_sid'); localStorage.removeItem('ns_nick'); } catch(e) {}
   if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type: 'release_role', session_id: sessionId }));
+    wsSend({ type: 'release_role', session_id: sessionId });
   }
   switchPanel('panel-room');
 }
@@ -1336,22 +1495,25 @@ function copyRoomUrl() {
 
 // 向本地桥接 WS 同步房间 sessionId (使桥接与浏览器在同一房间)
 function syncSessionToBridge() {
-  try {
-    const sock = new WebSocket('ws://127.0.0.1:9080');
-    sock.onopen = () => {
-      sock.send(JSON.stringify({ type: 'set_session', session_id: sessionId }));
-      sock.close();
-    };
-    sock.onerror = () => {}; // bridge 未运行时静默忽略
-  } catch (_) {}
+  fetch('http://127.0.0.1:9080/sync?sid=' + encodeURIComponent(sessionId), { mode: 'no-cors' }).catch(() => {});
 }
 
 // ── WS ──
 function connectWS() {
+  // 清理旧的重连定时器,避免快速重连时叠加多个
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  // 关闭旧连接
+  if (ws) { try { ws.onclose = null; ws.onerror = null; ws.close(); } catch(e){} }
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
+    wsReconnectAttempts = 0;
+    const banner = document.getElementById('offlineBanner'); if (banner) banner.classList.remove('show');
+    const rs = document.getElementById('roomStatus'); if (rs) rs.textContent = '已连接';
+    const rd = document.getElementById('roomDot'); if (rd) rd.classList.remove('off');
     sessionId = getSessionFromURL() || genId();
-    ws.send(JSON.stringify({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120), nickname: getNickname() } }));
+    // BUG2-fix: 新 session 连接时重置 fssOpened（避免上一实验残留状态阻止 rest 阶段问卷弹出）
+    fssOpened = false;
+    wsSend({ type: 'hello', role: 'pending', session_id: sessionId, device_info: { platform: navigator.platform, userAgent: navigator.userAgent.substring(0,120), nickname: getNickname() } });
     // Check if URL has ?room= code
     const p = new URLSearchParams(location.search);
     pendingUrlRoom = p.get('room');
@@ -1359,7 +1521,7 @@ function connectWS() {
       // Don't auto-join yet; wait for nickname. Will trigger after panel shows.
     } else if (lastRole && lastRole !== 'monitor') {
       currentPendingRole = lastRole;
-      ws.send(JSON.stringify({ type: 'reconnect', role: lastRole, session_id: sessionId }));
+      wsSend({ type: 'reconnect', role: lastRole, session_id: sessionId });
     }
     // Always show room panel on fresh load; reconnect will auto-switch if valid
     setTimeout(() => {
@@ -1374,7 +1536,7 @@ function connectWS() {
           const nick = getNickname();
           if (nick && ws && ws.readyState === 1) {
             document.getElementById('roomCode').textContent = pendingUrlRoom;
-            ws.send(JSON.stringify({ type: 'join_room', code: pendingUrlRoom, session_id: sessionId }));
+            wsSend({ type: 'join_room', code: pendingUrlRoom, session_id: sessionId });
             pendingUrlRoom = null; autoJoinAfterNickname = false;
           } else if (!nick) {
             autoJoinAfterNickname = true;
@@ -1397,15 +1559,17 @@ function connectWS() {
       updateRoom(msg.occupants);
       if (currentRole === 'subject' && subjQueue.length > 0) {
         var q = subjQueue.splice(0);
-        q.forEach(function(s) { ws.send(JSON.stringify({ type:'self_report', state:s, phase:'', session_id:sessionId })); });
+        q.forEach(function(s) { wsSend({ type:'self_report', state:s, phase:'', session_id:sessionId }); });
       }
       return;
     }
       if (msg.type === 'error') {
         showToast(msg.message, 'error');
         if (msg.message.includes('房间')) {
-          const errEl = document.getElementById('roomError');
-          if (errEl) { errEl.textContent = msg.message; errEl.style.display = ''; }
+          const pinErr = document.getElementById('pinRoomError');
+          if (pinErr) { pinErr.textContent = msg.message; pinErr.style.display = ''; }
+          const roomErr = document.getElementById('roomError');
+          if (roomErr) { roomErr.textContent = msg.message; roomErr.style.display = ''; }
           pinValues = ['','','',''];
           try { localStorage.removeItem('ns_room_code'); } catch(e) {}
           roomCode = null;
@@ -1438,7 +1602,7 @@ function connectWS() {
       if (msg.type === 'room_joined') { onRoomJoined(msg); return; }
       if (msg.type === 'role_released') { openRolePopup(); return; }
       if (msg.type === 'room_left') { switchPanel('panel-room'); document.getElementById('roomResult').style.display = 'none'; document.getElementById('roomOccupants').style.display = 'none'; return; }
-      if (msg.type === 'claim_role') return;
+      if (msg.type === 'claim_role') { /* server-side state updated, will be refreshed via room_info */ return; }
       if (msg.type === 'room_config') { updateRoomLock(msg); return; }
       if (msg.type === 'update_config_meta' && msg.config) {
         updateMetaPill('master', msg.config);
@@ -1477,12 +1641,12 @@ function connectWS() {
           window._lastSnapshot = msg;
           const el = document.getElementById('consoleSampleRate');
           if (el && msg.sample_rate) el.textContent = msg.sample_rate + ' Hz';
-          document.getElementById('consolePacketCount').textContent = msg.cognitive_load_index !== undefined ? '运行中' : '—';
+          document.getElementById('consolePacketCount').textContent = '运行中';
         }
         if (msg.type === 'phase_sync') {
           document.getElementById('consolePhaseName').textContent = msg.phase_name || '—';
           document.getElementById('consoleTimer').textContent = formatTime(msg.time_left);
-          const pct = msg.phase_duration > 0 ? (msg.time_left / msg.phase_duration * 100) : 100;
+          const pct = msg.phase_duration > 0 ? Math.min(100, ((msg.phase_duration - msg.time_left) / msg.phase_duration * 100)) : 0;
           document.getElementById('consoleTimerFill').style.width = Math.max(0, pct) + '%';
         }
         if (msg.type === 'action_notice') {
@@ -1525,13 +1689,27 @@ function connectWS() {
       }
       if (msg.type === 'action_notice') {
         showToast((msg.actor || msg.role || '') + ' ' + (msg.label || msg.action), 'info');
+      } else {
+        console.warn('[WS] unhandled type:', msg.type);
       }
-    } catch(_) {}
+    } catch(err) {
+      // 不再静默吞错,记录便于调试
+      console.warn('[WS] message parse/handle error:', err.message);
+    }
   };
   ws.onclose = () => {
-    setTimeout(connectWS, 5000);
+    const banner = document.getElementById('offlineBanner'); if (banner) banner.classList.add('show');
+    const delay = Math.min(60000, 5000 * Math.pow(2, wsReconnectAttempts++));
+    console.log('[WS] reconnecting in ' + Math.round(delay/1000) + 's (attempt ' + wsReconnectAttempts + ')');
+    const rs = document.getElementById('roomStatus'); if (rs) rs.textContent = '重连中...';
+    const rd = document.getElementById('roomDot'); if (rd) rd.classList.add('off');
+    // BUG4-fix: 断连时 consolePacketCount 显示"断开"，避免仍显示"运行中"误导用户
+    const cpc = document.getElementById('consolePacketCount');
+    if (cpc) cpc.textContent = '断开';
+    // 保存定时器 ID,避免快速重连时叠加多个
+    wsReconnectTimer = setTimeout(connectWS, delay);
   };
-  ws.onerror = () => ws.close();
+  ws.onerror = (err) => { console.warn('[WS] error:', err); ws.close(); };
 }
 
 function getNickname() {
@@ -1544,7 +1722,7 @@ function getNickname() {
 function leaveRoom() {
   if (confirm('确定退出房间？')) {
     if (ws && ws.readyState === 1) {
-      ws.send(JSON.stringify({ type: 'leave_room', session_id: sessionId }));
+      wsSend({ type: 'leave_room', session_id: sessionId });
     }
     lastRole = null; persistRole(''); roomCode = null;
     try { localStorage.removeItem('ns_room_code'); localStorage.removeItem('ns_role'); localStorage.removeItem('ns_sid'); localStorage.removeItem('ns_nick'); } catch(e) {}
@@ -1601,7 +1779,7 @@ function updateRoom(occ) {
         const ua = info.userAgent || '';
         const browser = ua.includes('Chrome') ? 'Chrome' : ua.includes('Firefox') ? 'Firefox' : ua.includes('Safari') ? 'Safari' : 'Browser';
         const os = pf.startsWith('Win') ? 'Windows' : pf.startsWith('Mac') ? 'macOS' : pf.startsWith('Linux') ? 'Linux' : pf;
-        const bridgeTag = d.isBridge ? ' 🔌' : ''; const nick = d.nickname || ''; return '<div class="occ-item"><span class="occ-dot"></span><b>' + nick + '</b> ' + (roleNames[d.role] || (d.isBridge ? '桥接' : d.role)) + bridgeTag + ' · ' + os + ' · ' + browser + '</div>';
+        const bridgeTag = d.isBridge ? ' 🔌' : ''; const nick = d.nickname || ''; return '<div class="occ-item"><span class="occ-dot"></span><b>' + escHtml(nick) + '</b> ' + escHtml(roleNames[d.role] || (d.isBridge ? '桥接' : d.role)) + bridgeTag + ' · ' + os + ' · ' + browser + '</div>';
       }).join('');
     }
   }
@@ -1617,7 +1795,7 @@ function claim(role) {
 }
 function doClaim(role) {
   if (ws && ws.readyState === 1)
-    ws.send(JSON.stringify({ type: 'claim_role', role, session_id: sessionId }));
+    wsSend({ type: 'claim_role', role, session_id: sessionId });
 }
 
 function checkBridge(callback) {
@@ -1667,8 +1845,6 @@ function onClaimed(role) {
   persistRole(role);
   currentPendingRole = null;
   const panelMap = { master:'panel-master', monitor:'panel-monitor', subject:'panel-subject', console:'panel-console' };
-  const display = document.getElementById('roomCodeDisplay');
-  if (display && roomCode) display.textContent = roomCode;
   const pid = panelMap[role];
   if (pid) {
     switchPanel(pid);
@@ -1683,6 +1859,32 @@ function onClaimed(role) {
 
 // ── 键盘快捷键 ──
 document.addEventListener('keydown', (e) => {
+  // ch-toggle 键盘激活(Enter/Space)
+  if (e.target && e.target.classList && e.target.classList.contains('ch-toggle') && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    const ch = e.target.getAttribute('data-ch');
+    const legend = e.target.closest('.ch-legend');
+    if (legend && ch !== null) {
+      const prefix = legend.id.indexOf('master') === 0 ? 'master' : 'monitor';
+      toggleChannel(prefix, parseInt(ch, 10));
+    }
+    return;
+  }
+  // Esc 关闭任意打开的模态
+  if (e.key === 'Escape') {
+    ['rolePopup','devicePopup','pinPopup','fssOverlay','sessionDetailOverlay','newSubjectOverlay','roomLockOverlay'].forEach(function(id){
+      const el = document.getElementById(id);
+      if (el && el.classList.contains('active')) {
+        if (id === 'rolePopup') closeRolePopup();
+        else if (id === 'devicePopup') closeDevicePopup();
+        else if (id === 'pinPopup') closePinPopup();
+        else if (id === 'fssOverlay') closeFSS();
+        else if (id === 'sessionDetailOverlay') closeSessionDetail();
+        else if (id === 'newSubjectOverlay') closeNewSubject();
+      }
+    });
+    return;
+  }
   if (!currentRole || currentRole === 'subject') return;
   const key = e.key;
   if (key === 'z' || key === 'Z') { e.preventDefault(); sendMarker(3, '心流进入'); }
@@ -1695,7 +1897,7 @@ document.addEventListener('keydown', (e) => {
 
 function sendMarker(code, label) {
   if (ws && ws.readyState === 1)
-    ws.send(JSON.stringify({ type: 'marker', code, source: 'operator', label, phase: '', ts: Date.now() }));
+    wsSend({ type: 'marker', code, source: 'operator', label, phase: '', ts: Date.now() });
 }
 
 // ── 加速度计柱状图渲染 ──
@@ -1775,6 +1977,7 @@ const FSS_QUESTIONS = [
 ];
 let fssRound = 0;
 let fssAnswers = [];
+let fssOpened = false;
 let subjCooldownTimer = null;
 let subjQueue = [];
 let subjMyMarkers = [];
@@ -1806,7 +2009,8 @@ function updateSubjectUI(ps) {
   showEl('subjBtns', cfg.showBtns);
   showEl('subjBtnEnter', cfg.showBtns);
   showEl('subjBtnExit', cfg.showBtns);
-  if (baseId === 'rest') {
+  if (baseId === 'rest' && !fssOpened) {
+    fssOpened = true;
     setTimeout(() => openFSS(ps.round || fssRound + 1), 500);
   }
 }
@@ -1817,7 +2021,7 @@ function subjectReport(state) {
     showToast('已缓存（离线）', 'info');
     return;
   }
-  ws.send(JSON.stringify({ type:'self_report', state, phase: '', session_id: sessionId }));
+  wsSend({ type:'self_report', state, phase: '', session_id: sessionId });
   const btnEnter = document.getElementById('subjBtnEnter');
   const btnExit = document.getElementById('subjBtnExit');
   [btnEnter, btnExit].forEach(b => { if (b) b.disabled = true; });
@@ -1853,7 +2057,7 @@ function openFSS(round) {
     const labels = i === 5 || i === 6 ? '' : '<div class="fss-labels"><span>完全不同意</span><span>完全同意</span></div>';
     return '<div class="fss-question"><div class="q-text">' + (i+1) + '. ' + q + '</div>' +
       '<div class="fss-likert" data-q="' + i + '">' +
-      [1,2,3,4,5,6,7].map(v => '<button onclick="selectFSS(' + i + ',' + v + ')" class="' + (0 === v ? 'selected' : '') + '">' + v + '</button>').join('') +
+      [1,2,3,4,5,6,7].map(v => '<button onclick="selectFSS(' + i + ',' + v + ')" class="' + (fssAnswers[i] === v ? 'selected' : '') + '">' + v + '</button>').join('') +
       '</div>' + labels + '</div>';
   }).join('');
   document.getElementById('fssOverlay')?.classList.add('active');
@@ -1874,13 +2078,15 @@ function submitFSS() {
     return;
   }
   if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type:'fss_submit', round: fssRound, phase: 'rest' + fssRound, answers: fssAnswers, ts: Date.now() }));
+    wsSend({ type:'fss_submit', round: fssRound, phase: 'rest' + fssRound, answers: fssAnswers, ts: Date.now() });
   }
+  fssOpened = false;
   closeFSS();
 }
 
 function closeFSS() {
   document.getElementById('fssOverlay')?.classList.remove('active');
+  fssOpened = false;
 }
 
 // ── 房间锁 ──
@@ -1895,16 +2101,19 @@ function updateMetaPill(prefix, cfg) {
 function updateRoomLock(msg) {
   const overlay = document.getElementById('roomLockOverlay');
   if (!overlay) return;
-  if (msg.locked && msg.config) {
+  // BUG1-fix: 用显式 true/false 判断（msg.locked 为 undefined 时视为未变更，不误锁）
+  const locked = msg.locked === true;
+  const unlocked = msg.locked === false;
+  if (locked) {
     overlay.classList.add('active');
-  } else {
+  } else if (unlocked) {
     overlay.classList.remove('active');
   }
   ["master","monitor","subject"].forEach(function(r) {
     var el = document.getElementById(r + "LockOverlay");
-    if (el) el.classList.toggle("active", msg.locked !== false);
+    if (el && (locked || unlocked)) el.classList.toggle("active", locked);
   });
-  if (msg.locked === false && msg.config) {
+  if (unlocked && msg.config) {
     updateMetaPill("master", msg.config);
     updateMetaPill("monitor", msg.config);
   }
@@ -1915,13 +2124,13 @@ function updateRoomLock(msg) {
 // ═══════════════════════════════════════════
 
 function loadSubjects() {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type:'list_subjects' }));
+  if (ws && ws.readyState === 1) wsSend({ type:'list_subjects' });
 }
 function loadTemplates() {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type:'list_templates' }));
+  if (ws && ws.readyState === 1) wsSend({ type:'list_templates' });
 }
 function loadSessions() {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type:'list_sessions' }));
+  if (ws && ws.readyState === 1) wsSend({ type:'list_sessions' });
 }
 
 function showNewSubject() {
@@ -1938,7 +2147,7 @@ function createSubject() {
   const gender = document.getElementById('newSubjGender')?.value || null;
   const notes = document.getElementById('newSubjNotes')?.value || null;
   if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type:'create_subject', name, age, gender, notes }));
+    wsSend({ type:'create_subject', name, age, gender, notes });
   }
   closeNewSubject();
   document.getElementById('newSubjName').value = '';
@@ -1994,7 +2203,7 @@ function consoleCreateSession() {
   if (!subjectId) { showToast('请选择受试者', 'error'); return; }
   if (!templateId) { showToast('请选择实验模板', 'error'); return; }
   if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type:'create_session', session_id: sessionId, subject_id: subjectId, template_id: templateId, operator_name: operator, notes }));
+    wsSend({ type:'create_session', session_id: sessionId, subject_id: subjectId, template_id: templateId, operator_name: operator, notes });
   }
 }
 function consoleCreateAndStart() {
@@ -2013,7 +2222,7 @@ function consoleStartExperiment() {
   var subjName = subjEl ? (subjEl.selectedOptions[0] || {}).textContent || '' : '';
   if (subjName.startsWith('—')) subjName = '';
   if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type: 'start_experiment', session_id: sessionId, config: { template: tpl.value, switch_type: switchType, templateName: tplName, subjectName: subjName }, template_type: switchType }));
+    wsSend({ type: 'start_experiment', session_id: sessionId, config: { template: tpl.value, switch_type: switchType, templateName: tplName, subjectName: subjName }, template_type: switchType });
   }
 }
 
@@ -2031,7 +2240,7 @@ function showInviteCard() {
 }
 function viewSession(sessionId) {
   if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type:'get_session_detail', session_id: sessionId }));
+    wsSend({ type:'get_session_detail', session_id: sessionId });
   }
 }
 
@@ -2074,7 +2283,7 @@ function renderSessionDetail(data) {
       html += '<span style="color:rgba(255,255,255,0.25);white-space:nowrap;font-size:11px">' + fmtTS(m.ts || m.created_at) + '</span>';
       html += '<span style="color:#494fdf;font-weight:700;font-size:11px">#' + (m.code || 0) + '</span>';
       html += '<span style="color:rgba(255,255,255,0.4);font-size:11px">' + (srcLabels[m.source] || m.source || '') + '</span>';
-      html += '<span style="color:rgba(255,255,255,0.7)">' + (m.label || '') + '</span></div>';
+      html += '<span style="color:rgba(255,255,255,0.7)">' + escHtml(m.label || '') + '</span></div>';
     });
     html += '</div>';
   }
@@ -2083,7 +2292,9 @@ function renderSessionDetail(data) {
   if (fss.length > 0) {
     html += '<div><div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">FSS 问卷 (' + fss.length + ' 轮)</div>';
     fss.forEach(f => {
-      var answers = (typeof f.answers === 'string' ? JSON.parse(f.answers) : f.answers) || [];
+      var answers = [];
+      try { answers = (typeof f.answers === 'string' ? JSON.parse(f.answers) : f.answers) || []; }
+      catch(e) { console.warn('[Session] FSS answers parse fail:', e.message); }
       html += '<div style="padding:10px;margin-bottom:8px;background:#0a0a0a;border-radius:10px;border:1px solid rgba(255,255,255,0.04)">';
       html += '<div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">第 ' + (f.round || 0) + ' 轮 · ' + (f.phase || '') + '</div>';
       answers.forEach(function(a, i) {
@@ -2114,11 +2325,18 @@ function showToast(msg, type) {
   el._hide = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-function escHtml(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
+// escHtml 已在文件头部定义(正则实现,避免高频 createElement)
+
+// ── ErrorBoundary 全局兜底:捕获未处理异常,展示降级 UI 避免白屏 ──
+window.addEventListener('error', function(e) {
+  console.error('[ErrorBoundary] runtime:', e.message, e.error);
+  const eb = document.getElementById('errorBoundary');
+  if (eb) eb.classList.add('show');
+});
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('[ErrorBoundary] promise:', e.reason);
+  // Promise 异常通常非致命,不立即展示降级 UI,仅记录
+});
 
 connectWS();
 </script>

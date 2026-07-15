@@ -7,12 +7,21 @@
  * 多 session 安全: 每个 session 独立缓冲区
  * 4 通道: 每通道独立 Goertzel → band_power_per_ch[4]
  */
+const config = require('./config');
+
+// 采样率统一由 config.js 管理
+const SAMPLE_RATE = config.EEG_SAMPLE_RATE;
+
+// gamma 频带上限需低于 Nyquist 频率 (SAMPLE_RATE/2)，否则产生混叠
+// 120Hz 采样 → Nyquist=60Hz → gamma = 32-59Hz
+const GAMMA_HI = Math.min(100, SAMPLE_RATE / 2 - 1);
+
 const BANDS = [
   { id: 'delta', lo: 0.5, hi: 4 },
   { id: 'theta', lo: 4,   hi: 8 },
   { id: 'alpha', lo: 8,   hi: 13 },
   { id: 'beta',  lo: 13,  hi: 32 },
-  { id: 'gamma', lo: 32,  hi: 100 },
+  { id: 'gamma', lo: 32,  hi: GAMMA_HI },
 ];
 
 // 每个 session 独立缓冲区: sessionId → { buffer: [], lastCompute: 0 }
@@ -20,7 +29,6 @@ const sessions = new Map();
 
 const POOL_SIZE = 256;    // ~2.13s @ 120Hz (频带功率用)
 const SQ_WINDOW = 32;     // 信号稳定性窗口 (N=32, 文档 §4.5)
-const SAMPLE_RATE = parseInt(process.env.EEG_SAMPLE_RATE || '120', 10);
 
 function ensureSession(sessionId) {
   if (!sessions.has(sessionId)) {

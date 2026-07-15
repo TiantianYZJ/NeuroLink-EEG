@@ -4,6 +4,9 @@
  * 基线: flow 阶段后 4 分钟录制 θ/α 均值±标准差
  * 恢复: recover 阶段每秒判定是否连续 30 秒回到基线±5%
  * 自动标记: baseline_start(11) / baseline_end(12) / recovered(13)
+ *
+ * 多 session 隔离: baselineResults 的 key 形如 `${sessionId}:${phaseId}`，
+ * 避免不同 session 的同 phaseId 互相覆盖。
  */
 
 // sessionId → { samples: [], thetaAlphaSamples: [], alphaSamples: [], betaSamples: [],
@@ -13,7 +16,7 @@ const baselineBuf = {};
 // sessionId → { steadyCount: 0, recovered: false, baseline: null }
 const recoveryState = {};
 
-// sessionId → { ratio_mean, ratio_std, alpha_mean, alpha_std, beta_mean, beta_std } 内存基线
+// key: `${sessionId}:${phaseId}` → { ratio_mean, ratio_std, alpha_mean, alpha_std, beta_mean, beta_std } 内存基线
 const baselineResults = {};
 
 module.exports = {
@@ -41,8 +44,8 @@ module.exports = {
         const betaMean = betaVals.length > 0 ? betaVals.reduce((a, v) => a + v, 0) / betaVals.length : 0;
         const betaStd = betaVals.length > 0
           ? Math.sqrt(betaVals.reduce((s, v) => s + (v - betaMean) ** 2, 0) / betaVals.length) : 0;
-        // 内存存储基线结果，供 recover 阶段使用
-        baselineResults[prevPhaseId] = { ratio_mean: ratioMean, ratio_std: ratioStd, alpha_mean: alphaMean, alpha_std: alphaStd, beta_mean: betaMean, beta_std: betaStd, samples: vals.length };
+        // 内存存储基线结果，供 recover 阶段使用（key 带 sessionId 隔离）
+        baselineResults[sessionId + ':' + prevPhaseId] = { ratio_mean: ratioMean, ratio_std: ratioStd, alpha_mean: alphaMean, alpha_std: alphaStd, beta_mean: betaMean, beta_std: betaStd, samples: vals.length };
         markers.push({
           type: 'marker', code: 12, source: 'auto',
           label: 'baseline_end:' + prevPhaseId, phase: prevPhaseId, ts: Date.now(),
@@ -52,7 +55,8 @@ module.exports = {
     }
 
     // ──── 基线录制（flow 阶段）────
-    if (phaseId && String(phaseId).startsWith('flow') && metricsSnapshot) {
+    // 仅当 metricsSnapshot 存在且 theta_alpha_ratio 已计算时才录制，避免 undefined 污染导致 NaN
+    if (phaseId && String(phaseId).startsWith('flow') && metricsSnapshot && metricsSnapshot.theta_alpha_ratio !== undefined) {
       if (!baselineBuf[sessionId] || baselineBuf[sessionId].phaseId !== phaseId) {
         baselineBuf[sessionId] = {
           samples: [], alphaSamples: [], betaSamples: [],
@@ -77,7 +81,7 @@ module.exports = {
     }
 
     // ──── 恢复判定（recover 阶段）────
-    if (phaseId && String(phaseId).startsWith('recover') && metricsSnapshot) {
+    if (phaseId && String(phaseId).startsWith('recover') && metricsSnapshot && metricsSnapshot.theta_alpha_ratio !== undefined) {
       if (!recoveryState[sessionId]) {
         recoveryState[sessionId] = { steadyCount: 0, recovered: false, baseline: null };
       }
@@ -86,9 +90,9 @@ module.exports = {
       if (rs.recovered) return markers;
 
       if (!rs.baseline) {
-        // 从内存基线结果查找（对应 flow 阶段）
+        // 从内存基线结果查找（对应 flow 阶段，带 sessionId 前缀）
         const flowPhaseId = phaseId.replace(/recover(\d+)/, 'flow$1');
-        rs.baseline = baselineResults[flowPhaseId] || false;
+        rs.baseline = baselineResults[sessionId + ':' + flowPhaseId] || false;
       }
 
       if (rs.baseline) {
@@ -154,11 +158,18 @@ module.exports = {
   reset(sessionId) {
     delete baselineBuf[sessionId];
     delete recoveryState[sessionId];
-    Object.keys(baselineResults).forEach(k => { if (k.startsWith('flow')) delete baselineResults[k]; });
+    // 仅删除当前 session 对应的基线条目（key 以 `${sessionId}:flow` 开头）
+    Object.keys(baselineResults).forEach(k => {
+      if (k.startsWith(sessionId + ':flow')) delete baselineResults[k];
+    });
   },
 
   cleanup(sessionId) {
     delete baselineBuf[sessionId];
     delete recoveryState[sessionId];
+    // 删除该 session 对应的所有基线条目
+    Object.keys(baselineResults).forEach(k => {
+      if (k.startsWith(sessionId + ':')) delete baselineResults[k];
+    });
   },
 };

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EEG跨学科任务切换实验计时器</title>
+<style>
+  :root {
+    --primary: #3b82f6;
+    --primary-dark: #1d4ed8;
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #334155;
+    --text: #f8fafc;
+    --text-dim: #94a3b8;
+    --success: #22c55e;
+    --warning: #eab308;
+    --danger: #ef4444;
+    --prep: #6366f1;
+    --flow: #22c55e;
+    --switch: #eab308;
+    --recover: #3b82f6;
+    --rest: #a855f7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--surface2);
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .header .round-info {
+    font-size: 14px;
+    color: var(--text-dim);
+    background: var(--surface);
+    padding: 4px 14px;
+    border-radius: 20px;
+  }
+
+  /* Progress Bar - Overall */
+  .overall-progress {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    height: 6px;
+  }
+
+  .progress-segment {
+    flex: 1;
+    border-radius: 3px;
+    background: var(--surface2);
+    transition: background 0.5s ease;
+  }
+
+  .progress-segment.active { background: var(--primary); }
+  .progress-segment.done { background: var(--success); }
+  .progress-segment.prep-phase { background: var(--prep); }
+  .progress-segment.flow-phase { background: var(--flow); }
+  .progress-segment.switch-phase { background: var(--switch); }
+  .progress-segment.recover-phase { background: var(--recover); }
+  .progress-segment.rest-phase { background: var(--rest); }
+
+  /* Main Timer */
+  .timer-display {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+  }
+
+  .phase-label {
+    font-size: 14px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .phase-name {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  .phase-name .round-tag {
+    display: inline-block;
+    font-size: 14px;
+    font-weight: 500;
+    background: var(--surface2);
+    padding: 2px 10px;
+    border-radius: 12px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .countdown {
+    font-size: 120px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -2px;
+    margin-bottom: 12px;
+    transition: color 0.3s;
+  }
+
+  .countdown.warning { color: var(--warning); }
+  .countdown.danger { color: var(--danger); }
+  .countdown.ended { color: var(--success); animation: pulse 1s ease-in-out 3; }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  .countdown-sub {
+    font-size: 16px;
+    color: var(--text-dim);
+  }
+
+  /* Phase Timeline */
+  .phase-timeline {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px 0;
+  }
+
+  .timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .timeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .timeline-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s;
+  }
+
+  .timeline-item.current {
+    background: var(--surface2);
+    outline: 2px solid var(--primary);
+  }
+
+  .timeline-item.done {
+    opacity: 0.6;
+  }
+
+  .timeline-item .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .timeline-item .label {
+    flex: 1;
+  }
+
+  .timeline-item .duration {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .timeline-item .status-icon {
+    font-size: 16px;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    padding: 20px 0;
+  }
+
+  .btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .btn:active:not(:disabled) { transform: translateY(0); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+
+  .btn-success {
+    background: var(--success);
+    color: white;
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--surface2);
+  }
+  .btn-outline:hover:not(:disabled) { background: var(--surface); }
+
+  .btn-danger-outline {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+  .btn-danger-outline:hover:not(:disabled) { background: rgba(239,68,68,0.1); }
+
+  .key-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 12px 0;
+    font-size: 12px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--surface2);
+    margin-top: auto;
+  }
+
+  /* Color tags */
+  .color-prep { color: var(--prep); }
+  .color-flow { color: var(--flow); }
+  .color-switch { color: var(--switch); }
+  .color-recover { color: var(--recover); }
+  .color-rest { color: var(--rest); }
+  .bg-prep { background: var(--prep); }
+  .bg-flow { background: var(--flow); }
+  .bg-switch { background: var(--switch); }
+  .bg-recover { background: var(--recover); }
+  .bg-rest { background: var(--rest); }
+
+  /* Auto mode indicator */
+  .auto-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .auto-indicator .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: blink 1.5s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Notif permission */
+  .notif-bar {
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .notif-bar .btn-small {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: none;
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .notif-bar .btn-small:hover { background: var(--primary); }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .countdown { font-size: 80px; }
+    .phase-name { font-size: 22px; }
+    .container { padding: 12px; }
+    .controls { flex-wrap: wrap; }
+    .btn { flex: 1; min-width: 100px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container" id="app">
+  <!-- Header -->
+  <div class="header">
+    <h1>🧪 实验计时器</h1>
+    <div class="round-info" id="roundInfo">准备阶段</div>
+  </div>
+
+  <!-- Notification bar -->
+  <div class="notif-bar" id="notifBar">
+    <span>🔔 阶段切换时发出提示音和桌面通知</span>
+    <button class="btn-small" onclick="requestNotif()">启用通知</button>
+  </div>
+
+  <!-- Overall progress -->
+  <div class="overall-progress" id="progressBar"></div>
+
+  <!-- Main Timer -->
+  <div class="timer-display">
+    <div class="phase-label" id="phaseLabel">当前阶段</div>
+    <div class="phase-name" id="phaseName">准备开始</div>
+    <div class="countdown" id="countdown">05:00</div>
+    <div class="countdown-sub" id="countdownSub">准备实验设备</div>
+  </div>
+
+  <!-- Phase Timeline -->
+  <div class="phase-timeline">
+    <div class="timeline-header">
+      <span>📋 实验流程</span>
+      <span class="auto-indicator" id="autoIndicator">
+        <span class="pulse-dot"></span> 自动进行
+      </span>
+    </div>
+    <div class="timeline-list" id="timelineList"></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn btn-primary" id="btnStart" onclick="toggleTimer()">▶ 开始</button>
+    <button class="btn btn-success" id="btnNext" onclick="nextPhase()" disabled>
+      ⏭ 下一阶段 <span style="font-size:11px;opacity:0.7">(Space)</span>
+    </button>
+    <button class="btn btn-outline" id="btnReset" onclick="resetTimer()">↺ 重置</button>
+    <button class="btn btn-danger-outline" id="btnAuto" onclick="toggleAuto()">⟳ 手动</button>
+  </div>
+  <div class="key-hint" id="keyHint">快捷键: Space=下一阶段 · R=重置 · Enter=开始/暂停 · A=自动/手动</div>
+
+  <div class="footer">EEG跨学科任务切换实验 · v1.0</div>
+</div>
+
+<script>
+// ===== CONFIGURATION =====
+const PHASES = [
+  // Round 0: Preparation (once)
+  { round: 0, id: 'prep', name: '准备阶段', duration: 300, desc: '佩戴EEG头环 · 设备校准 · 静息态记录(1min)', color: 'prep' },
+
+  // Round 1
+  { round: 1, id: 'flow1', name: '心流诱导阶段', duration: 480, desc: '第一项学科任务（诱导心流状态）', color: 'flow' },
+  { round: 1, id: 'switch1', name: '任务切换阶段', duration: 120, desc: '切换为跨学科技能任务', color: 'switch' },
+  { round: 1, id: 'recover1', name: '状态恢复观察阶段', duration: 600, desc: '回归原任务 · 观察EEG恢复', color: 'recover' },
+  { round: 1, id: 'rest1', name: '休息与问卷', duration: 180, desc: '填写简化版心流问卷 · 休息间隔', color: 'rest' },
+
+  // Round 2
+  { round: 2, id: 'flow2', name: '心流诱导阶段', duration: 480, desc: '第二项学科任务（诱导心流状态）', color: 'flow' },
+  { round: 2, id: 'switch2', name: '任务切换阶段', duration: 120, desc: '切换为跨学科技能任务', color: 'switch' },
+  { round: 2, id: 'recover2', name: '状态恢复观察阶段', duration: 600, desc: '回归原任务 · 观察EEG恢复', color: 'recover' },
+  { round: 2, id: 'rest2', name: '休息与问卷', duration: 180, desc: '填写简化版心流问卷 · 休息间隔', color: 'rest' },
+
+  // Round 3
+  { round: 3, id: 'flow3', name: '心流诱导阶段', duration: 480, desc: '第三项学科任务（诱导心流状态）', color: 'flow' },
+  { round: 3, id: 'switch3', name: '任务切换阶段', duration: 120, desc: '切换为跨学科技能任务', color: 'switch' },
+  { round: 3, id: 'recover3', name: '状态恢复观察阶段', duration: 600, desc: '回归原任务 · 观察EEG恢复', color: 'recover' },
+  { round: 3, id: 'rest3', name: '休息与问卷', duration: 180, desc: '填写简化版心流问卷 · 实验结束', color: 'rest' },
+];
+
+// ===== STATE =====
+let state = {
+  currentPhase: 0,
+  timeLeft: PHASES[0].duration,
+  running: false,
+  autoMode: true,
+  completed: false,
+  timerId: null,
+};
+
+let beepCtx = null;
+function getBeepCtx() { if (!beepCtx) beepCtx = new (window.AudioContext || window.webkitAudioContext)(); return beepCtx; }
+
+// ===== SOUND =====
+function playBeep(type) {
+  try {
+    const ctx = getBeepCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'end') {
+      // Phase end - longer chime
+      osc.frequency.value = 880;
+      gain.gain.value = 0.3;
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.8);
+      // Second tone
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.frequency.value = 1108.73;
+      gain2.gain.value = 0.25;
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.0);
+      osc2.start(ctx.currentTime + 0.15);
+      osc2.stop(ctx.currentTime + 1.0);
+    } else if (type === 'countdown') {
+      // 10-second warning beep
+      osc.frequency.value = 660;
+      gain.gain.value = 0.2;
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
+    } else if (type === 'tick') {
+      // Final 3 seconds tick
+      osc.frequency.value = 440;
+      gain.gain.value = 0.15;
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.08);
+    }
+  } catch(e) { /* audio not available */ }
+}
+
+// ===== NOTIFICATION =====
+function requestNotif() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') return;
+  Notification.requestPermission();
+}
+
+function sendNotif(phaseName) {
+  try {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    new Notification('🧪 实验阶段结束', {
+      body: `"${phaseName}" 已完成，进入下一阶段`,
+      silent: true,
+    });
+  } catch(e) {}
+}
+
+// ===== TIME FORMATTING =====
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function formatDuration(seconds) {
+  if (seconds >= 60) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s > 0 ? `${m}分${s}秒` : `${m}分钟`;
+  }
+  return `${seconds}秒`;
+}
+
+// ===== RENDER =====
+function render() {
+  const phase = PHASES[state.currentPhase];
+  if (!phase) return;
+
+  // Progress bar
+  renderProgress();
+
+  // Phase info
+  document.getElementById('phaseLabel').textContent =
+    state.running ? '⏳ 进行中' : (state.completed ? '✅ 实验完成' : '⏸ 已暂停');
+  document.getElementById('phaseLabel').style.color = state.running ? '' : (state.completed ? 'var(--success)' : 'var(--warning)');
+
+  const roundText = phase.round > 0 ? `第${['一','二','三'][phase.round-1]}轮` : '';
+  document.getElementById('phaseName').innerHTML =
+    `${phase.name}${roundText ? ` <span class="round-tag">${roundText}</span>` : ''}`;
+  document.getElementById('phaseName').style.color = `var(--${phase.color})`;
+
+  // Countdown
+  const countdownEl = document.getElementById('countdown');
+  countdownEl.textContent = formatTime(state.timeLeft);
+  countdownEl.className = 'countdown';
+  if (state.completed) {
+    countdownEl.className = 'countdown ended';
+    countdownEl.textContent = '🎉 完成';
+  } else if (state.timeLeft <= 5 && state.timeLeft > 0 && state.running) {
+    countdownEl.className = 'countdown danger';
+  } else if (state.timeLeft <= 15 && state.running) {
+    countdownEl.className = 'countdown warning';
+  }
+
+  document.getElementById('countdownSub').textContent =
+    state.completed ? '所有实验阶段已完成' : phase.desc;
+
+  // Round info
+  document.getElementById('roundInfo').textContent =
+    phase.round === 0
+      ? '准备阶段'
+      : `第 ${phase.round}/3 轮 · ${PHASES.filter(p => p.round === phase.round).length} 阶段`;
+
+  // Timeline
+  renderTimeline();
+
+  // Buttons
+  document.getElementById('btnStart').textContent =
+    state.running ? '⏸ 暂停' : (state.completed ? '✅ 已完成' : '▶ 继续');
+  document.getElementById('btnStart').disabled = state.completed;
+  document.getElementById('btnNext').disabled = state.completed;
+
+  document.getElementById('btnAuto').textContent = state.autoMode ? '⟳ 手动' : '⟳ 自动';
+}
+
+function renderProgress() {
+  const bar = document.getElementById('progressBar');
+  bar.innerHTML = '';
+  PHASES.forEach((p, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'progress-segment';
+    if (i < state.currentPhase) seg.classList.add('done');
+    else if (i === state.currentPhase && !state.completed) seg.classList.add('active');
+    seg.classList.add(`${p.color}-phase`);
+    bar.appendChild(seg);
+  });
+}
+
+function renderTimeline() {
+  const list = document.getElementById('timelineList');
+  list.innerHTML = '';
+
+  // Show only visible phases - current and surrounding
+  const total = PHASES.length;
+  const start = Math.max(0, state.currentPhase - 2);
+  const end = Math.min(total, state.currentPhase + 4);
+
+  if (start > 0) {
+    // Collapsed indicator
+    const item = document.createElement('div');
+    item.className = 'timeline-item done';
+    item.style.justifyContent = 'center';
+    item.style.opacity = '0.4';
+    item.innerHTML = `<span style="font-size:12px">⋯ 前 ${start} 阶段已完成</span>`;
+    list.appendChild(item);
+  }
+
+  for (let i = start; i < end; i++) {
+    const p = PHASES[i];
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+
+    let status = '';
+    if (i < state.currentPhase) {
+      item.classList.add('done');
+      status = '✅';
+    } else if (i === state.currentPhase && !state.completed) {
+      item.classList.add('current');
+      status = '▶';
+    } else if (state.completed && i === total - 1) {
+      item.classList.add('done');
+      status = '✅';
+    } else {
+      status = '';
+    }
+
+    const roundLabel = p.round > 0 ? `R${p.round} ` : '';
+    item.innerHTML = `
+      <span class="dot bg-${p.color}"></span>
+      <span class="label">${roundLabel}${p.name}</span>
+      <span class="duration">${formatDuration(p.duration)}</span>
+      <span class="status-icon">${status}</span>
+    `;
+    list.appendChild(item);
+  }
+
+  if (end < total) {
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+    item.style.justifyContent = 'center';
+    item.style.opacity = '0.4';
+    item.innerHTML = `<span style="font-size:12px">⋯ 剩余 ${total - end} 阶段</span>`;
+    list.appendChild(item);
+  }
+}
+
+// ===== TIMER LOGIC =====
+function tick() {
+  if (!state.running || state.completed) return;
+
+  state.timeLeft--;
+
+  // Sound effects
+  if (state.timeLeft === 10) {
+    playBeep('countdown');
+  } else if (state.timeLeft <= 3 && state.timeLeft > 0) {
+    playBeep('tick');
+  }
+
+  if (state.timeLeft <= 0) {
+    state.timeLeft = 0;
+    render();
+    playBeep('end');
+    sendNotif(PHASES[state.currentPhase].name);
+    state.running = false;
+    clearInterval(state.timerId);
+    state.timerId = null;
+
+    if (state.autoMode) {
+      // Auto-advance after 2 second delay
+      setTimeout(() => {
+        if (state.currentPhase < PHASES.length - 1) {
+          nextPhase();
+          if (state.autoMode && !state.running) {
+            toggleTimer();
+          }
+        }
+      }, 2000);
+    }
+    render();
+    return;
+  }
+
+  render();
+}
+
+function toggleTimer() {
+  if (state.completed) return;
+
+  state.running = !state.running;
+  if (state.running) {
+    // Resume audio context
+    const ctx = getBeepCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    state.timerId = setInterval(tick, 1000);
+  } else {
+    clearInterval(state.timerId);
+    state.timerId = null;
+  }
+  render();
+}
+
+function nextPhase() {
+  if (state.completed) return;
+  if (state.currentPhase >= PHASES.length - 1) {
+    // Experiment complete
+    state.completed = true;
+    state.running = false;
+    clearInterval(state.timerId);
+    state.timerId = null;
+    state.timeLeft = 0;
+    playBeep('end');
+    sendNotif('全部实验完成');
+    render();
+    return;
+  }
+
+  // Stop current timer
+  clearInterval(state.timerId);
+  state.timerId = null;
+  state.running = false;
+
+  // Advance
+  state.currentPhase++;
+  state.timeLeft = PHASES[state.currentPhase].duration;
+  render();
+}
+
+function resetTimer() {
+  if (!confirm('确定要重置所有进度吗？')) return;
+  clearInterval(state.timerId);
+  state.timerId = null;
+  state.currentPhase = 0;
+  state.timeLeft = PHASES[0].duration;
+  state.running = false;
+  state.completed = false;
+  render();
+}
+
+function toggleAuto() {
+  state.autoMode = !state.autoMode;
+  render();
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', (e) => {
+  // Prevent shortcuts when typing in inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  switch (e.code) {
+    case 'Space':
+      e.preventDefault();
+      if (!document.getElementById('btnNext').disabled) nextPhase();
+      break;
+    case 'Enter':
+      e.preventDefault();
+      toggleTimer();
+      break;
+    case 'KeyR':
+      if (!e.ctrlKey && !e.metaKey) resetTimer();
+      break;
+    case 'KeyA':
+      toggleAuto();
+      break;
+  }
+});
+
+// ===== INIT =====
+render();
+</script>
+</body>
+</html>
