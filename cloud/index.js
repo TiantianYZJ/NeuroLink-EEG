@@ -521,7 +521,9 @@ function handleMessage(ws, raw, room, sessionId) {
         ws.deviceInfo = msg.device_info || ws.deviceInfo || {};
         if (msg.udpTarget) { room.udpTargets.set('master', msg.udpTarget); }
         ws.send(JSON.stringify({ type: 'role_claimed', role: targetRole }));
-        ws.send(JSON.stringify({ type: 'room_config', locked: room.locked !== false, config: room.config }));
+        // Console-fix: 控制台是配置者，永远收到 locked:false（不受房间锁限制，否则控制台无法配置）
+        const lockForRole = targetRole === 'console' ? false : room.locked !== false;
+        ws.send(JSON.stringify({ type: 'room_config', locked: lockForRole, config: room.config }));
       } else {
         ws.send(JSON.stringify({ type: 'role_denied', role: targetRole, reason: '已被占用' }));
       }

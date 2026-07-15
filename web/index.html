@@ -2101,6 +2101,19 @@ function updateMetaPill(prefix, cfg) {
 function updateRoomLock(msg) {
   const overlay = document.getElementById('roomLockOverlay');
   if (!overlay) return;
+  // Console-fix: 控制台是配置者，永远不受锁限制（否则无法配置实验）
+  if (currentRole === 'console') {
+    overlay.classList.remove('active');
+    ["master","monitor","subject"].forEach(function(r) {
+      var el = document.getElementById(r + "LockOverlay");
+      if (el) el.classList.remove("active");
+    });
+    if (msg.config) {
+      updateMetaPill("master", msg.config);
+      updateMetaPill("monitor", msg.config);
+    }
+    return;
+  }
   // BUG1-fix: 用显式 true/false 判断（msg.locked 为 undefined 时视为未变更，不误锁）
   const locked = msg.locked === true;
   const unlocked = msg.locked === false;
