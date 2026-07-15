@@ -889,8 +889,8 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url.startsWith('/api/download/bridge/')) {
     const file = req.url.replace('/api/download/bridge/', '');
     const bridgeDir = path.join(__dirname, '..', 'bridge');
-    // S5: 从白名单移除 config.js，避免泄露含密码的配置
-    const safe = ['index.js', 'package.json'];
+    // S5-fix: config.js 已无密码(敏感信息移至环境变量)，重新加入白名单
+    const safe = ['index.js', 'package.json', 'config.js'];
     if (!safe.includes(file)) { res.writeHead(403); res.end('Forbidden'); return; }
     const filePath = path.join(bridgeDir, file);
     try {
@@ -898,6 +898,7 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(data);
     } catch (err) {
+      console.warn('[Download] bridge/%s not found:', file, err.message);
       res.writeHead(404); res.end('Not found');
     }
     return;
