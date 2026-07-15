@@ -414,6 +414,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
             <option value="theta">θ 4-8Hz</option>
             <option value="beta">β 13-32Hz</option>
             <option value="gamma">γ 32-100Hz</option>
+          <option value="accel">加速度计</option>
           </select>
         </div>
         <canvas id="masterTopo" width="120" height="120"></canvas>
@@ -872,6 +873,7 @@ function renderTopoMap(canvas, grid) {
 const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
 const eegCharts = {};
 var frontendFrameCount = 0;
+var lastAccel = null;
 
 function initEEGChart(id) {
   var canvas = document.getElementById(id);
@@ -1381,7 +1383,15 @@ function connectWS() {
         if (msg.type === 'experiment_started') { showToast('实验已启动, 房间解锁', 'success'); }
         if (msg.type === 'sessions_list') renderSessions(msg.sessions);
         if (msg.type === 'session_detail') renderSessionDetail(msg);
-        if (msg.type === 'metrics_snapshot') {
+        if (msg.type === 'accel_frame' && msg.axes) {
+        lastAccel = msg.axes;
+        // Re-render topo if accelerometer mode is selected
+        ['master', 'monitor'].forEach(function(p) {
+          var sel = document.getElementById(p + 'BandSelect');
+          if (sel && sel.value === 'accel') renderAccelBars(p + 'Topo', msg.axes);
+        });
+      }
+      if (msg.type === 'metrics_snapshot') {
           window._lastSnapshot = msg;
           const el = document.getElementById('consoleSampleRate');
           if (el && msg.sample_rate) el.textContent = msg.sample_rate + ' Hz';
@@ -1606,11 +1616,54 @@ function sendMarker(code, label) {
     ws.send(JSON.stringify({ type: 'marker', code, source: 'operator', label, phase: '', ts: Date.now() }));
 }
 
+// ── 加速度计柱状图渲染 ──
+function renderAccelBars(canvasId, axes) {
+  var canvas = document.getElementById(canvasId);
+  if (!canvas || !axes || axes.length < 3) return;
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  // Normalize to canvas height
+  var maxVal = Math.max(1, Math.abs(axes[0]), Math.abs(axes[1]), Math.abs(axes[2]));
+  var labels = ['X', 'Y', 'Z'];
+  var colors = ['#ff7a17', '#c4b5fd', '#a0c3ec'];
+  var barW = Math.floor(w / 5);
+  var gap = Math.floor(barW * 0.4);
+  var barH = Math.max(4, (h - 30) * 0.9);
+  var baseY = h - 24;
+  for (var i = 0; i < 3; i++) {
+    var x = gap + i * (barW + gap);
+    var val = axes[i] / maxVal;
+    var bh = Math.abs(val) * barH;
+    var by = val >= 0 ? baseY - bh : baseY;
+    // Bar body
+    ctx.fillStyle = colors[i];
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.roundRect(x, by, barW, Math.max(1, bh), [4,4,0,0]);
+    ctx.fill();
+    // Label
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[i], x + barW/2, h - 6);
+    // Value
+    ctx.fillStyle = colors[i];
+    ctx.font = '10px Inter, sans-serif';
+    ctx.fillText(axes[i].toFixed(1), x + barW/2, val >= 0 ? by - 4 : by + bh + 14);
+  }
+}
+
 // ── 频带切换 / Y 轴量程切换 ──
 document.addEventListener('change', (e) => {
   if (e.target.classList.contains('topo-band-select')) {
     const prefix = e.target.id === 'masterBandSelect' ? 'master' : 'monitor';
-    if (window._lastSnapshot) updateTopoMap(prefix, window._lastSnapshot);
+    if (e.target.value === 'accel') {
+      if (lastAccel) renderAccelBars(prefix + 'Topo', lastAccel);
+    } else if (window._lastSnapshot) {
+      updateTopoMap(prefix, window._lastSnapshot);
+    }
   }
   if (e.target.id.endsWith('YRange')) {
     const prefix = e.target.id === 'masterYRange' ? 'master' : 'monitor';
