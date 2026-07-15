@@ -1380,6 +1380,11 @@ function connectWS() {
       if (msg.type === 'room_left') { switchPanel('panel-room'); document.getElementById('roomResult').style.display = 'none'; document.getElementById('roomOccupants').style.display = 'none'; return; }
       if (msg.type === 'claim_role') return;
       if (msg.type === 'room_config') { updateRoomLock(msg); return; }
+      if (msg.type === 'update_config_meta' && msg.config) {
+        updateMetaPill('master', msg.config);
+        updateMetaPill('monitor', msg.config);
+        return;
+      }
 
       const prefix = currentRole === 'master' ? 'master' : (currentRole === 'monitor' ? 'monitor' : null);
 
@@ -1823,8 +1828,8 @@ function updateMetaPill(prefix, cfg) {
   var el = document.getElementById(prefix + "MetaPill");
   if (!el) return;
   var parts = [];
-  if (cfg.templateName) parts.push("<span class=\"meta-chip\"><span class=\"gray\">模板</span> " + cfg.templateName + "</span>");
-  if (cfg.subjectName) parts.push("<span class=\"meta-chip\"><span class=\"gray\">受试</span> " + cfg.subjectName + "</span>");
+  if (cfg.templateName) parts.push("<span class=\"meta-chip\"><span class=\"gray\">模板</span> " + escHtml(cfg.templateName) + "</span>");
+  if (cfg.subjectName) parts.push("<span class=\"meta-chip\"><span class=\"gray\">受试</span> " + escHtml(cfg.subjectName) + "</span>");
   el.innerHTML = parts.join(" ");
 }
 function updateRoomLock(msg) {
@@ -1834,6 +1839,14 @@ function updateRoomLock(msg) {
     overlay.classList.add('active');
   } else {
     overlay.classList.remove('active');
+  }
+  ["master","monitor","subject"].forEach(function(r) {
+    var el = document.getElementById(r + "LockOverlay");
+    if (el) el.classList.toggle("active", msg.locked !== false);
+  });
+  if (msg.locked === false && msg.config) {
+    updateMetaPill("master", msg.config);
+    updateMetaPill("monitor", msg.config);
   }
 }
 
@@ -1935,8 +1948,12 @@ function consoleStartExperiment() {
   if (!templateSelect || !templateSelect.value) { showToast('请先选择实验模板', 'error'); return; }
   const tpl = templateSelect.options[templateSelect.selectedIndex];
   const switchType = tpl.textContent.match(/\((\w+)\)/)?.[1] || 'none';
+  var tplName = tpl.textContent.replace(/\(\w+\)/g, '').trim();
+  var subjEl = document.getElementById('consoleSubjectSelect');
+  var subjName = subjEl ? (subjEl.selectedOptions[0] || {}).textContent || '' : '';
+  if (subjName.startsWith('—')) subjName = '';
   if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type: 'start_experiment', session_id: sessionId, config: { template: tpl.value, switch_type: switchType }, template_type: switchType }));
+    ws.send(JSON.stringify({ type: 'start_experiment', session_id: sessionId, config: { template: tpl.value, switch_type: switchType, templateName: tplName, subjectName: subjName }, template_type: switchType }));
   }
 }
 
