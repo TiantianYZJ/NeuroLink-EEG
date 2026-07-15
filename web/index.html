@@ -76,6 +76,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#000;color:#fff;min-hei
 .placeholder{text-align:center;padding:80px 0;color:rgba(255,255,255,0.3)}
 
 /* ── 监视面板（Revolut设计语言） ── */
+.dash-full{grid-column:1/-1}
 .dashboard{display:grid;grid-template-columns:1.5fr 1fr;gap:10px;padding:10px 16px;max-width:1280px;margin:0 auto;position:relative}
 
 .card{background:#16181a;border-radius:16px;padding:14px;border:1px solid rgba(255,255,255,0.08)}
@@ -90,6 +91,9 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 .sample-rate-select option{background:#16181a}
 .ch-legend{display:flex;gap:12px;font-size:12px;color:rgba(255,255,255,0.5);padding:4px 0}
 .ch-dot{display:inline-block;width:7px;height:7px;border-radius:50%;vertical-align:middle;margin-right:3px}
+.ch-toggle{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:rgba(255,255,255,0.5);transition:color .15s;user-select:none;cursor:pointer}
+.ch-toggle:hover{color:rgba(255,255,255,0.8)}
+.ch-toggle.off{opacity:0.3;text-decoration:line-through}
 
 /* 热力图 */
 .topo-band-select{background:#0a0a0a;color:#fff;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:4px 10px;font-size:11px;font-family:inherit;cursor:pointer}
@@ -333,7 +337,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
   </div>
 </div>
 
-
 <!-- ─── PIN 输入弹窗 ─── -->
 <div class="role-popup" id="pinPopup">
   <div class="rp-card" style="max-width:400px;text-align:center">
@@ -415,33 +418,15 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         </div>
       </div>
     </div>
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span class="card-title" style="margin-bottom:0">实时脑电波</span>
-        <span style="display:flex;gap:6px;align-items:center">
-          <span style="font-size:10px;color:rgba(255,255,255,0.3)">采样</span>
-          <select id="masterSampleRate" class="sample-rate-select">
-            <option value="1">200Hz</option>
-            <option value="2" selected>100Hz</option>
-            <option value="4">50Hz</option>
-            <option value="8">25Hz</option>
+    C4</span>
+          <span class="stat-sep">|</span>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">窗口</span>
+          <select id="masterTimeWindow" class="sample-rate-select" onchange="updateTimeWindow('master')">
+            <option value="2000">2s</option>
+            <option value="5000" selected>5s</option>
+            <option value="10000">10s</option>
+            <option value="30000">30s</option>
           </select>
-          <span style="font-size:10px;color:rgba(255,255,255,0.3)">量程</span>
-          <select id="masterYRange" class="sample-rate-select">
-            <option value="500">±500</option>
-            <option value="1000">±1000</option>
-            <option value="2000" selected>±2000</option>
-            <option value="5000">±5000</option>
-          </select>
-        </span>
-      </div>
-      <div style="position:relative;width:100%;height:200px"><canvas id="masterWaveform" style="width:100%;height:150px"></canvas></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-        <div class="ch-legend">
-          <span class="ch-dot" style="background:#a0c3ec"></span>Fp1
-          <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
-          <span class="ch-dot" style="background:#ff7a17"></span>C3
-          <span class="ch-dot" style="background:#ffc285"></span>C4
         </div>
       </div>
   </div>
@@ -468,6 +453,39 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         </div>
       </div>
   
+    </div>
+  </div>
+
+  <!-- 全宽: 波形图 -->
+  <div class="dashboard" style="padding-top:0">
+    <div class="card dash-full">
+<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span class="card-title" style="margin-bottom:0">实时脑电波</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">采样</span>
+          <select id="masterSampleRate" class="sample-rate-select">
+            <option value="1">200Hz</option>
+            <option value="2" selected>100Hz</option>
+            <option value="4">50Hz</option>
+            <option value="8">25Hz</option>
+          </select>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">量程</span>
+          <select id="masterYRange" class="sample-rate-select">
+            <option value="500">±500</option>
+            <option value="1000">±1000</option>
+            <option value="2000" selected>±2000</option>
+            <option value="5000">±5000</option>
+          </select>
+        </span>
+      </div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="masterWaveform" style="width:100%;height:150px"></canvas></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <div class="ch-legend" id="masterChLegend">
+          <span class="ch-toggle on" data-ch="0" onclick="toggleChannel('master',0)"><span class="ch-dot" style="background:#a0c3ec"></span>Fp1</span>
+          <span class="ch-toggle on" data-ch="1" onclick="toggleChannel('master',1)"><span class="ch-dot" style="background:#c4b5fd"></span>Fp2</span>
+          <span class="ch-toggle on" data-ch="2" onclick="toggleChannel('master',2)"><span class="ch-dot" style="background:#ff7a17"></span>C3</span>
+          <span class="ch-toggle on" data-ch="3" onclick="toggleChannel('master',3)"><span class="ch-dot" style="background:#ffc285"></span>
     </div>
   </div>
 </div><!-- ─── 面板 3: 纯监视端 ─── -->
@@ -526,33 +544,15 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         </div>
       </div>
     </div>
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span class="card-title" style="margin-bottom:0">实时脑电波</span>
-        <span style="display:flex;gap:6px;align-items:center">
-          <span style="font-size:10px;color:rgba(255,255,255,0.3)">采样</span>
-          <select id="monitorSampleRate" class="sample-rate-select">
-            <option value="1">200Hz</option>
-            <option value="2" selected>100Hz</option>
-            <option value="4">50Hz</option>
-            <option value="8">25Hz</option>
+    C4</span>
+          <span class="stat-sep">|</span>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">窗口</span>
+          <select id="monitorTimeWindow" class="sample-rate-select" onchange="updateTimeWindow('monitor')">
+            <option value="2000">2s</option>
+            <option value="5000" selected>5s</option>
+            <option value="10000">10s</option>
+            <option value="30000">30s</option>
           </select>
-          <span style="font-size:10px;color:rgba(255,255,255,0.3)">量程</span>
-          <select id="monitorYRange" class="sample-rate-select">
-            <option value="500">±500</option>
-            <option value="1000">±1000</option>
-            <option value="2000" selected>±2000</option>
-            <option value="5000">±5000</option>
-          </select>
-        </span>
-      </div>
-      <div style="position:relative;width:100%;height:200px"><canvas id="monitorWaveform" style="width:100%;height:150px"></canvas></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-        <div class="ch-legend">
-          <span class="ch-dot" style="background:#a0c3ec"></span>Fp1
-          <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
-          <span class="ch-dot" style="background:#ff7a17"></span>C3
-          <span class="ch-dot" style="background:#ffc285"></span>C4
         </div>
       </div>
     </div>
@@ -579,7 +579,41 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
           <span id="monitorRecoveryStatus">—</span>
         </div>
       </div>
-  <!-- ─── 面板 4: 受试者端 ─── -->
+  
+
+  <!-- 全宽: 波形图 -->
+  <div class="dashboard" style="padding-top:0">
+    <div class="card dash-full">
+<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span class="card-title" style="margin-bottom:0">实时脑电波</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">采样</span>
+          <select id="monitorSampleRate" class="sample-rate-select">
+            <option value="1">200Hz</option>
+            <option value="2" selected>100Hz</option>
+            <option value="4">50Hz</option>
+            <option value="8">25Hz</option>
+          </select>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">量程</span>
+          <select id="monitorYRange" class="sample-rate-select">
+            <option value="500">±500</option>
+            <option value="1000">±1000</option>
+            <option value="2000" selected>±2000</option>
+            <option value="5000">±5000</option>
+          </select>
+        </span>
+      </div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="monitorWaveform" style="width:100%;height:150px"></canvas></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <div class="ch-legend" id="monitorChLegend">
+          <span class="ch-toggle on" data-ch="0" onclick="toggleChannel('monitor',0)"><span class="ch-dot" style="background:#a0c3ec"></span>Fp1</span>
+          <span class="ch-toggle on" data-ch="1" onclick="toggleChannel('monitor',1)"><span class="ch-dot" style="background:#c4b5fd"></span>Fp2</span>
+          <span class="ch-toggle on" data-ch="2" onclick="toggleChannel('monitor',2)"><span class="ch-dot" style="background:#ff7a17"></span>C3</span>
+          <span class="ch-toggle on" data-ch="3" onclick="toggleChannel('monitor',3)"><span class="ch-dot" style="background:#ffc285"></span>
+    </div>
+  </div>
+<!-- ─── 面板 4: 受试者端 ─── -->
 <div id="panel-subject" class="panel">
   <div class="panel-header">
     <span class="back-btn" onclick="goBackToRoom()"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><line x1="15" y1="9" x2="3" y2="9"/><polyline points="7 5 3 9 7 13"/></svg> 返回</span>
@@ -890,6 +924,22 @@ function renderTopoMap(canvas, grid) {
 const CH_COLORS = ['#a0c3ec', '#c4b5fd', '#ff7a17', '#ffc285'];
 const eegCharts = {};
 var frontendFrameCount = 0;
+var chToggles = { master: [true,true,true,true], monitor: [true,true,true,true] };
+function toggleChannel(prefix, ch) {
+  var ds = chToggles[prefix]; if (!ds) return;
+  ds[ch] = !ds[ch];
+  var wrap = eegCharts[prefix + 'Waveform'];
+  if (wrap && wrap.chart) {
+    wrap.chart.data.datasets[ch].hidden = !ds[ch];
+    wrap.chart.update('none');
+  }
+  var el = document.querySelector('#' + prefix + 'ChLegend [data-ch="' + ch + '"]');
+  if (el) el.classList.toggle('off', !ds[ch]);
+}
+function updateTimeWindow(prefix) {
+  var wrap = eegCharts[prefix + 'Waveform'];
+  if (wrap) wrap._recalcMaxPts = true;
+}
 var lastAccel = null;
 
 function initEEGChart(id) {
@@ -947,8 +997,18 @@ function initEEGChart(id) {
       for (var c = 0; c < 4; c++) chart.data.datasets[c].data.push(row.ch[c] !== undefined ? row.ch[c] : 0);
     }
     pending.length = 0;
-    if (chart.data.labels.length > 600) {
-      var trim = chart.data.labels.length - 500;
+    var _tw = document.getElementById(id.replace('Waveform','TimeWindow'));
+    var _w = typeof wrapper !== 'undefined' ? wrapper : null;
+    var _maxPts = 500;
+    if (_tw) {
+      if (_w && _w._recalcMaxPts) {
+        _w._maxPts = Math.round(parseInt(_tw.value, 10) / 16);
+        _w._recalcMaxPts = false;
+      }
+      _maxPts = _w ? _w._maxPts || 500 : 500;
+    }
+    if (chart.data.labels.length > _maxPts) {
+      var trim = chart.data.labels.length - Math.round(_maxPts * 0.8);
       chart.data.labels.splice(0, trim);
       for (var c = 0; c < 4; c++) chart.data.datasets[c].data.splice(0, trim);
     }
