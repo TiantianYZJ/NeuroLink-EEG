@@ -415,30 +415,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         </div>
       </div>
     </div>
-    <div class="card" style="padding:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px">
-          <span class="card-title" style="margin-bottom:0">脑区热力图</span>
-          <select id="masterBandSelect" class="topo-band-select">
-            <option value="alpha" selected>α 8-13Hz</option>
-            <option value="delta">δ 0.5-4Hz</option>
-            <option value="theta">θ 4-8Hz</option>
-            <option value="beta">β 13-32Hz</option>
-            <option value="gamma">γ 32-100Hz</option>
-          <option value="accel">加速度计</option>
-          </select>
-        </div>
-        <canvas id="masterTopo" width="120" height="120"></canvas>
-        <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
-        <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
-        <div class="recovery-inline" id="masterRecovery">
-          <span class="status-dot" id="masterRecoveryDot" style="background:#666;width:6px;height:6px"></span>
-          <span id="masterRecoveryStatus">—</span>
-        </div>
-      </div>
-  </div>
-  <!-- master --><!-- 右列: 热力图 -->
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div class="card">
+    <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span class="card-title" style="margin-bottom:0">实时脑电波</span>
         <span style="display:flex;gap:6px;align-items:center">
@@ -465,6 +442,29 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
           <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3
           <span class="ch-dot" style="background:#ffc285"></span>C4
+        </div>
+      </div>
+  </div>
+  <!-- master --><!-- 右列: 热力图 -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card" style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px">
+          <span class="card-title" style="margin-bottom:0">脑区热力图</span>
+          <select id="masterBandSelect" class="topo-band-select">
+            <option value="alpha" selected>α 8-13Hz</option>
+            <option value="delta">δ 0.5-4Hz</option>
+            <option value="theta">θ 4-8Hz</option>
+            <option value="beta">β 13-32Hz</option>
+            <option value="gamma">γ 32-100Hz</option>
+          <option value="accel">加速度计</option>
+          </select>
+        </div>
+        <canvas id="masterTopo" width="120" height="120"></canvas>
+        <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
+        <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
+        <div class="recovery-inline" id="masterRecovery">
+          <span class="status-dot" id="masterRecoveryDot" style="background:#666;width:6px;height:6px"></span>
+          <span id="masterRecoveryStatus">—</span>
         </div>
       </div>
   
@@ -526,30 +526,6 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         </div>
       </div>
     </div>
-    <div class="card" style="padding:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px">
-        <span class="card-title" style="margin-bottom:0">脑区热力图</span>
-        <select id="monitorBandSelect" class="topo-band-select">
-            <option value="alpha" selected>α 8-13Hz</option>
-            <option value="delta">δ 0.5-4Hz</option>
-            <option value="theta">θ 4-8Hz</option>
-            <option value="beta">β 13-32Hz</option>
-            <option value="gamma">γ 32-100Hz</option>
-          </select>
-        </div>
-        <canvas id="monitorTopo" width="120" height="120"></canvas>
-        <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
-        <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
-        <div class="recovery-inline" id="monitorRecovery">
-          <span class="status-dot" id="monitorRecoveryDot" style="background:#666;width:6px;height:6px"></span>
-          <span id="monitorRecoveryStatus">—</span>
-        </div>
-      </div>
-    </div>
-  </div>
-    </div>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:14px">
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span class="card-title" style="margin-bottom:0">实时脑电波</span>
@@ -577,6 +553,30 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
           <span class="ch-dot" style="background:#c4b5fd"></span>Fp2
           <span class="ch-dot" style="background:#ff7a17"></span>C3
           <span class="ch-dot" style="background:#ffc285"></span>C4
+        </div>
+      </div>
+    </div>
+  </div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card" style="padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px">
+        <span class="card-title" style="margin-bottom:0">脑区热力图</span>
+        <select id="monitorBandSelect" class="topo-band-select">
+            <option value="alpha" selected>α 8-13Hz</option>
+            <option value="delta">δ 0.5-4Hz</option>
+            <option value="theta">θ 4-8Hz</option>
+            <option value="beta">β 13-32Hz</option>
+            <option value="gamma">γ 32-100Hz</option>
+          </select>
+        </div>
+        <canvas id="monitorTopo" width="120" height="120"></canvas>
+        <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
+        <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
+        <div class="recovery-inline" id="monitorRecovery">
+          <span class="status-dot" id="monitorRecoveryDot" style="background:#666;width:6px;height:6px"></span>
+          <span id="monitorRecoveryStatus">—</span>
         </div>
       </div>
   <!-- ─── 面板 4: 受试者端 ─── -->
