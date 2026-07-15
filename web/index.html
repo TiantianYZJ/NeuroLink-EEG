@@ -189,7 +189,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
 .band-list{display:flex;flex-direction:column;gap:4px}
 .band-row{display:flex;align-items:center;gap:6px;font-size:13px}
 .band-label{width:14px;font-weight:600;color:rgba(255,255,255,0.5);flex-shrink:0;font-size:12px}
-.band-bar{height:8px;border-radius:4px;min-width:4px}
+.band-bar{height:8px;border-radius:4px;min-width:4px;transition:width .3s ease}
 .band-val{font-size:13px;color:rgba(255,255,255,0.6);margin-left:auto;font-variant-numeric:tabular-nums}
 .metric-list{display:flex;flex-direction:column;gap:2px}
 .metric-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:13px;color:rgba(255,255,255,0.5);border-bottom:1px solid rgba(255,255,255,0.03)}
@@ -465,7 +465,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
         <div class="recovery-inline" id="masterRecovery">
           <span class="status-dot" id="masterRecoveryDot" style="background:#666;width:6px;height:6px"></span>
-          <span id="masterRecoveryStatus">等待数据</span>
+          <span id="masterRecoveryStatus">—</span>
         </div>
       </div>
     </div>
@@ -577,7 +577,7 @@ canvas{display:block;border-radius:12px;width:100%;height:auto;background:#0e0e1
         <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
         <div class="recovery-inline" id="monitorRecovery">
           <span class="status-dot" id="monitorRecoveryDot" style="background:#666;width:6px;height:6px"></span>
-          <span id="monitorRecoveryStatus">等待数据</span>
+          <span id="monitorRecoveryStatus">—</span>
         </div>
       </div>
     </div>
@@ -1420,7 +1420,7 @@ function connectWS() {
           window._lastSnapshot = msg;
           const el = document.getElementById('consoleSampleRate');
           if (el && msg.sample_rate) el.textContent = msg.sample_rate + ' Hz';
-          document.getElementById('consolePacketCount').textContent = msg.cognitive_load_index !== undefined ? '运行中' : '等待数据';
+          document.getElementById('consolePacketCount').textContent = msg.cognitive_load_index !== undefined ? '运行中' : '—';
         }
         if (msg.type === 'phase_sync') {
           document.getElementById('consolePhaseName').textContent = msg.phase_name || '—';
