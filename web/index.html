@@ -176,8 +176,6 @@ canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background
 .monitor-dashboard{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;padding:14px var(--s-lg);max-width:1280px;margin:0 auto;position:relative}
 .monitor-bottom{grid-column:1/-1}
 .monitor-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.heatmap-box{width:120px;height:120px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;border-radius:var(--r-md);overflow:hidden;background:var(--surface-deep)}
-.heatmap-cell{transition:background var(--dur-mid) var(--ease-std)}
 @media(max-width:900px){.monitor-dashboard{grid-template-columns:1fr}.monitor-row{grid-template-columns:1fr}}
 
 /* ── 控制台面板 ── */
@@ -553,7 +551,6 @@ canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background
             <option value="theta">θ 4-8Hz</option>
             <option value="beta">β 13-32Hz</option>
             <option value="gamma">γ 32-100Hz</option>
-            <option value="accel">加速度计</option>
           </select>
         </div>
         <canvas id="masterTopo" width="120" height="120" role="img" aria-label="脑区热力图"></canvas>
@@ -685,19 +682,21 @@ canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background
           <option value="gamma">γ 32-100Hz</option>
         </select>
       </div>
-      <div class="heatmap-box" id="monitorHeatmapBox">
-        <div class="heatmap-cell" data-ch="0"></div>
-        <div class="heatmap-cell" data-ch="1"></div>
-        <div class="heatmap-cell" data-ch="2"></div>
-        <div class="heatmap-cell" data-ch="3"></div>
-      </div>
+      <canvas id="monitorTopo" width="120" height="120" role="img" aria-label="脑区热力图" style="width:120px;height:120px;margin:0 auto"></canvas>
       <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
       <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
       <div class="recovery-inline" id="monitorRecovery">
         <span class="status-dot" id="monitorRecoveryDot" style="background:#666;width:6px;height:6px"></span>
         <span id="monitorRecoveryStatus">—</span>
       </div>
+    </div>        </div>
+      </div>
     </div>
+    <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.06);width:100%">
+      <div style="font-size:9px;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">加速度计</div>
+      <canvas id="monitorAccel" width="120" height="50" style="width:120px;height:50px"></canvas>
+    </div>
+  </div>
     <!-- 底部全宽: 实时脑电波 -->
     <div class="monitor-bottom">
       <div class="card">
@@ -995,10 +994,10 @@ function refreshPanel() {
 
 // ── 地形图 ──
 const CHANNEL_POSITIONS = [
-  { id: 'Fp1', ch: 0, x: -0.30, y: 0.70 },
-  { id: 'Fp2', ch: 1, x: 0.30, y: 0.70 },
-  { id: 'C3',  ch: 2, x: -0.60, y: 0.05 },
-  { id: 'C4',  ch: 3, x: 0.60, y: 0.05 },
+  { id: 'Fp1', ch: 0, x: -0.35, y: 0.72 },
+  { id: 'Fp2', ch: 1, x: 0.35, y: 0.72 },
+  { id: 'C3',  ch: 2, x: -0.65, y: 0.05 },
+  { id: 'C4',  ch: 3, x: 0.65, y: 0.05 },
 ];
 const GRID_SIZE = 30;
 const GRID_X = Array.from({length: GRID_SIZE}, (_, i) => -1 + 2 * i / (GRID_SIZE - 1));
@@ -1038,12 +1037,15 @@ function solveLinear(A, b) {
 function rbfInterpolate(values) {
   const N = CHANNEL_POSITIONS.length;
   const pts = CHANNEL_POSITIONS;
-  const phi = (r) => Math.sqrt(r * r + 1);
+  // 更宽的 RBF 核（+4 替代 +1），使相邻电极影响区域重叠，过渡更平滑
+  const phi = (r) => Math.sqrt(r * r + 4);
   const A = Array.from({length: N}, (_, i) =>
     Array.from({length: N}, (_, j) =>
       phi(Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y))
     )
   );
+  // 正则化: 对角线加小量，防止 4 点系统病态导致权重爆炸
+  for (let i = 0; i < N; i++) A[i][i] += 0.01;
   const w = solveLinear(A, values);
   const grid = [];
   for (let yi = 0; yi < GRID_SIZE; yi++) {
@@ -1352,26 +1354,12 @@ function updateTopoMap(prefix, snapshot) {
   const band = bandSelect.value;
   if (!snapshot.band_power_per_ch || snapshot.band_power_per_ch.length < 4) return;
   const values = snapshot.band_power_per_ch.map(ch => (ch && ch[band] !== undefined) ? ch[band] : 0);
-  if (prefix === 'monitor') updateMonitorHeatmapCells(values);
-  // BUG3-fix: monitor 模式下不渲染 RBF 插值热力图（仅用色块），避免无谓 CPU 消耗
-  if (prefix === 'monitor') return;
   const grid = rbfInterpolate(values);
   const canvas = document.getElementById(prefix + 'Topo');
   if (canvas) renderTopoMap(canvas, grid);
 }
 
 // 监视端 4 通道热力色块更新
-function updateMonitorHeatmapCells(values) {
-  const cells = document.querySelectorAll('#monitorHeatmapBox .heatmap-cell');
-  if (!cells.length) return;
-  let max = 0.01;
-  values.forEach(v => { if (v > max) max = v; });
-  cells.forEach((cell, i) => {
-    const t = (values[i] || 0) / max;
-    const c = jetColor(t);
-    cell.style.background = 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
-  });
-}
 
 // ── 恢复状态 ──
 function updateRecovery(prefix, msg) {
@@ -1681,13 +1669,10 @@ function connectWS() {
         if (msg.type === 'sessions_list') renderSessions(msg.sessions);
         if (msg.type === 'session_detail') renderSessionDetail(msg);
         if (msg.type === 'accel_frame' && msg.axes) {
-        lastAccel = msg.axes;
-        // Re-render topo if accelerometer mode is selected
-        ['master', 'monitor'].forEach(function(p) {
-          var sel = document.getElementById(p + 'BandSelect');
-          if (sel && sel.value === 'accel') renderAccelBars(p + 'Topo', msg.axes);
-        });
-      }
+          lastAccel = msg.axes;
+          renderAccelBars('masterAccel', msg.axes);
+          renderAccelBars('monitorAccel', msg.axes);
+        }
       if (msg.type === 'metrics_snapshot') {
           window._lastSnapshot = msg;
           const el = document.getElementById('consoleSampleRate');
@@ -2005,9 +1990,7 @@ function renderAccelBars(canvasId, axes) {
 document.addEventListener('change', (e) => {
   if (e.target.classList.contains('topo-band-select')) {
     const prefix = e.target.id === 'masterBandSelect' ? 'master' : 'monitor';
-    if (e.target.value === 'accel') {
-      if (lastAccel) renderAccelBars(prefix + 'Topo', lastAccel);
-    } else if (window._lastSnapshot) {
+    if (window._lastSnapshot) {
       updateTopoMap(prefix, window._lastSnapshot);
     }
   }
