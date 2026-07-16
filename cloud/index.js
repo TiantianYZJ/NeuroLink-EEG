@@ -111,7 +111,7 @@ const frameRateTracker = {
 function broadcast(room, msg, exclude = null) {
   const payload = typeof msg === 'string' ? msg : JSON.stringify(msg);
   room.sockets.forEach(ws => {
-    if (ws !== exclude && ws.readyState === 1) ws.send(payload);
+    try { if (ws !== exclude && ws.readyState === 1) ws.send(payload); } catch(e) {}
   });
 }
 
@@ -737,7 +737,6 @@ case 'accel_frame': {
       }
       room.locked = false;
       room.config = msg.config || {};
-      broadcast(room, { type: 'room_config', locked: false, config: room.config });
       if (timers.has(sessionId)) {
         const t = timers.get(sessionId);
         clearInterval(t.tickTimer);
@@ -747,6 +746,7 @@ case 'accel_frame': {
       baseline.cleanup(sessionId);
       initTimer(sessionId, msg.template_type);
       startTick(sessionId, timers.get(sessionId), room);
+      broadcast(room, { type: 'room_config', locked: false, config: room.config });
       ws.send(JSON.stringify({ type: 'experiment_started' }));
       break;
     }

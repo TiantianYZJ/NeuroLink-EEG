@@ -209,7 +209,7 @@ const emitBatch = (parsed) => {
   const n = Math.min(rawLen, 30);
   if (n <= 1) {
     // W14: n<=1 时嵌套数组需 flatten 为单值数组
-    parsed.channels = parsed.channels.map(ch => Array.isArray(ch) ? ch[0] : ch);
+    parsed.channels = parsed.channels.map(ch => Array.isArray(ch) ? (ch[0] !== undefined ? ch[0] : 0) : ch);
     frameCount++;
     frameBroadcast(parsed);
     return;
