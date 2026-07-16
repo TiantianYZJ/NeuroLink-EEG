@@ -901,8 +901,15 @@ canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background
 <script>
 const WS_URL = (() => {
   const p = new URLSearchParams(location.search);
-  if (p.get('ws') && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return p.get('ws');
-  return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
+  if (p.get('ws')) return p.get('ws');
+  const proto = (location.protocol === 'https:' ? 'wss:' : 'ws:');
+  // localhost/127.0.0.1: 优先尝试目标 WS 端口 8080，与页面静态端口解耦
+  const host = location.hostname || 'localhost';
+  const isLocal = host === 'localhost' || host === '127.0.0.1';
+  if (isLocal && location.port && location.port !== '8080') {
+    return proto + '//' + host + ':8080/ws';
+  }
+  return proto + '//' + host + (location.port ? ':' + location.port : '') + '/ws';
 })();
 let ws = null;
 let wsReconnectAttempts = 0;
