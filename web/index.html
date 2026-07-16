@@ -149,10 +149,6 @@ canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background
 .topo-band-select{background:var(--surface-deep);color:var(--on-dark);border:1px solid var(--hairline-dark);border-radius:var(--r-sm);padding:4px 10px;font-size:11px;font-family:inherit;cursor:pointer;transition:border-color var(--dur-fast);letter-spacing:.16px}
 .topo-band-select:hover{border-color:var(--on-dark-soft)}
 .topo-band-select option{background:var(--surface-elevated)}
-.topo-legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--on-dark-faint);letter-spacing:.16px}
-.topo-legend-bar{width:80px;height:6px;border-radius:3px;background:linear-gradient(90deg,#0050a0,#00a0ff,#00ff80,#ffd000,#ff4000)}
-.topo-electrodes{display:flex;gap:12px;font-size:11px;color:var(--on-dark-faint);letter-spacing:.16px}
-.recovery-inline{display:flex;align-items:center;justify-content:center;gap:4px;padding-top:8px;margin-top:6px;border-top:1px solid var(--divider-soft);font-size:12px;color:var(--on-dark-soft);letter-spacing:.16px}
 
 /* ── 计时器 (display 字号, 紧字距) ── */
 .phase-name{font-size:18px;font-weight:500;margin-bottom:2px;letter-spacing:-.18px}
@@ -168,13 +164,11 @@ canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background
 .phase-chip{padding:4px 10px;border-radius:var(--r-full);font-size:11px;letter-spacing:.16px;background:rgba(255,255,255,.06);color:var(--on-dark-soft);transition:all var(--dur-fast)}
 .phase-chip.active{background:var(--on-dark);color:var(--canvas-dark);font-weight:600}
 .phase-chip.past{opacity:.4}
-.recovery-card{font-size:13px}
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px var(--s-lg);font-size:13px;color:var(--on-dark-mute)}
 .stat-val{color:var(--on-dark);float:right;font-weight:500;font-variant-numeric:tabular-nums}
 
 /* ── 监视面板网格 ── */
 .monitor-dashboard{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;padding:14px var(--s-lg);max-width:1280px;margin:0 auto;position:relative}
-.monitor-bottom{grid-column:1/-1}
 .monitor-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:900px){.monitor-dashboard{grid-template-columns:1fr}.monitor-row{grid-template-columns:1fr}}
 
@@ -553,13 +547,7 @@ canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background
             <option value="gamma">γ 32-100Hz</option>
           </select>
         </div>
-        <canvas id="masterTopo" width="120" height="120" role="img" aria-label="脑区热力图"></canvas>
-        <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
-        <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
-        <div class="recovery-inline" id="masterRecovery">
-          <span class="status-dot" id="masterRecoveryDot" style="background:#666;width:6px;height:6px"></span>
-          <span id="masterRecoveryStatus">—</span>
-        </div>
+        <canvas id="masterTopo" width="120" height="120" role="img" aria-label="脑区热力图" style="width:100%;height:auto;aspect-ratio:1"></canvas>
       </div>
     </div>
   </div>
@@ -682,62 +670,49 @@ canvas{display:block;border-radius:var(--r-md);width:100%;height:auto;background
           <option value="gamma">γ 32-100Hz</option>
         </select>
       </div>
-      <canvas id="monitorTopo" width="120" height="120" role="img" aria-label="脑区热力图" style="width:120px;height:120px;margin:0 auto"></canvas>
-      <div class="topo-legend" style="margin:6px 0 4px"><span>弱</span><span class="topo-legend-bar"></span><span>强</span></div>
-      <div class="topo-electrodes"><span>Fp1</span><span>Fp2</span><span>C3</span><span>C4</span></div>
-      <div class="recovery-inline" id="monitorRecovery">
-        <span class="status-dot" id="monitorRecoveryDot" style="background:#666;width:6px;height:6px"></span>
-        <span id="monitorRecoveryStatus">—</span>
-      </div>
-    </div>        </div>
+      <canvas id="monitorTopo" width="120" height="120" role="img" aria-label="脑区热力图" style="width:100%;height:auto;aspect-ratio:1"></canvas>
       </div>
     </div>
-    <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.06);width:100%">
-      <div style="font-size:9px;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">加速度计</div>
-      <canvas id="monitorAccel" width="120" height="50" style="width:120px;height:50px"></canvas>
-    </div>
-  </div>
-    <!-- 底部全宽: 实时脑电波 -->
-    <div class="monitor-bottom">
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span class="card-title" style="margin-bottom:0">▸ 实时脑电波</span>
-          <span style="display:flex;gap:6px;align-items:center">
-            <span style="font-size:10px;color:rgba(255,255,255,0.3)">采样</span>
-            <select id="monitorSampleRate" class="sample-rate-select">
-              <option value="1">200Hz</option>
-              <option value="2" selected>100Hz</option>
-              <option value="4">50Hz</option>
-              <option value="8">25Hz</option>
-            </select>
-            <span style="font-size:10px;color:rgba(255,255,255,0.3)">量程</span>
-            <select id="monitorYRange" class="sample-rate-select">
-              <option value="500">±500</option>
-              <option value="1000">±1000</option>
-              <option value="2000" selected>±2000</option>
-              <option value="5000">±5000</option>
-            </select>
-            <span class="stat-sep">|</span>
-            <span style="font-size:10px;color:rgba(255,255,255,0.3)">窗口</span>
-            <select id="monitorTimeWindow" class="sample-rate-select" onchange="updateTimeWindow('monitor')">
-              <option value="2000">2s</option>
-              <option value="5000" selected>5s</option>
-              <option value="10000">10s</option>
-              <option value="30000">30s</option>
-            </select>
-          </span>
-        </div>
-        <div style="position:relative;width:100%;height:200px"><canvas id="monitorWaveform" style="width:100%;height:150px" role="img" aria-label="实时 EEG 波形图"></canvas></div>
-        <div class="ch-legend" id="monitorChLegend">
-          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="0" onclick="toggleChannel('monitor',0)"><span class="ch-dot" style="background:#a0c3ec"></span>Fp1</span>
-          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="1" onclick="toggleChannel('monitor',1)"><span class="ch-dot" style="background:#c4b5fd"></span>Fp2</span>
-          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="2" onclick="toggleChannel('monitor',2)"><span class="ch-dot" style="background:#ff7a17"></span>C3</span>
-          <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="3" onclick="toggleChannel('monitor',3)"><span class="ch-dot" style="background:#ffc285"></span>C4</span>
-        </div>
+  </div>  <!-- 全宽: 波形图 -->
+  <div class="dashboard" style="padding-top:0">
+    <div class="card dash-full">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span class="card-title" style="margin-bottom:0">实时脑电波</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">采样</span>
+          <select id="monitorSampleRate" class="sample-rate-select">
+            <option value="1">200Hz</option>
+            <option value="2" selected>100Hz</option>
+            <option value="4">50Hz</option>
+            <option value="8">25Hz</option>
+          </select>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">量程</span>
+          <select id="monitorYRange" class="sample-rate-select">
+            <option value="500">±500</option>
+            <option value="1000">±1000</option>
+            <option value="2000" selected>±2000</option>
+            <option value="5000">±5000</option>
+          </select>
+          <span class="stat-sep">|</span>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3)">窗口</span>
+          <select id="monitorTimeWindow" class="sample-rate-select" onchange="updateTimeWindow('monitor')">
+            <option value="2000">2s</option>
+            <option value="5000" selected>5s</option>
+            <option value="10000">10s</option>
+            <option value="30000">30s</option>
+          </select>
+        </span>
+      </div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="monitorWaveform" style="width:100%;height:150px" role="img" aria-label="实时 EEG 波形图"></canvas></div>
+      <div class="ch-legend" id="monitorChLegend">
+        <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="0" onclick="toggleChannel('monitor',0)"><span class="ch-dot" style="background:#a0c3ec"></span>Fp1</span>
+        <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="1" onclick="toggleChannel('monitor',1)"><span class="ch-dot" style="background:#c4b5fd"></span>Fp2</span>
+        <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="2" onclick="toggleChannel('monitor',2)"><span class="ch-dot" style="background:#ff7a17"></span>C3</span>
+        <span class="ch-toggle on" role="button" tabindex="0" aria-label="切换频道显示" data-ch="3" onclick="toggleChannel('monitor',3)"><span class="ch-dot" style="background:#ffc285"></span>C4</span>
       </div>
     </div>
   </div>
-</div>
+
 <!-- ─── 面板 4: 受试者端 ─── -->
 <div id="panel-subject" class="panel">
   <div class="panel-header">
